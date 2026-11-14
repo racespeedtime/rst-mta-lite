@@ -20,6 +20,10 @@ RST.config = {
     respawnDelay = 4000,    -- 死亡后重生间隔
     spawnCountdown = 3,     -- 训练模式出生倒计时（秒）
     competitiveCountdown = 5, -- 竞技模式全员准备后的倒计时（秒）
+    finishRadius = 30,       -- 终点判定半径（米）
+    raceEndCountdown = 30,   -- 竞速第一名完赛后的结算倒计时
+    raceResultSeconds = 8,   -- 结算排行展示时间，之后进入换图投票
+    trainingReturnSeconds = 5, -- 训练模式完赛回出生点延迟
     minPasswordLength = 8,
     maxPasswordLength = 128,
 

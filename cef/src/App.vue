@@ -10,6 +10,7 @@ import CompetitionPanel from '@/components/CompetitionPanel.vue'
 import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
+import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -61,6 +62,7 @@ function applyState(state: StatePayload): void {
   ui.ob = state.ob === true
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
+  ui.raceResult = state.raceResult || null
   ui.vote = state.vote || null
   ui.modeVote = state.modeVote || null
   ui.canStartVote = state.canStartVote === true
@@ -187,6 +189,7 @@ onUnmounted(() => {
       </Transition>
       <SpawnCountdown v-if="ui.countdown.active" />
       <CompetitionPanel v-if="ui.competition" />
+      <RaceResultOverlay v-if="ui.raceResult" />
       <ReadyOverlay v-if="ui.ready.waiting && ui.ready.canReady !== false" />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />

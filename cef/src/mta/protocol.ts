@@ -9,6 +9,27 @@ export type Phase = 'auth' | 'stage' | 'playing'
 export type PlayMode = 'playing' | 'spectating'
 export type GameMode = 'training' | 'competitive'
 
+export interface RaceResultEntry {
+  rank: number
+  name: string
+  elapsed: number
+  me?: boolean
+}
+
+export interface RaceResultState {
+  active: boolean
+  mode: 'training' | 'competitive'
+  final: boolean
+  countdown: number
+  returnIn?: number
+  resultsIn?: number
+  top: RaceResultEntry[]
+  me?: {
+    rank: number
+    elapsed: number
+  } | null
+}
+
 export interface MapDetails {
   name: string
   author: string
@@ -118,6 +139,7 @@ export interface StatePayload {
   ob?: boolean
   ready?: ReadyState
   competition?: CompetitionState | null
+  raceResult?: RaceResultState | null
   vote?: VoteState
   modeVote?: ModeVoteState
   canStartVote?: boolean

@@ -295,6 +295,14 @@ local function startRound(room, forcedMapId)
     room.lives = {}
     room.mode = room.mode or config.defaultMode or 'training'
     room.waiting = room.mode == 'competitive'
+    room.finishOrder = {}
+    room.finished = {}
+    room.raceStartedAt = now()
+    room.raceEndsAt = 0
+    room.raceFinal = false
+    room.resultsUntil = 0
+    room.trainingReturns = {}
+    room.trainingResults = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
     local stayingSpectators = {}
@@ -322,6 +330,147 @@ local function startRound(room, forcedMapId)
     return true, 'started'
 end
 
+local function topEntries(room, player)
+    local top = {}
+    for index = 1, math.min(3, #room.finishOrder) do
+        local entry = room.finishOrder[index]
+        top[#top + 1] = {
+            rank = index,
+            name = entry.name,
+            elapsed = entry.elapsed,
+            me = entry.player == player,
+        }
+    end
+    return top
+end
+
+local function finishPlayer(room, player, time)
+    if room.finished[player] then
+        return
+    end
+
+    local elapsed = math.max(0, time - (room.raceStartedAt or time))
+    local rank = #room.finishOrder + 1
+    local entry = {
+        player = player,
+        name = getPlayerName(player) or '?',
+        elapsed = elapsed,
+        rank = rank,
+    }
+    room.finished[player] = entry
+    room.finishOrder[rank] = entry
+
+    if room.mode == 'training' then
+        room.trainingResults[player] = entry
+        room.trainingReturns[player] = time + (config.trainingReturnSeconds or 5)
+    elseif room.raceEndsAt == 0 then
+        room.raceEndsAt = time + (config.raceEndCountdown or 30)
+    end
+
+    stateChanged()
+end
+
+local function finishRace(room)
+    room.raceFinal = true
+    room.resultsUntil = now() + (config.raceResultSeconds or 8)
+    room.roundEnds = 0
+
+    for _, player in ipairs(room.players) do
+        if isElement(player) then
+            setPlayerFrozen(player, true)
+        end
+    end
+
+    stateChanged()
+end
+
+local function checkFinishes(room, time)
+    if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+        return
+    end
+
+    local map = MapRegistry.get(room.mapId)
+    local finish = map and map.finish
+    if not finish then
+        return
+    end
+
+    local radius = config.finishRadius or 30
+    for _, player in ipairs(room.players) do
+        if
+            not room.finished[player]
+            and isElement(player)
+            and getElementHealth(player) > 0
+            and getPedOccupiedVehicle(player)
+        then
+            local x, y, z = getElementPosition(player)
+            local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
+            local dist2 = dx * dx + dy * dy + dz * dz
+            if dist2 <= radius * radius then
+                finishPlayer(room, player, time)
+            end
+        end
+    end
+end
+
+local function returnTrainingPlayer(room, player, time)
+    room.trainingReturns[player] = nil
+    room.trainingResults[player] = nil
+    room.finished[player] = nil
+
+    for index = #room.finishOrder, 1, -1 do
+        if room.finishOrder[index].player == player then
+            table.remove(room.finishOrder, index)
+        end
+    end
+
+    if room.active and contains(room.players, player) and isElement(player) then
+        spawnPlayerInRoom(player, room, false)
+    end
+end
+
+function Rooms.raceResultState(room, player)
+    if not room then
+        return nil
+    end
+
+    if room.mode == 'training' then
+        local mine = room.trainingResults[player]
+        if not mine then
+            return nil
+        end
+        return {
+            active = true,
+            mode = 'training',
+            final = true,
+            countdown = 0,
+            returnIn = math.max(0, (room.trainingReturns[player] or 0) - now()),
+            top = topEntries(room, player),
+            me = {
+                rank = mine.rank,
+                elapsed = mine.elapsed,
+            },
+        }
+    end
+
+    if room.mode ~= 'competitive' or (room.raceEndsAt == 0 and not room.raceFinal) then
+        return nil
+    end
+
+    return {
+        active = true,
+        mode = 'competitive',
+        final = room.raceFinal == true,
+        countdown = room.raceFinal and 0 or math.max(0, room.raceEndsAt - now()),
+        resultsIn = room.raceFinal and math.max(0, room.resultsUntil - now()) or nil,
+        top = topEntries(room, player),
+        me = room.finished[player] and {
+            rank = room.finished[player].rank,
+            elapsed = room.finished[player].elapsed,
+        } or nil,
+    }
+end
+
 function Rooms.init(onChanged)
     if onChanged then
         stateChanged = onChanged
@@ -347,6 +496,14 @@ function Rooms.init(onChanged)
             recentMaps = {},
             lastVoteAt = 0,
             lastModeVoteAt = 0,
+            finishOrder = {},
+            finished = {},
+            raceStartedAt = 0,
+            raceEndsAt = 0,
+            raceFinal = false,
+            resultsUntil = 0,
+            trainingReturns = {},
+            trainingResults = {},
         }
     end
 
@@ -741,6 +898,16 @@ function Rooms.leave(player)
             room.ready[player] = nil
             room.lives[player] = nil
             room.ob[player] = nil
+            room.trainingReturns[player] = nil
+            room.trainingResults[player] = nil
+            if room.mode == 'training' then
+                room.finished[player] = nil
+                for index = #room.finishOrder, 1, -1 do
+                    if room.finishOrder[index].player == player then
+                        table.remove(room.finishOrder, index)
+                    end
+                end
+            end
             outputServerLog(('[ROOM] leave %s room=%s players=%d spectators=%d'):format(
                 tostring(getPlayerName(player)), tostring(room.id), #room.players, #room.spectators
             ))
@@ -781,8 +948,37 @@ function Rooms.tick()
             if time >= room.vote.endsAt then
                 Rooms.finishVote(room)
             end
-        elseif room.active and #room.players > 0 and time >= room.roundEnds then
-            Rooms.startVote(room, 'auto')
+        else
+            checkFinishes(room, time)
+
+            if room.mode == 'competitive' and room.active and room.raceEndsAt > 0 and not room.raceFinal and time >= room.raceEndsAt then
+                finishRace(room)
+            elseif room.raceFinal and room.resultsUntil > 0 and time >= room.resultsUntil then
+                local ok = Rooms.startVote(room, 'race-end')
+                if ok then
+                    room.raceFinal = false
+                    room.raceEndsAt = 0
+                    room.resultsUntil = 0
+                else
+                    room.resultsUntil = 0
+                    for _, player in ipairs(room.players) do
+                        if isElement(player) then
+                            setPlayerFrozen(player, false)
+                        end
+                    end
+                end
+            elseif room.active and room.roundEnds > 0 and #room.players > 0
+                and room.raceEndsAt == 0 and not room.raceFinal
+                and time >= room.roundEnds
+            then
+                Rooms.startVote(room, 'auto')
+            end
+
+            for player, returnAt in pairs(room.trainingReturns) do
+                if time >= returnAt and not room.vote and not room.modeVote then
+                    returnTrainingPlayer(room, player, time)
+                end
+            end
         end
     end
 

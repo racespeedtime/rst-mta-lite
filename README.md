@@ -53,6 +53,17 @@ node tools/setup-map-acl.mjs
 
 竞技模式：全员准备后倒计时开始；每次 rewind 扣 1 命；命数耗尽转观战。
 
+## 完赛与结算
+
+- 车辆进入终点半径即算完赛
+- 竞速模式第一名完赛后进入 **30 秒结算倒计时**
+  - 其他玩家仍可继续冲线
+  - 倒计时结束后显示前三，约 8 秒后自动进入换图投票
+- 训练模式按玩家个人结算
+  - 完赛显示个人成绩
+  - **5 秒后回到随机出生点**，其他人不受影响
+- 终点半径、倒计时、结算展示时间、训练返回延迟都在 `shared/config.lua` 调整
+
 ## 地图
 
 地图使用原生 MTA 格式，不维护第二份地图清单：
@@ -133,6 +144,10 @@ node tools/setup-map-acl.mjs
 | `voteSeconds` / `modeVoteSeconds` | 投票时长 |
 | `voteCooldown` / `modeVoteCooldown` | 手动投票冷却 |
 | `spawnCountdown` / `competitiveCountdown` | 出生倒计时 |
+| `finishRadius` | 终点判定半径 |
+| `raceEndCountdown` | 第一名完赛后的结算倒计时 |
+| `raceResultSeconds` | 结算排行展示时间 |
+| `trainingReturnSeconds` | 训练模式完赛回出生点延迟 |
 | `playPopularityWeight` | 服务器游玩次数热度权重 |
 | `vehicle` | 没有 spawnpoint vehicle 时的默认车型 |
 
@@ -157,7 +172,7 @@ tools/setup-map-acl.mjs      地图 ACL 设置
 
 - CEF 中文输入不可用
 - 单地图实例、单舞台
-- 地图没有 checkpoint / 圈速结算；排行按 Hunter 终点距离或远离起点估算
+- 地图没有 checkpoint / 圈速校验；完赛按终点半径判定，排行按冲线顺序
 - rewind 是客户端本地回放，无服务端校验
 - 原生地图脚本可能输出自己的聊天提示或 deprecated 警告
 - 登录错误会区分账号不存在 / 密码错误

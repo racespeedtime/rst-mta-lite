@@ -96,6 +96,7 @@ local function buildState(player, session)
                 state.modeVote = Rooms.modeVoteState(room, player)
                 state.ready = Rooms.readyState(room, player)
                 state.competition = Rooms.competitionState(room, player)
+                state.raceResult = Rooms.raceResultState(room, player)
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
                 state.ob = room.ob[player] == true
 
