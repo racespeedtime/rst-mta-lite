@@ -551,6 +551,8 @@ function Rooms.leave(player)
                 room.ready = {}
                 room.lives = {}
                 room.mode = config.defaultMode or 'training'
+                room.lastVoteAt = 0
+                room.lastModeVoteAt = 0
             elseif room.waiting and allPlayersReady(room) then
                 Rooms.beginCountdown(room)
             end
