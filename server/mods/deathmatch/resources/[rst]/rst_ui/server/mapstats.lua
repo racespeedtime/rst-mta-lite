@@ -3,7 +3,7 @@
 
     地图游玩次数统计：
     - 持久化到 SQLite，服务端启动时加载
-    - 有效热度 = 配置里的基础热度（未来可由爬虫写入）+ 游玩次数 * playPopularityWeight
+    - 有效热度 = 服务器内游玩次数 * playPopularityWeight
 ]]
 
 MapStats = {}
@@ -43,10 +43,8 @@ function MapStats.getPlays(mapId)
 end
 
 function MapStats.popularity(mapId)
-    local map = RST.config.maps[mapId]
-    local base = map and tonumber(map.popularity) or 0
     local weight = RST.config.playPopularityWeight or 0
-    return base + MapStats.getPlays(mapId) * weight
+    return MapStats.getPlays(mapId) * weight
 end
 
 function MapStats.recordPlay(mapId)

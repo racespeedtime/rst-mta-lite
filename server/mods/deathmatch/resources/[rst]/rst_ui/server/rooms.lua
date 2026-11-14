@@ -63,14 +63,14 @@ end
 local function pickMap(room)
     local candidates = {}
 
-    for _, mapId in ipairs(config.mapPool) do
+    for _, mapId in ipairs(MapRegistry.list()) do
         if mapId ~= room.mapId and not mapUsedByOtherRoom(room, mapId) then
             candidates[#candidates + 1] = mapId
         end
     end
 
     if #candidates == 0 then
-        for _, mapId in ipairs(config.mapPool) do
+        for _, mapId in ipairs(MapRegistry.list()) do
             if mapId ~= room.mapId then
                 candidates[#candidates + 1] = mapId
             end
@@ -78,7 +78,7 @@ local function pickMap(room)
     end
 
     if #candidates == 0 then
-        candidates = config.mapPool
+        candidates = MapRegistry.list()
     end
 
     if #candidates == 0 then
@@ -97,7 +97,7 @@ end
 
 -- 随机图池：优先不包含最近玩过和当前地图
 local function pickVoteOptions(room)
-    if #config.mapPool == 0 then
+    if MapRegistry.count() == 0 then
         return {}
     end
 
@@ -108,10 +108,10 @@ local function pickVoteOptions(room)
     end
 
     local fresh, old = {}, {}
-    for _, mapId in ipairs(config.mapPool) do
+    for _, mapId in ipairs(MapRegistry.list()) do
         if
             mapId ~= room.mapId
-            and config.maps[mapId]
+            and MapRegistry.get(mapId)
             and not mapUsedByOtherRoom(room, mapId)
         then
             if recent[mapId] then
@@ -135,13 +135,13 @@ local function pickVoteOptions(room)
     end
 
     -- 只有一张图时允许投票保留当前图
-    if #selected == 0 and room.mapId and config.maps[room.mapId] then
+    if #selected == 0 and room.mapId and MapRegistry.get(room.mapId) then
         selected[1] = room.mapId
     end
 
     local options = {}
     for _, mapId in ipairs(selected) do
-        local map = config.maps[mapId]
+        local map = MapRegistry.get(mapId)
         options[#options + 1] = {
             id = mapId,
             name = map.name,
@@ -193,10 +193,11 @@ end
 
 -- 竞速车辆之间关闭碰撞由客户端统一处理（setElementCollidableWith 是客户端碰撞状态）
 local function spawnPlayerInRoom(player, room, countdown, waiting)
-    local map = config.maps[room.mapId]
+    local map = MapRegistry.get(room.mapId)
     if not map or not isElement(player) then
         return
     end
+    room.dimension = map.dimension or 0
 
     -- 竞速出生：清理旧车并计算发车格位
     if isElement(raceVehicles[player]) then
@@ -248,7 +249,7 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
 end
 
 local function startRound(room, forcedMapId)
-    if #config.mapPool == 0 then
+    if MapRegistry.count() == 0 then
         room.active = false
         room.roundEnds = 0
         room.vote = nil
@@ -267,7 +268,7 @@ local function startRound(room, forcedMapId)
     end
 
     room.mapId = forcedMapId or pickMap(room)
-    if not room.mapId or not config.maps[room.mapId] then
+    if not room.mapId or not MapRegistry.get(room.mapId) then
         room.active = false
         room.roundEnds = 0
         room.waiting = false
@@ -424,7 +425,7 @@ function Rooms.competitionState(room, player)
         return nil
     end
 
-    local map = room.mapId and config.maps[room.mapId]
+    local map = room.mapId and MapRegistry.get(room.mapId)
     local finish = map and map.finish
     local startX = map and map.x
     local startY = map and map.y
@@ -800,7 +801,7 @@ function Rooms.startVote(room, reason)
     if not room then
         return false, '舞台不存在'
     end
-    if #config.mapPool == 0 then
+    if MapRegistry.count() == 0 then
         return false, '地图池为空，请联系管理员添加地图'
     end
     if room.vote then
@@ -1108,7 +1109,7 @@ function Rooms.modeVoteState(room, player)
 end
 
 function Rooms.summary(room)
-    local map = room.mapId and config.maps[room.mapId]
+    local map = room.mapId and MapRegistry.get(room.mapId)
     return {
         id = room.id,
         name = room.name,
@@ -1136,7 +1137,7 @@ function Rooms.voteState(room, player)
 
     local options = {}
     for _, option in ipairs(room.vote.options) do
-        local map = config.maps[option.id]
+        local map = MapRegistry.get(option.id)
         options[#options + 1] = {
             id = option.id,
             name = option.name,

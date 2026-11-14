@@ -136,7 +136,7 @@ https://dl.mtavault.com/map/<seoFriendlyURL>
 
 - 原包缓存：`server/mods/deathmatch/map-cache/`（忽略）
 - 解压后的资源：`server/mods/deathmatch/resources/mtavault_*/`（忽略）
-- 扫描结果：`server/mods/deathmatch/map-cache/map-catalog.json`（忽略）
+- 扫描结果：`server/mods/deathmatch/map-cache/map-catalog.json`（忽略）；仅用于人工检查，不是运行时地图格式，`rst_ui` 不会读取它
 
 这三张图当前只安装、不自动 `start`；`rst_ui` 自己还没有地图资源生命周期管理。
 
@@ -145,7 +145,7 @@ https://dl.mtavault.com/map/<seoFriendlyURL>
 ```bash
 node tools/mtavault/scan-maps.mjs \
   --root server/mods/deathmatch/resources \
-  --out server/mods/deathmatch/map-cache/map-catalog.json
+  --out server/mods/deathmatch/map-cache/map-catalog.json   # 仅检查报告，不是运行时格式
 ```
 
 扫描内容：

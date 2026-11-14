@@ -76,8 +76,8 @@ local function buildState(player, session)
     local state = {
         phase = 'auth',
         serverName = getServerName() or 'rst-mta-lite',
-        mapPoolSize = #config.mapPool,
-        mapPoolEmpty = #config.mapPool == 0,
+        mapPoolSize = MapRegistry.count(),
+        mapPoolEmpty = MapRegistry.count() == 0,
         me = {
             name = getPlayerName(player) or 'player',
             guest = session.guest == true,
@@ -106,7 +106,7 @@ local function buildState(player, session)
                         (config.voteCooldown or 0) - (now() - room.lastVoteAt)
                     )
                 end
-                state.canStartVote = #config.mapPool > 0
+                state.canStartVote = MapRegistry.count() > 0
                     and (room.vote == nil)
                     and (room.modeVote == nil)
                     and room.active
@@ -525,6 +525,7 @@ end)
 addEventHandler('onResourceStart', resourceRoot, function()
     Accounts.init()
     MapStats.init()
+    MapRegistry.init()
     Rooms.init(broadcastState)
 
     for _, player in ipairs(getElementsByType('player')) do
@@ -615,4 +616,3 @@ addCommandHandler('car', function(player, _, modelArg)
 
     notify(player, '已生成测试车辆（带氮气），按 F 上车')
 end)
-

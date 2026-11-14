@@ -27,9 +27,9 @@ function MapManager.currentMapId()
 end
 
 function MapManager.load(mapId)
-    local map = config.maps[mapId]
+    local map = MapRegistry.get(mapId)
     if not map then
-        return false, '地图配置不存在'
+        return false, '地图资源未发现'
     end
     if not map.resource then
         return false, '地图没有绑定资源'

@@ -13,7 +13,7 @@
 - [x] 竞速出生：直接给赛车、带氮气，移除武器和玩家血条 / 护甲
 - [x] 换图投票：随机图池、票数/热度/随机决胜、手动投票冷却
 - [x] 地图投票面板：名称升 / 降序、模糊搜索、热度排序
-- [x] 地图热度：源站基础热度 + 服务器游玩次数（SQLite 持久化）
+- [x] 地图热度：服务器内实际游玩次数（SQLite 持久化）
 - [x] mtavault DM 地图元数据抓取脚本（手动运行，默认不抓）
 - [x] Ghost 模式：其他赛车半透明、客户端关闭车辆间碰撞
 - [x] 模式投票：地图不变切换训练 / 竞技，默认训练
@@ -97,7 +97,7 @@
 - 氮气：`getVehicleNitroLevel`（当前瓶充能）、`getVehicleNitroCount`（剩余次数，101 显示 `∞`）、`isVehicleNitroActivated` 触发时高亮
 - 数据由客户端 10Hz 通过 `vehicle` 事件推给 CEF
 
-每张赛道出生直接给一辆赛车（`config.maps.*.vehicle`，默认 Infernus），上车时客户端补满氮气；`/car` 仍可额外生成一辆测试车。
+每张赛道出生直接给一辆赛车（优先 `.map` spawnpoint 的 vehicle，缺失时用配置默认 411），上车时客户端补满氮气；`/car` 仍可额外生成一辆测试车。
 
 ## Rewind
 
@@ -171,15 +171,16 @@
 - `respawnDelay = 4000`：死亡重生间隔
 - `spawnCountdown = 3`：训练模式出生倒计时
 - `competitiveCountdown = 5`：竞技模式全员准备后的倒计时
-- `maps`：真实地图名称、作者、流行度、赛车模型、出生点坐标 / 朝向、Hunter 终点 `finish`、地图 resource 名
-- `mapPool`：随机换图池；当前为 3 张真实 mtavault 地图
+- 地图不写在 `config.lua`：`server/mapregistry.lua` 自动发现所有 `type="map"` resource，直接解析原生 `meta.xml` / `.map`
+- 地图 ID 就是资源名；spawnpoint / vehicle / Hunter finish 都从原生文件读取，不再维护第二份地图配置
+- 地图池 = 发现到的 map resource 列表；新装一张合法地图资源即可参与投票
 - `rooms`：当前单舞台 `main`，dimension 0，与地图 `.map` 的维度对齐
 
 规则实现见 `server/rooms.lua`：
 
 - 当前只有一个真实地图舞台，玩家 dimension 0；MTA map resource 是全局单实例，双舞台同时跑不同地图需要地图资源复制/维度实例化，尚未实现
 - 回合开始把所有观战者提升为玩家，直接出生在赛车里
-- 每名玩家一辆赛车（`config.maps.*.vehicle`，默认 Infernus），带氮气升级
+- 每名玩家一辆赛车（优先原生 `.map` spawnpoint 的 vehicle，带氮气升级）
 - 倒计时期间同时冻结玩家和赛车，GO 后解冻
 - 不发放武器；玩家血条 / 护甲 / 武器 HUD 都隐藏
 - 房间空掉时回合结束；下一次有人进入重新开回合
@@ -198,7 +199,7 @@
   - 名称升序 / 降序
   - 地图名、作者模糊搜索
   - 按流行度排序
-- `popularity` 是源站下载量基础值，加上服务器内实际游玩次数权重（`playPopularityWeight`）
+- `popularity` 使用服务器内实际游玩次数乘 `playPopularityWeight`；原生地图 meta 没有下载量字段
 
 ## 模式与竞技
 
@@ -210,7 +211,7 @@
 - 纯 OB：玩家可在 F2 菜单或准备面板主动切换纯观战；纯 OB 不会在下一回合被自动提升为玩家，需要手动「下回合参赛」
 - 纯 OB 不占准备人数、不进竞技排行，也不消耗命数；命数耗尽是淘汰，不等于纯 OB
 - 右侧中间排行：存活玩家优先；有终点按到终点直线距离升序，没有终点按远离起点距离降序，命数作为同距离时的次级排序；淘汰玩家沉底
-- 每张图在 `config.maps.*.finish` 配终点坐标；当前 4 张图是示例坐标，接真实赛道后替换
+- 每张图的终点由 `MapRegistry` 从原生 `.map` 的 Hunter `vehiclechange` pickup 读取；没有 Hunter 才退回最后一个 checkpoint，再退回远离起点
 - Hunter 约定：`racepickup type="vehiclechange" vehicle="425"` 的位置可作为终点候选；扫描器会提取 `hunterFinish`
 - 没有终点时退回按远离起点距离排行；起点也没有时才退回按命数排序，面板底部会提示当前规则
 - 模式投票：地图不变，只切换训练 / 竞技；平票或无人投票保持当前模式
@@ -262,7 +263,7 @@
 有效热度在运行时计算：
 
 ```text
-有效热度 = 基础热度（配置 / 爬虫写入） + 服务器内游玩次数 × playPopularityWeight
+有效热度 = 服务器内游玩次数 × playPopularityWeight
 ```
 
 - 每次回合开始，`server/mapstats.lua` 给当前地图 `+1` 场
@@ -295,7 +296,7 @@
 
 - 原包缓存：`server/mods/deathmatch/map-cache/`
 - 解压资源：`server/mods/deathmatch/resources/mtavault_*/`
-- 结构清单：`server/mods/deathmatch/map-cache/map-catalog.json`
+- 运行时 **不读取** 扫描报告；[server/mapregistry.lua](<server/mods/deathmatch/resources/[rst]/rst_ui/server/mapregistry.lua>) 直接读原生 `meta.xml` / `.map`
 - 扫描脚本：[tools/mtavault/scan-maps.mjs](tools/mtavault/scan-maps.mjs)
 
 扫描结果：3 张图 **0 个 checkpoint**，但都有 **Hunter 终点 pickup**（`racepickup type="vehiclechange" vehicle="425"`）；只有 spawnpoint、vehicle、racepickup 和视觉 marker。
@@ -309,15 +310,15 @@
 - settings 是 `vehicleweapons=true`、`ghostmode=true`、`duration=1800`、`respawn=none`
 - 这些实际是车辆 DM / 技巧图，不是带 checkpoint 的竞速图
 
-这些图现在已经是实际 mapPool：
+这些图现在就是实际地图池（`type="map"` resource 自动发现）：
 
 - 选图时 `server/mapmanager.lua` start 新地图资源、stop 旧地图
-- 出生点 / 车型 / Hunter 终点写入 `shared/config.lua`
-- 地图 dimension 0，房间也是 dimension 0
+- `server/mapregistry.lua` 从原生 `meta.xml` / `.map` 读取 spawn、vehicle、Hunter finish
+- 地图 dimension 由原生 `<map dimension>` 读取，房间跟随地图维度
 - 地图自带 `vehicle` 会在加载后移除，避免和 `rst:raceVehicle` 重复
 - 地图关闭了双舞台同时加载；当前只运行一个地图实例
 
-**ACL 设置**：`startResource` 需要 `function.startResource` 权限。服务器停止时运行：
+**ACL 设置**：`startResource` + `xmlLoadFile` 需要 ACL 权限。服务器停止时运行：
 
 ```bash
 node tools/setup-map-acl.mjs
@@ -325,7 +326,7 @@ node tools/setup-map-acl.mjs
 
 脚本会把 `resource.rst_ui` 加进现有 `raceACLGroup`。如果使用 MTA 管理面板，也可以批准 `meta.xml` 里的 `aclrequest`。改完再启动服务器，日志中不应再出现 `Access denied @ startResource`。
 
-地图资源目录仍然全部被 `.gitignore` 忽略，源码里只保留地图 ID、spawn、Hunter finish 和资源名。
+地图资源目录仍然全部被 `.gitignore` 忽略；源码里只保留原生格式解析器和 ACL 设置工具，不保存地图本体或第二份地图清单。
 
 ## 赛道排行
 
@@ -378,6 +379,8 @@ rst-mta-lite/
       ├─ shared/config.lua                   # 地图 / 房间 / 时长 / 热度权重
       ├─ server/accounts.lua                 # SQLite + bcrypt 账号
       ├─ server/mapstats.lua                 # 地图游玩次数 / 有效热度
+      ├─ server/mapregistry.lua              # 原生 map resource 自动发现
+      ├─ server/mapmanager.lua               # 真实地图资源 start / stop
       ├─ server/rooms.lua                    # 房间、回合、投票
       ├─ server/main.lua                     # 会话、action、状态推送
       ├─ client/main.lua                     # 浏览器、输入、登录/观战/HUD
@@ -500,7 +503,7 @@ __rstMockState({
 - 单舞台单地图实例；双舞台同时跑不同地图需要地图资源复制/维度实例化
 - 地图自带 `racepickup` 和 client 脚本仍会运行，可能输出聊天提示或与 `rst_ui` 有交互
 - 地图资源加载 / 维度映射 / map resource ACL 已接入；更多地图需要补 spawn、Hunter finish 和 ACL 配置
-- `mapPool` 为空时服务端拒绝开始回合，舞台 / F2 菜单会显示警告
+- 没有发现任何合法 `type="map"` 地图资源时服务端拒绝开始回合，舞台 / F2 菜单会显示警告
 - Ghost 的透明与车辆间碰撞关闭都在客户端完成；服务端不额外校验
 - 竞技命数由服务端在收到 rewind 事件时扣减；rewind 本身仍是客户端本地回放，没有独立反作弊
 - 竞技排行按到 Hunter 终点距离或远离起点估算，不是按圈速 / 完成时间

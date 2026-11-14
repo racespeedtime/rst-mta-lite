@@ -27,40 +27,10 @@ RST.config = {
     vehicle = 411,
     vehicleNitro = true,
 
-    -- 真实 mtavault 地图：spawn / Hunter 终点来自本地 .map 扫描
-    maps = {
-        silent_hill = {
-            resource = 'mtavault_silent_hill',
-            name = '[DM] BaSzTy v1 - Silent Hill',
-            author = 'BaSzTy',
-            popularity = 400,
-            vehicle = 495,
-            x = -159.09961, y = -586.5, z = 2107.158, rot = 89.742,
-            finish = { x = 1524.6, y = 3812.6, z = 8.4 },
-        },
-        a_new_dawn = {
-            resource = 'mtavault_a_new_dawn',
-            name = '[DM] Nice v10 - A New Dawn',
-            author = '*Nice^^',
-            popularity = 364,
-            vehicle = 411,
-            x = 3640.0, y = 5.0, z = 400.76501, rot = -90,
-            finish = { x = 6877.4, y = -828.0, z = 1.3 },
-        },
-        descendants = {
-            resource = 'mtavault_descendants_skills_v',
-            name = "[DM] Chipy - Descendant's Skills V",
-            author = 'Chipy',
-            popularity = 341,
-            vehicle = 411,
-            x = 2978.3994, y = -1668.6953, z = 1610.7008, rot = -90,
-            finish = { x = 6940.9, y = 291.6, z = 332.9 },
-        },
-    },
+    -- 地图池不在这里维护：MapRegistry 运行时扫描原生 type="map" resource，
+    -- 从 meta.xml / .map 读取 name、author、spawnpoint、vehicle、Hunter finish。
 
-    mapPool = { 'silent_hill', 'a_new_dawn', 'descendants' },
-
-    -- MTA map resource 是单实例；当前先使用一个 0 维真实地图舞台。
+    -- 当前先使用一个 0 维真实地图舞台。
     -- 双舞台同时跑不同地图需要地图资源复制 / 维度实例化，后续再做。
     rooms = {
         { id = 'main', name = 'DeathMatch · 主舞台', dimension = 0 },
