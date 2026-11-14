@@ -1,11 +1,10 @@
 --[[
     rst_ui / server/mapmanager.lua
 
-    真实 mtavault 地图资源加载器。
-    - 一次只保留一个 map resource 实例（MTA map 资源是全局单例）
-    - 当前房间使用 dimension 0，与 .map 里的 dimension="0" 对齐
-    - 地图自带的 vehicle 会移除，避免与 rst 的 raceVehicle 重复；
-      racepickup / marker / object 保留
+    原生地图资源加载：
+    - 一次只保留一个 map resource（MTA map 资源单实例）
+    - 地图维度由 .map 决定
+    - 移除地图自带 vehicle，保留 pickup / marker / object
 ]]
 
 MapManager = {}

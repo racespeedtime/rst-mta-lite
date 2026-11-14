@@ -64,7 +64,7 @@ function vote(mapId: string): void {
         <div class="vote__title-row">
           <span class="vote__emblem"><IconVote class="icon icon--lg" /></span>
           <div>
-            <p class="vote__eyebrow">MAP VOTE</p>
+            <p class="vote__eyebrow">地图投票</p>
             <h1 class="vote__title">换图投票</h1>
           </div>
         </div>

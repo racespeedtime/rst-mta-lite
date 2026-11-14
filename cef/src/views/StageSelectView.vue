@@ -52,7 +52,7 @@ function actionLabel(room: RoomSummary): string {
       <div>
         <p class="stage__eyebrow">
           <IconFlag class="icon icon--sm" />
-          <span>RST MTA LITE · DEATHMATCH</span>
+          <span>RST MTA LITE · 竞速</span>
         </p>
         <h1 class="stage__title">选择对战舞台</h1>
         <p class="stage__subtitle">

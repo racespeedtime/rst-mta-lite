@@ -147,7 +147,7 @@ function onKeydown(event: KeyboardEvent): void {
 
       <button type="button" class="auth__guest" :disabled="ui.busy" @click="playAsGuest">
         <IconGhost class="icon" />
-        <span>Play as Guest · 游客进入</span>
+        <span>游客进入</span>
       </button>
 
       <p class="auth__foot">

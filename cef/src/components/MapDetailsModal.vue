@@ -70,7 +70,7 @@ watch(
         <div class="map-detail__title">
           <span class="map-detail__icon"><IconMapPinned class="icon" /></span>
           <div>
-            <p class="map-detail__eyebrow">MAP DETAILS</p>
+            <p class="map-detail__eyebrow">地图资料</p>
             <h2>{{ details?.name || ui.room?.mapName || '地图详情' }}</h2>
             <p>{{ details?.author || ui.room?.author || '未知作者' }}</p>
           </div>

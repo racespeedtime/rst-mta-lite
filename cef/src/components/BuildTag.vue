@@ -8,7 +8,7 @@ const title = `构建时间：${buildInfo.time}`
 <template>
   <div class="build" :title="title">
     <IconGitCommitHorizontal class="icon icon--sm" />
-    <span class="build__label">BUILD</span>
+    <span class="build__label">构建</span>
     <span class="build__date">{{ buildInfo.date }}</span>
     <span class="build__dot">·</span>
     <span class="build__hash">{{ buildInfo.hash }}</span>

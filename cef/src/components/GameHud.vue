@@ -43,7 +43,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
           <strong>{{ ui.playerName }}</strong>
           <span>{{ ui.guest ? '游客' : '已登录' }} · {{ ui.serverName }}</span>
         </div>
-        <span v-if="ui.guest" class="hud__tag"><IconGhost class="icon icon--sm" />GUEST</span>
+        <span v-if="ui.guest" class="hud__tag"><IconGhost class="icon icon--sm" />游客</span>
       </div>
     </div>
 

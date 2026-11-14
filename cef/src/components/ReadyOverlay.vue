@@ -24,7 +24,7 @@ function spectate(): void {
   <div class="ready">
     <section class="ready__panel">
       <span class="ready__emblem"><IconFlag class="icon icon--lg" /></span>
-      <p class="ready__eyebrow">COMPETITIVE READY</p>
+      <p class="ready__eyebrow">竞技准备</p>
       <h1 class="ready__title">准备发车</h1>
       <p class="ready__hint">竞技模式需要所有玩家准备后，才会开始 5 秒倒计时。</p>
 
