@@ -245,7 +245,7 @@ actions['stage:select'] = function(player, session, data)
 
     session.roomId = room.id
     session.mode = mode
-    notify(player, mode == 'spectating' and '进入观战模式' or '已加入战斗')
+    notify(player, mode == 'spectating' and '进入观战模式' or '已加入比赛')
     broadcastState()
 end
 

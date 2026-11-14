@@ -29,8 +29,6 @@ export const ui = reactive({
   countdown: { active: false, startedAt: 0, duration: 3 },
   busy: false,
   authError: '',
-  health: 100,
-  armor: 0,
   vehicle: null as VehiclePayload | null,
   rewind: { active: false, progress: 0, seconds: 0 } as RewindPayload,
 })

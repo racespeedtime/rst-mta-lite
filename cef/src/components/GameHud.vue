@@ -6,23 +6,19 @@ import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconGhost from '~icons/lucide/ghost'
-import IconHeart from '~icons/lucide/heart'
 import IconKeyboard from '~icons/lucide/keyboard'
 import IconMap from '~icons/lucide/map'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconRewind from '~icons/lucide/rewind'
-import IconShield from '~icons/lucide/shield'
 import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
 import IconWaypoints from '~icons/lucide/waypoints'
 import { ui } from '@/stores/ui'
-import { clampPercent, formatTime } from '@/utils/format'
+import { formatTime } from '@/utils/format'
 
-const healthWidth = computed(() => `${clampPercent(ui.health)}%`)
-const armorWidth = computed(() => `${clampPercent(ui.armor)}%`)
 const spectating = computed(() => ui.mode === 'spectating')
-const modeLabel = computed(() => (spectating.value ? '观战' : '战斗中'))
+const modeLabel = computed(() => (spectating.value ? '观战' : '比赛中'))
 const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:--'))
 </script>
 
@@ -79,23 +75,6 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
       <IconEye class="icon icon--sm" />
       <span>观战中<span v-if="ui.spectateName"> · {{ ui.spectateName }}</span></span>
       <span class="spectate__hint">左键下一位 · 右键上一位</span>
-    </div>
-
-    <div class="hud__vitals">
-      <div class="vital">
-        <span class="vital__icon vital__icon--health"><IconHeart class="icon icon--sm" /></span>
-        <div class="vital__track">
-          <div class="vital__fill vital__fill--health" :style="{ width: healthWidth }" />
-        </div>
-        <span class="vital__value">{{ ui.health }}</span>
-      </div>
-      <div class="vital">
-        <span class="vital__icon vital__icon--armor"><IconShield class="icon icon--sm" /></span>
-        <div class="vital__track">
-          <div class="vital__fill vital__fill--armor" :style="{ width: armorWidth }" />
-        </div>
-        <span class="vital__value">{{ ui.armor }}</span>
-      </div>
     </div>
 
     <div class="hud__hints">
@@ -314,73 +293,6 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   color: var(--rst-muted);
   font-size: 10px;
   letter-spacing: 0.03em;
-}
-
-.hud__vitals {
-  position: absolute;
-  left: 24px;
-  bottom: 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 10px 12px;
-  border: 1px solid var(--rst-border);
-  border-radius: 12px;
-  background: var(--rst-panel-soft);
-}
-
-.vital {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-}
-
-.vital__icon {
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 22px;
-  border-radius: 7px;
-}
-
-.vital__icon--health {
-  color: #7ee2a8;
-  background: rgba(126, 226, 168, 0.12);
-}
-
-.vital__icon--armor {
-  color: #8fc7ff;
-  background: rgba(56, 189, 248, 0.12);
-}
-
-.vital__track {
-  width: 150px;
-  height: 5px;
-  border-radius: 3px;
-  background: rgba(255, 255, 255, 0.1);
-  overflow: hidden;
-}
-
-.vital__fill {
-  height: 100%;
-  border-radius: inherit;
-  transition: width 0.25s ease;
-}
-
-.vital__fill--health {
-  background: linear-gradient(90deg, #34d399, #a3e635);
-}
-
-.vital__fill--armor {
-  background: linear-gradient(90deg, #38bdf8, #818cf8);
-}
-
-.vital__value {
-  width: 26px;
-  font-size: 11px;
-  color: var(--rst-muted);
-  font-variant-numeric: tabular-nums;
-  text-align: right;
 }
 
 .hud__hints {

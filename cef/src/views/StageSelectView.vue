@@ -32,7 +32,7 @@ function statusLabel(room: RoomSummary): string {
 
 function actionLabel(room: RoomSummary): string {
   if (room.voteActive) return '等待换图'
-  return room.active && room.players > 0 ? '进入观战' : '加入战斗'
+  return room.active && room.players > 0 ? '进入观战' : '加入比赛'
 }
 </script>
 
@@ -111,7 +111,7 @@ function actionLabel(room: RoomSummary): string {
 
     <p class="stage__hint">
       <IconInfo class="icon icon--sm" />
-      <span>进入已有玩家的舞台会先观战，下一回合自动加入战斗。</span>
+      <span>进入已有玩家的舞台会先观战，下一回合自动加入比赛。</span>
     </p>
   </div>
 </template>

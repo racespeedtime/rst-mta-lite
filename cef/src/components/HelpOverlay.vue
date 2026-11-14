@@ -95,7 +95,7 @@ onUnmounted(() => {
               <span>切换到上一位玩家</span>
             </li>
           </ul>
-          <p class="help__note">进入已有玩家的舞台会先观战，下一回合自动加入战斗。</p>
+          <p class="help__note">进入已有玩家的舞台会先观战，下一回合自动加入比赛。</p>
         </section>
 
         <section class="help__section">

@@ -77,10 +77,6 @@ onMounted(() => {
     onBridge('rewind', (payload) => {
       ui.rewind = payload
     }),
-    onBridge('stats', (payload) => {
-      ui.health = Math.round(Number(payload.health) || 0)
-      ui.armor = Math.round(Number(payload.armor) || 0)
-    }),
     onBridge('toast', (payload) => {
       const text = payload.text || ''
       showToast(text)

@@ -669,24 +669,13 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     setHelpOpen(false)
 end)
 
--- 测试车辆：上车后补满并设置无限氮气
+-- 测试车辆 / 竞速车辆：补满氮气
 addEventHandler('onClientPlayerVehicleEnter', localPlayer, function(vehicle)
-    if getElementData(vehicle, 'rst:testVehicle') then
+    if getElementData(vehicle, 'rst:testVehicle') or getElementData(vehicle, 'rst:raceVehicle') then
         setVehicleNitroCount(vehicle, 101)
         setVehicleNitroLevel(vehicle, 1)
     end
 end)
-
-setTimer(function()
-    if not browserReady or phase ~= 'playing' then
-        return
-    end
-
-    dispatch('stats', {
-        health = math.floor(tonumber(getElementHealth(localPlayer)) or 100),
-        armor = math.floor(tonumber(getPedArmor(localPlayer)) or 0),
-    })
-end, 500, 0)
 
 -- ---------------------------------------------------------------------------
 -- 载具仪表盘数据（10Hz）

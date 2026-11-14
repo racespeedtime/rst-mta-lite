@@ -64,11 +64,6 @@ export interface ToastPayload {
   text: string
 }
 
-export interface StatsPayload {
-  health: number
-  armor: number
-}
-
 export type ChatKind = 'player' | 'system' | 'native'
 
 export interface ChatMessagePayload {
@@ -121,7 +116,6 @@ export type BridgeEventMap = {
   rewind: RewindPayload
   menu: MenuPayload
   toast: ToastPayload
-  stats: StatsPayload
   chat: ChatOpenPayload
   chatMessage: ChatMessagePayload
   vehicle: VehiclePayload

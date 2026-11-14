@@ -15,7 +15,3 @@ export function formatClock(timestamp?: number): string {
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
-
-export function clampPercent(value: number): number {
-  return Math.min(100, Math.max(0, Number(value) || 0))
-}

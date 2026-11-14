@@ -97,6 +97,5 @@ export function installMockServer(): void {
 
   window.setTimeout(() => {
     window.rst?.dispatch('state', JSON.stringify(mockState))
-    window.rst?.dispatch('stats', JSON.stringify({ health: 87, armor: 42 }))
   }, 300)
 }

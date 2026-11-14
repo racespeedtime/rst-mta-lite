@@ -1,7 +1,7 @@
 --[[
     rst_ui / server/rooms.lua
 
-    两个 DeathMatch 房间：
+    两个 DeathMatch 竞速房间：
     - 每个房间独立 dimension，互不可见
     - 每张地图最多 30 分钟，时间到自动发起换图投票
     - 房间里有玩家时新玩家默认观战，空房则直接开新回合
@@ -14,6 +14,7 @@ local config = RST.config
 local rooms = {}
 local stateChanged = function() end
 local freezeTimers = {}
+local raceVehicles = {}
 
 local function now()
     return getRealTime().timestamp
@@ -77,37 +78,72 @@ local function spawnPlayerInRoom(player, room, countdown)
         return
     end
 
-    local x = map.x + math.random(-3, 3)
-    local y = map.y + math.random(-3, 3)
-    local z = map.z + 1.0
+    -- 竞速出生：清理旧车并计算发车格位
+    if isElement(raceVehicles[player]) then
+        destroyElement(raceVehicles[player])
+    end
+    raceVehicles[player] = nil
 
-    spawnPlayer(player, x, y, z, map.rot + math.random(-15, 15))
+    local index = 1
+    for i, value in ipairs(room.players) do
+        if value == player then
+            index = i
+            break
+        end
+    end
+    local column = (index - 1) % 2
+    local row = math.floor((index - 1) / 2)
+    local x = map.x + (column == 0 and -3.5 or 3.5)
+    local y = map.y - row * 7
+    local z = map.z + 0.7
+    local rot = map.rot + math.random(-5, 5)
+
+    spawnPlayer(player, x, y, z, rot)
     setElementDimension(player, room.dimension)
     setElementHealth(player, 100)
-    setPedArmor(player, 50)
+    setPedArmor(player, 0)
     takeAllWeapons(player)
-    giveWeapon(player, config.weapon, config.ammo, true)
+
+    local vehicle = createVehicle(map.vehicle or config.vehicle or 411, x, y, z, 0, 0, rot)
+    if vehicle then
+        setElementDimension(vehicle, room.dimension)
+        setElementHealth(vehicle, 1000)
+        if config.vehicleNitro then
+            addVehicleUpgrade(vehicle, 1010)
+        end
+        setElementData(vehicle, 'rst:raceVehicle', true)
+        warpPedIntoVehicle(player, vehicle, 0)
+        raceVehicles[player] = vehicle
+    end
 
     if freezeTimers[player] then
         killTimer(freezeTimers[player])
         freezeTimers[player] = nil
     end
 
+    local function setFrozen(state)
+        if isElement(player) then
+            setElementFrozen(player, state)
+        end
+        local car = raceVehicles[player]
+        if isElement(car) then
+            setElementFrozen(car, state)
+        end
+    end
+
     -- 进入回合的玩家先冻结，播完 3-2-1-GO 再允许移动
     if countdown and (config.spawnCountdown or 0) > 0 then
-        setElementFrozen(player, true)
+        setFrozen(true)
         triggerClientEvent(player, 'rst:ui:countdown', player, toJSON({
             seconds = config.spawnCountdown,
         }))
 
         freezeTimers[player] = setTimer(function()
             freezeTimers[player] = nil
-            if isElement(player) then
-                setElementFrozen(player, false)
-            end
+            setFrozen(false)
         end, math.floor(config.spawnCountdown * 1000) + 250, 1)
     else
-        setElementFrozen(player, false)
+        setFrozen(false)
     end
 end
 
@@ -204,6 +240,11 @@ function Rooms.leave(player)
             setElementFrozen(player, false)
         end
     end
+
+    if isElement(raceVehicles[player]) then
+        destroyElement(raceVehicles[player])
+    end
+    raceVehicles[player] = nil
 
     for _, room in pairs(rooms) do
         local removed = removePlayer(room.players, player)
