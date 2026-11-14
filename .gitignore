@@ -79,6 +79,10 @@ server/mods/deathmatch/resources/\[rst\]/rst_ui/ui/
 # 地图抓取输出：元数据 JSON / 本地封面
 /tools/mtavault/output/
 
+# mtavault 地图本体：压缩包缓存 + 已安装地图资源，体积大，永不入库
+/server/mods/deathmatch/map-cache/
+/server/mods/deathmatch/resources/mtavault_*/
+
 # -----------------------------------------------------------------------------
 # 6) 环境变量与密钥
 # -----------------------------------------------------------------------------

@@ -114,7 +114,60 @@ https://img.youtube.com/vi/<videoId>/hqdefault.jpg
 
 封面走 `img.youtube.com`。在需要代理的网络里，Node `fetch` 可能 `ECONNRESET`，脚本会回退到 `curl`；用 `--proxy http://127.0.0.1:7890` 或设置 `HTTPS_PROXY` 即可（本机已用这种方式验证单张封面下载）。
 
-## 热度与服务器游玩次数
+## 下载地图本体
+
+元数据里的 `seoFriendlyURL` 也用于下载：
+
+```text
+https://dl.mtavault.com/map/<seoFriendlyURL>
+```
+
+返回的是 MTA 资源压缩包，解压后根目录直接是 `meta.xml` + `.map` + 资源文件。
+
+已下载并安装的 3 张图（按下载量降序）：
+
+| 资源名 | 源站地图 | 下载量 | 压缩包 |
+| --- | --- | ---: | ---: |
+| `mtavault_silent_hill` | Silent Hill | 400 | 9.1 MB |
+| `mtavault_a_new_dawn` | A New Dawn | 364 | 17.2 MB |
+| `mtavault_descendants_skills_v` | Descendant's Skills V | 341 | 10.2 MB |
+
+安装位置：
+
+- 原包缓存：`server/mods/deathmatch/map-cache/`（忽略）
+- 解压后的资源：`server/mods/deathmatch/resources/mtavault_*/`（忽略）
+- 扫描结果：`server/mods/deathmatch/map-cache/map-catalog.json`（忽略）
+
+这三张图当前只安装、不自动 `start`；`rst_ui` 自己还没有地图资源生命周期管理。
+
+## 扫描已安装地图
+
+```bash
+node tools/mtavault/scan-maps.mjs \
+  --root server/mods/deathmatch/resources \
+  --out server/mods/deathmatch/map-cache/map-catalog.json
+```
+
+扫描内容：
+
+- `meta.xml` 的 `info`、`map`、`settings`
+- `.map` 的 spawnpoint 坐标 / 车型、checkpoint 数量
+- vehicle / racepickup / marker / object 数量
+- `hasFinishData`：是否真的有 checkpoint
+
+当前 3 张图的结果：
+
+```text
+3 maps, 0 with checkpoints
+spawnpoints: 1 / 1 / 2
+markers: 31 ~ 41（arrow / corona / cylinder，视觉箭头，不是 checkpoint）
+racepickup: 35 ~ 62（nitro / repair）
+settings: ghostmode=true, vehicleweapons=true, duration=1800, respawn=none
+```
+
+结论：它们是**车辆 DM / 技巧图**，不是带检查点的竞速图。出生点可以直接提取，但终点/圈速数据不存在，现有 `finish` 距离排行不能从这些地图自动推导。
+
+## 热点与服务器游玩次数
 
 - 抓取时 `popularity = downloads`（源站热度）
 - 服务端实际排序用「有效热度」：

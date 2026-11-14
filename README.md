@@ -19,6 +19,7 @@
 - [x] 模式投票：地图不变切换训练 / 竞技，默认训练
 - [x] 竞技模式：10 条命、rewind 扣命、全员准备后倒计时、右侧按到终点距离实时排行
 - [x] 游戏内 UI 透明：`html / body / #app / .app-root` 透明，只有 HUD 面板有底色
+- [x] mtavault 前 3 张 DM 地图本地安装 + 结构扫描（地图本体不入库）
 - [x] 长按 Y 的 rewind 回放（位置 / 朝向 / 速度，最近 8 秒）
 - [x] 按钮点击 / 确认音效（`playSound`）
 - [x] 界面视觉升级：Iconify 本地图标、毛玻璃面板、赛道作者信息
@@ -225,6 +226,35 @@
 - 受限网络可用 `--proxy http://127.0.0.1:7890` 或 `HTTPS_PROXY` 下载封面
 - 这是元数据，不是可玩地图：真正跑赛道还需要出生点 / 检查点 / 圈数数据
 
+## 本地地图安装验证
+
+已下载 mtavault 流行度前 3 张 DM 图，并安装到服务端本地（全部被 `.gitignore` 忽略）：
+
+| 资源 | 源站 | 下载量 | 大小 |
+| --- | --- | ---: | ---: |
+| `mtavault_silent_hill` | Silent Hill | 400 | 9.1 MB |
+| `mtavault_a_new_dawn` | A New Dawn | 364 | 17.2 MB |
+| `mtavault_descendants_skills_v` | Descendant's Skills V | 341 | 10.2 MB |
+
+- 原包缓存：`server/mods/deathmatch/map-cache/`
+- 解压资源：`server/mods/deathmatch/resources/mtavault_*/`
+- 结构清单：`server/mods/deathmatch/map-cache/map-catalog.json`
+- 扫描脚本：[tools/mtavault/scan-maps.mjs](tools/mtavault/scan-maps.mjs)
+
+扫描结果：3 张图 **0 个 checkpoint**；只有 spawnpoint、vehicle、racepickup 和视觉 marker。
+
+- `spawnpoint` 可用于取出生点和车型（1 / 1 / 2 个）
+- marker 是 arrow / corona / cylinder，属于视觉引导，不是检查点
+- settings 是 `vehicleweapons=true`、`ghostmode=true`、`duration=1800`、`respawn=none`
+- 这些实际是车辆 DM / 技巧图，不是带终点的竞速图
+
+当前 `rst_ui` 还没有地图资源生命周期：不会 start / stop 这些 map resource，`config.maps` 仍是手写出生点，top 3 也还没进 `mapPool`。因此它们目前只是**已安装、可被扫描**，还不能直接走通现有竞速流程。要接入需要补：
+
+1. 选图时 start 新 map resource、stop 旧图
+2. 从 `map-catalog.json` 读取 spawnpoint / 车型
+3. 为没有 checkpoint 的 DM 图提供终点/目标数据，或改用击杀/生存排名
+4. 处理地图自带 vehicle、racepickup 和 client 脚本与 `rst_ui` 的重复逻辑
+
 ## 赛道排行
 
 竞速排行榜需要赛道检查点 / 圈数数据才能按“完成赛道”结算：
@@ -385,6 +415,7 @@ __rstMockState({
 - 竞技命数由服务端在收到 rewind 事件时扣减；rewind 本身仍是客户端本地回放，没有独立反作弊
 - 竞技排行按到终点距离（终点坐标目前是占位），不是按圈速 / 完成时间；终点数据接入真实赛道后替换
 - 距离是直线距离，不是沿赛道距离；后续有检查点后可以改成沿赛道的剩余进度
+- top 3 mtavault 地图实际没有 checkpoint，现有终点距离排行无法从地图数据自动推导；需要额外目标数据或改用 DM 排名
 - mtavault 脚本默认不抓、不自动更新配置；全量抓取需要手动运行并自行确认源站条款
 - 服务器内游玩次数在资源重启后保留，但必须先重启 `rst_ui` 才会加载 `mapstats.lua`
 
