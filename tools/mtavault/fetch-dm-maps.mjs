@@ -196,6 +196,7 @@ function normalize(map, options, coverLocal) {
     tags: tagNames(map).slice(0, 8),
     fileName: map.fileName || '',
     sourceUrl: `${options.siteBase}/map/${seo}`,
+    videoUrl: map.videoURL || null,
     coverUrl: coverUrlFor(map) || null,
     coverLocal: coverLocal || null,
   }

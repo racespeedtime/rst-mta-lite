@@ -44,12 +44,30 @@ local function all(node, name)
     return found
 end
 
+-- 外部展示元数据（YouTube / 封面 / 下载量等）单独存放，
+-- 不是地图格式，也不参与地图加载；没有该文件时详情只显示原生字段。
+local function loadExternalMeta()
+    local handle = fileOpen('mapmeta.json')
+    if not handle then
+        return {}
+    end
+
+    local size = fileGetSize(handle)
+    local text = size > 0 and fileRead(handle, size) or ''
+    fileClose(handle)
+
+    local data = fromJSON(text or '')
+    if type(data) ~= 'table' then
+        return {}
+    end
+    return data
+end
+
 local function readMap(resource)
     local resourceName = getResourceName(resource)
     if not resourceName or getResourceInfo(resource, 'type') ~= 'map' then
         return nil
     end
-
     local meta = xmlLoadFile(':' .. resourceName .. '/meta.xml', true)
     if not meta then
         return nil
@@ -144,10 +162,26 @@ end
 function MapRegistry.init()
     maps = {}
     ids = {}
+    local external = loadExternalMeta()
+    local externalCount = 0
+    for _ in pairs(external) do
+        externalCount = externalCount + 1
+    end
 
     for _, resource in ipairs(getResources()) do
         local entry = readMap(resource)
         if entry then
+            local extra = external[entry.id]
+            if type(extra) == 'table' then
+                entry.cover = extra.cover
+                entry.youtube = extra.youtube
+                entry.sourceUrl = extra.sourceUrl
+                entry.uploadedAt = extra.uploadedAt
+                entry.downloads = tonumber(extra.downloads)
+                entry.difficulty = extra.difficulty
+                entry.fileSize = tonumber(extra.fileSize)
+                entry.tags = extra.tags
+            end
             maps[entry.id] = entry
             ids[#ids + 1] = entry.id
         elseif getResourceInfo(resource, 'type') == 'map' then
@@ -174,7 +208,10 @@ function MapRegistry.init()
         ))
     end
 
-    outputServerLog(('[MAP] discovered %d native map resource(s)'):format(#ids))
+    outputServerLog(('[MAP] discovered %d native map resource(s); external metadata=%d'):format(
+        #ids,
+        externalCount
+    ))
     return #ids
 end
 

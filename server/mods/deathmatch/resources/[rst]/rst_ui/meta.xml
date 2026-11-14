@@ -20,6 +20,12 @@
     <script src="client/main.lua" type="client" />
     <script src="client/rewind.lua" type="client" />
 
+    <!-- 地图外部展示元数据 / 缩略图（不是地图格式） -->
+    <file src="mapmeta.json" />
+    <file src="covers/silent-hill.jpg" />
+    <file src="covers/a-new-dawn.jpg" />
+    <file src="covers/descendants-skills-v.jpg" />
+
     <!-- UI 音效 -->
     <file src="sounds/click.wav" />
     <file src="sounds/confirm.wav" />

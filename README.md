@@ -319,6 +319,22 @@
 - `server/mapregistry.lua` 从原生 `meta.xml` / `.map` 读取 spawn、vehicle、Hunter finish
 - 地图 dimension 由原生 `<map dimension>` 读取，房间跟随地图维度
 - 地图自带 `vehicle` 会在加载后移除，避免和 `rst:raceVehicle` 重复
+
+## 地图详情
+
+加入比赛后，F2 菜单 →「地图详情」可以查看：
+
+- 地图封面、名称、作者
+- 上传日期、下载量、文件大小、难度
+- 标签
+- 原生 `.map` 信息：出生点数量、vehicle、dimension、Hunter / checkpoint 终点
+- YouTube 链接和 mtavault 源链接，提供「复制链接」按钮；**不内嵌视频预览**
+
+详情数据分两层：
+
+- 原生地图信息：运行时从 `meta.xml` / `.map` 读取
+- 外部展示信息：`mapmeta.json` + `covers/*.jpg`，只保存 YouTube / 封面 / 下载量等展示字段，不是地图格式，也不参与加载
+- 没有 `mapmeta.json` 时，详情面板仍然显示原生信息，只是没有封面 / 链接
 - 地图关闭了双舞台同时加载；当前只运行一个地图实例
 
 **ACL 设置**：`startResource` + `xmlLoadFile` 需要 ACL 权限。服务器停止时运行：

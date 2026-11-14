@@ -1,0 +1,32 @@
+{
+  "mtavault_silent_hill": {
+    "cover": "covers/silent-hill.jpg",
+    "youtube": "https://www.youtube.com/watch?v=eG2FagXJFzY",
+    "sourceUrl": "https://mtavault.com/map/silent-hill",
+    "uploadedAt": "2025-03-05",
+    "downloads": 400,
+    "difficulty": "Intermediate",
+    "fileSize": 9094446,
+    "tags": ["DM", "Nature", "City", "Scripting", "Foggy", "Forest", "Themed"]
+  },
+  "mtavault_a_new_dawn": {
+    "cover": "covers/a-new-dawn.jpg",
+    "youtube": "https://www.youtube.com/watch?v=h9B0OGlE2cI",
+    "sourceUrl": "https://mtavault.com/map/a-new-dawn",
+    "uploadedAt": "2025-03-22",
+    "downloads": 364,
+    "difficulty": "Intermediate",
+    "fileSize": 17218889,
+    "tags": ["DM", "Nature"]
+  },
+  "mtavault_descendants_skills_v": {
+    "cover": "covers/descendants-skills-v.jpg",
+    "youtube": "https://www.youtube.com/watch?v=cBFoVPpoLDg",
+    "sourceUrl": "https://mtavault.com/map/descendants-skills-v",
+    "uploadedAt": "2025-02-27",
+    "downloads": 341,
+    "difficulty": "Advanced",
+    "fileSize": 10209155,
+    "tags": ["DM", "Black Sky"]
+  }
+}

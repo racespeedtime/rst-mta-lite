@@ -9,6 +9,7 @@ import IconDoorOpen from '~icons/lucide/door-open'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
+import IconMapPinned from '~icons/lucide/map-pinned'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconSettings from '~icons/lucide/settings'
 import IconTrophy from '~icons/lucide/trophy'
@@ -80,6 +81,13 @@ function devtools(): void {
 
 function setCursor(mode: 'auto' | 'always'): void {
   emitAction('cursor:set', { mode })
+}
+
+function openMapDetails(): void {
+  if (!ui.room) return
+  ui.mapDetails = ui.room.mapDetails || null
+  ui.mapDetailsOpen = true
+  emitAction('menu:close')
 }
 
 function openHelp(): void {
@@ -198,6 +206,15 @@ function leaveStage(): void {
           <span class="menu-action__text">
             <strong>{{ obLabel }}</strong>
             <small>{{ obHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="openMapDetails">
+          <span class="menu-action__icon"><IconMapPinned class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>地图详情</strong>
+            <small>封面 / 作者 / 下载 / 链接</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

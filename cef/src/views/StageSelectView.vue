@@ -16,9 +16,14 @@ import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
 function select(room: RoomSummary): void {
-  if (ui.busy) return
+  if (ui.busy || ui.mapPoolEmpty) return
   ui.busy = true
   emitAction('stage:select', { room: room.id })
+}
+
+function openDetails(room: RoomSummary): void {
+  ui.mapDetails = room.mapDetails || null
+  ui.mapDetailsOpen = true
 }
 
 function refresh(): void {
@@ -70,14 +75,20 @@ function actionLabel(room: RoomSummary): string {
     </div>
 
     <div class="stage__list">
-      <button
+      <div
         v-for="room in ui.rooms"
         :key="room.id"
-        type="button"
         class="stage-card"
-        :class="{ 'stage-card--live': room.active, 'stage-card--vote': room.voteActive }"
-        :disabled="ui.busy || ui.mapPoolEmpty"
+        :class="{
+          'stage-card--live': room.active,
+          'stage-card--vote': room.voteActive,
+          'stage-card--disabled': ui.busy || ui.mapPoolEmpty,
+        }"
+        role="button"
+        tabindex="0"
+        :aria-disabled="ui.busy || ui.mapPoolEmpty"
         @click="select(room)"
+        @keydown.enter.prevent="select(room)"
       >
         <span class="stage-card__accent" />
 
@@ -116,8 +127,19 @@ function actionLabel(room: RoomSummary): string {
           </span>
         </div>
 
-        <div class="stage-card__cta">{{ actionLabel(room) }}</div>
-      </button>
+        <div class="stage-card__foot">
+          <span class="stage-card__cta">{{ actionLabel(room) }}</span>
+          <button
+            v-if="room.mapDetails"
+            type="button"
+            class="stage-card__detail"
+            @click.stop="openDetails(room)"
+          >
+            地图详情
+          </button>
+          <span v-else class="stage-card__detail stage-card__detail--muted">加入后看详情</span>
+        </div>
+      </div>
     </div>
 
     <p class="stage__hint">
@@ -265,18 +287,26 @@ function actionLabel(room: RoomSummary): string {
   border-radius: 18px;
   background: linear-gradient(160deg, rgba(20, 33, 52, 0.9), rgba(8, 13, 22, 0.94));
   text-align: left;
+  color: var(--rst-text);
+  cursor: pointer;
   overflow: hidden;
   transition: transform 0.18s ease, border-color 0.18s ease, box-shadow 0.18s ease;
 }
 
-.stage-card:hover:not(:disabled) {
+.stage-card:focus-visible {
+  outline: 1px solid rgba(88, 200, 255, 0.6);
+  outline-offset: 2px;
+}
+
+.stage-card:hover:not(.stage-card--disabled) {
   transform: translateY(-3px);
   border-color: rgba(88, 200, 255, 0.45);
   box-shadow: 0 24px 56px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(88, 200, 255, 0.08);
 }
 
-.stage-card:disabled {
+.stage-card--disabled {
   opacity: 0.6;
+  cursor: default;
 }
 
 .stage-card__accent {
@@ -389,23 +419,51 @@ function actionLabel(room: RoomSummary): string {
   gap: 5px;
 }
 
-.stage-card__cta {
+.stage-card__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-top: 12px;
   padding-top: 12px;
   border-top: 1px solid var(--rst-border);
+}
+
+.stage-card__cta {
   font-size: 12px;
   color: var(--rst-text);
   letter-spacing: 0.02em;
   display: flex;
   align-items: center;
-  justify-content: space-between;
 }
 
 .stage-card__cta::after {
   content: '›';
   font-size: 18px;
   line-height: 1;
+  margin-left: 6px;
   color: var(--rst-accent);
+}
+
+.stage-card__detail {
+  flex: 0 0 auto;
+  padding: 4px 8px;
+  border: 1px solid var(--rst-border);
+  border-radius: 6px;
+  color: var(--rst-muted);
+  font-size: 10px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.stage-card__detail:hover {
+  color: var(--rst-text);
+  border-color: rgba(88, 200, 255, 0.4);
+  background: rgba(88, 200, 255, 0.08);
+}
+
+.stage-card__detail--muted {
+  opacity: 0.55;
+  font-size: 9px;
 }
 
 .stage__hint {

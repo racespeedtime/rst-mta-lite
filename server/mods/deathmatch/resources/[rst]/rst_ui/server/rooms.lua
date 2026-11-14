@@ -1104,11 +1104,40 @@ end
 
 function Rooms.summary(room)
     local map = room.mapId and MapRegistry.get(room.mapId)
+    local mapDetails
+    if map then
+        local vehicles = {}
+        for _, spawn in ipairs(map.spawnpoints or {}) do
+            local model = spawn.vehicle
+            if model and not contains(vehicles, model) then
+                vehicles[#vehicles + 1] = model
+            end
+        end
+        mapDetails = {
+            name = map.name,
+            author = map.author,
+            resource = map.resource,
+            spawns = #(map.spawnpoints or {}),
+            vehicles = vehicles,
+            dimension = map.dimension,
+            finish = map.finish ~= nil,
+            cover = map.cover,
+            youtube = map.youtube,
+            sourceUrl = map.sourceUrl,
+            uploadedAt = map.uploadedAt,
+            downloads = map.downloads,
+            difficulty = map.difficulty,
+            fileSize = map.fileSize,
+            tags = map.tags,
+        }
+    end
+
     return {
         id = room.id,
         name = room.name,
         mapName = map and map.name or '等待开始',
         author = map and map.author or '未知作者',
+        mapDetails = mapDetails,
         players = #room.players,
         spectators = #room.spectators,
         active = room.active,

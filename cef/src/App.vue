@@ -9,6 +9,7 @@ import SpawnCountdown from '@/components/SpawnCountdown.vue'
 import CompetitionPanel from '@/components/CompetitionPanel.vue'
 import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
+import MapDetailsModal from '@/components/MapDetailsModal.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -194,6 +195,7 @@ onUnmounted(() => {
       <HelpOverlay v-if="ui.helpOpen" />
     </template>
     <AuthView v-else />
+    <MapDetailsModal v-if="ui.mapDetailsOpen" />
     <BuildTag />
     <ToastMessage :text="toast" />
   </div>

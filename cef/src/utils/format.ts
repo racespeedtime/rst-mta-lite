@@ -15,3 +15,10 @@ export function formatClock(timestamp?: number): string {
   const minutes = String(date.getMinutes()).padStart(2, '0')
   return `${hours}:${minutes}`
 }
+
+export function formatBytes(value?: number): string {
+  const bytes = Math.max(0, Number(value) || 0)
+  if (bytes <= 0) return '未知'
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`
+  return `${(bytes / 1024 / 1024).toFixed(1)} MB`
+}

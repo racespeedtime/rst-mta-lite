@@ -9,11 +9,30 @@ export type Phase = 'auth' | 'stage' | 'playing'
 export type PlayMode = 'playing' | 'spectating'
 export type GameMode = 'training' | 'competitive'
 
+export interface MapDetails {
+  name: string
+  author: string
+  resource: string
+  spawns: number
+  vehicles: number[]
+  dimension: number
+  finish: boolean
+  cover?: string | null
+  youtube?: string | null
+  sourceUrl?: string | null
+  uploadedAt?: string | null
+  downloads?: number
+  difficulty?: string | null
+  fileSize?: number
+  tags?: string[]
+}
+
 export interface RoomSummary {
   id: string
   name: string
   mapName: string
   author: string
+  mapDetails?: MapDetails | null
   players: number
   spectators: number
   active: boolean
