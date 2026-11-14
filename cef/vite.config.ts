@@ -2,6 +2,7 @@ import { fileURLToPath, URL } from 'node:url'
 
 import { defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import Icons from 'unplugin-icons/vite'
 
 // 构建产物直接写进 MTA 资源目录（ui/ 已被 .gitignore 忽略）。
 const resourceUiDir = fileURLToPath(
@@ -10,7 +11,7 @@ const resourceUiDir = fileURLToPath(
 
 export default defineConfig({
   base: './',
-  plugins: [vue()],
+  plugins: [vue(), Icons({ compiler: 'vue3' })],
   resolve: {
     alias: {
       '@': fileURLToPath(new URL('./src', import.meta.url)),

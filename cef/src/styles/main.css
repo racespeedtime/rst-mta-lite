@@ -3,10 +3,14 @@
 
   --rst-text: #e8eef8;
   --rst-muted: #93a4bd;
-  --rst-accent: #4cc2ff;
-  --rst-panel: rgba(10, 16, 26, 0.9);
-  --rst-panel-soft: rgba(13, 21, 33, 0.72);
+  --rst-accent: #58c8ff;
+  --rst-accent-2: #8b7cff;
+  --rst-gold: #ffd479;
+  --rst-green: #7ee2a8;
+  --rst-panel: rgba(9, 15, 25, 0.9);
+  --rst-panel-soft: rgba(14, 23, 36, 0.72);
   --rst-border: rgba(140, 180, 255, 0.16);
+  --rst-shadow: 0 26px 70px rgba(0, 0, 0, 0.5);
   --rst-font: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
 }
 
@@ -53,4 +57,25 @@ button:disabled {
   position: fixed;
   inset: 0;
   pointer-events: none;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+}
+
+.icon--sm {
+  width: 13px;
+  height: 13px;
+}
+
+.icon--lg {
+  width: 20px;
+  height: 20px;
+}
+
+.icon--xl {
+  width: 26px;
+  height: 26px;
 }

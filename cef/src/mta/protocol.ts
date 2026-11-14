@@ -12,6 +12,7 @@ export interface RoomSummary {
   id: string
   name: string
   mapName: string
+  author: string
   players: number
   spectators: number
   active: boolean
@@ -23,6 +24,7 @@ export interface RoomSummary {
 export interface VoteOption {
   id: string
   name: string
+  author: string
   votes: number
 }
 

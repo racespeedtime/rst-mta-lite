@@ -339,6 +339,7 @@ function Rooms.summary(room)
         id = room.id,
         name = room.name,
         mapName = map and map.name or '等待开始',
+        author = map and map.author or '未知作者',
         players = #room.players,
         spectators = #room.spectators,
         active = room.active,
@@ -359,9 +360,11 @@ function Rooms.voteState(room, player)
 
     local options = {}
     for _, option in ipairs(room.vote.options) do
+        local map = config.maps[option.id]
         options[#options + 1] = {
             id = option.id,
             name = option.name,
+            author = map and map.author or '未知作者',
             votes = counts[option.id] or 0,
         }
     end

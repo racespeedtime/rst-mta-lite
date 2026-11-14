@@ -1,16 +1,22 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import IconRewind from '~icons/lucide/rewind'
 import { ui } from '@/stores/ui'
 import { formatSeconds } from '@/utils/format'
 
-const progressWidth = computed(() => `${Math.round(Math.max(0, Math.min(1, ui.rewind.progress)) * 100)}%`)
+const progressWidth = computed(
+  () => `${Math.round(Math.max(0, Math.min(1, ui.rewind.progress)) * 100)}%`,
+)
 </script>
 
 <template>
   <div class="rewind">
     <div class="rewind__head">
-      <span class="rewind__title">◀ REWIND</span>
+      <span class="rewind__title">
+        <IconRewind class="icon" />
+        REWIND
+      </span>
       <span class="rewind__time">{{ formatSeconds(ui.rewind.seconds) }}</span>
     </div>
     <div class="rewind__track">
@@ -24,14 +30,14 @@ const progressWidth = computed(() => `${Math.round(Math.max(0, Math.min(1, ui.re
 .rewind {
   position: absolute;
   left: 50%;
-  bottom: 82px;
+  bottom: 86px;
   width: min(360px, calc(100vw - 120px));
   transform: translateX(-50%);
   padding: 12px 16px;
-  border: 1px solid rgba(76, 194, 255, 0.35);
-  border-radius: 12px;
-  background: rgba(8, 16, 28, 0.78);
-  box-shadow: 0 12px 36px rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(88, 200, 255, 0.35);
+  border-radius: 13px;
+  background: linear-gradient(160deg, rgba(16, 32, 52, 0.86), rgba(6, 12, 22, 0.9));
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4), 0 0 30px rgba(88, 200, 255, 0.08);
   pointer-events: none;
 }
 
@@ -43,9 +49,12 @@ const progressWidth = computed(() => `${Math.round(Math.max(0, Math.min(1, ui.re
 }
 
 .rewind__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-weight: 600;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   color: var(--rst-accent);
 }
 
@@ -66,7 +75,8 @@ const progressWidth = computed(() => `${Math.round(Math.max(0, Math.min(1, ui.re
 .rewind__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(76, 194, 255, 0.6), var(--rst-accent));
+  background: linear-gradient(90deg, rgba(88, 200, 255, 0.55), var(--rst-accent));
+  box-shadow: 0 0 12px rgba(88, 200, 255, 0.5);
 }
 
 .rewind__hint {

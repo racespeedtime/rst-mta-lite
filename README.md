@@ -11,6 +11,7 @@
 - [x] 换图投票：时间到自动发起，也可从 F2 菜单提前发起
 - [x] 长按 Y 的 rewind 回放（位置 / 朝向 / 速度，最近 8 秒）
 - [x] 按钮点击 / 确认音效（`playSound`）
+- [x] 界面视觉升级：Iconify 本地图标、毛玻璃面板、赛道作者信息
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -40,7 +41,7 @@
 - `roundSeconds = 30 * 60`：单张地图最长时长
 - `voteSeconds = 30`：投票时长
 - `respawnDelay = 4000`：死亡重生间隔
-- `maps`：地图名、出生点坐标 / 朝向（当前是 GTA 世界里的出生点，不依赖地图资源）
+- `maps`：地图名称、作者、出生点坐标 / 朝向（当前是 GTA 世界里的出生点，不依赖地图资源）
 - `mapPool`：随机换图池
 - `rooms`：两个舞台的 id / 名称 / dimension
 
@@ -51,6 +52,7 @@
 - 房间空掉时回合结束；下一次有人进入重新开回合
 - 投票选项最多 3 张图，避免和另一舞台当前地图重复
 - 换图后重置 30 分钟计时
+- 进入舞台后，右下角显示「当前赛道」面板：地图名称 + 作者
 
 ## 账号与数据
 
@@ -120,10 +122,18 @@ __rstMockState({
   serverName: 'dev',
   me: { name: 'DevPlayer', guest: false },
   rooms: [
-    { id: 'main', name: 'DeathMatch · 主舞台', mapName: 'Grove Street', players: 2, spectators: 1, active: true, timeLeft: 900 },
+    { id: 'main', name: 'DeathMatch · 主舞台', mapName: 'Grove Street', author: 'RST Team', players: 2, spectators: 1, active: true, timeLeft: 900 },
   ],
 })
 ```
+
+### 图标（离线）
+
+图标使用 Iconify 的 `lucide` 图标集，通过 `unplugin-icons` 在构建时编译成**内联 SVG**：
+
+- 依赖：`@iconify-json/lucide`（图标数据，随 `pnpm-lock.yaml` 固定版本）
+- 构建后不请求 `api.iconify.design`，CEF 只加载本地 `ui/assets/app.js`
+- 用法：`import IconMap from '~icons/lucide/map'`，模板里 `<IconMap class="icon" />`
 
 > `meta.xml` 依赖固定产物名 `ui/assets/app.js`、`ui/assets/style.css`。改 `vite.config.ts` 的输出文件名时必须同步 `meta.xml`。
 
@@ -145,7 +155,8 @@ __rstMockState({
 - 全部 Lua 脚本用 luaparse（5.1 语法）解析通过
 - 服务端启动：资源加载 0 失败；SQLite 建库成功
 - 账号链路自检：bcrypt 创建 / 正确密码校验 / 错误密码拒绝
-- Headless Chrome 渲染登录、选舞台、HUD、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
+- Headless Chrome 渲染登录、选舞台、HUD（含赛道作者面板）、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
+- 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：
 

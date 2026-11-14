@@ -1,6 +1,20 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
+import IconClock from '~icons/lucide/clock'
+import IconEye from '~icons/lucide/eye'
+import IconFlag from '~icons/lucide/flag'
+import IconGhost from '~icons/lucide/ghost'
+import IconHeart from '~icons/lucide/heart'
+import IconKeyboard from '~icons/lucide/keyboard'
+import IconMap from '~icons/lucide/map'
+import IconPenLine from '~icons/lucide/pen-line'
+import IconRewind from '~icons/lucide/rewind'
+import IconShield from '~icons/lucide/shield'
+import IconUser from '~icons/lucide/user'
+import IconUsers from '~icons/lucide/users'
+import IconVote from '~icons/lucide/vote'
+import IconWaypoints from '~icons/lucide/waypoints'
 import { ui } from '@/stores/ui'
 import { clampPercent, formatTime } from '@/utils/format'
 
@@ -19,39 +33,62 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
         <span class="hud__brand-name">RST MTA LITE</span>
       </div>
       <div class="hud__player">
-        <strong>{{ ui.playerName }}</strong>
-        <span>{{ ui.guest ? '游客' : '已登录' }} · {{ ui.serverName }}</span>
+        <span class="hud__avatar"><IconUser class="icon" /></span>
+        <div class="hud__player-main">
+          <strong>{{ ui.playerName }}</strong>
+          <span>{{ ui.guest ? '游客' : '已登录' }} · {{ ui.serverName }}</span>
+        </div>
+        <span v-if="ui.guest" class="hud__tag"><IconGhost class="icon icon--sm" />GUEST</span>
       </div>
     </div>
 
     <section v-if="ui.room" class="room">
       <div class="room__head">
+        <IconFlag class="icon room__flag" />
         <span class="room__name">{{ ui.room.name }}</span>
         <span class="room__mode" :class="{ 'room__mode--spectate': spectating }">{{ modeLabel }}</span>
       </div>
-      <p class="room__map">{{ ui.room.mapName }}</p>
-      <div class="room__stats">
-        <span>剩余 <strong>{{ roundTime }}</strong></span>
-        <span>{{ ui.room.players }} 玩家</span>
-        <span>{{ ui.room.spectators }} 观战</span>
-      </div>
+
+      <dl class="room__rows">
+        <div>
+          <dt><IconMap class="icon icon--sm" />赛道</dt>
+          <dd>{{ ui.room.mapName }}</dd>
+        </div>
+        <div>
+          <dt><IconClock class="icon icon--sm" />剩余</dt>
+          <dd>{{ roundTime }}</dd>
+        </div>
+        <div>
+          <dt><IconUsers class="icon icon--sm" />玩家</dt>
+          <dd>{{ ui.room.players }}</dd>
+        </div>
+        <div>
+          <dt><IconEye class="icon icon--sm" />观战</dt>
+          <dd>{{ ui.room.spectators }}</dd>
+        </div>
+      </dl>
+
       <p v-if="ui.vote?.active" class="room__vote">
+        <IconVote class="icon icon--sm" />
         换图投票 · {{ formatTime(ui.vote.timeLeft) }}
       </p>
     </section>
 
-    <div v-if="spectating" class="spectate">观战中 · 下一回合自动加入战斗</div>
+    <div v-if="spectating" class="spectate">
+      <IconEye class="icon icon--sm" />
+      观战中 · 下一回合自动加入战斗
+    </div>
 
     <div class="hud__vitals">
       <div class="vital">
-        <span class="vital__label">HP</span>
+        <span class="vital__icon vital__icon--health"><IconHeart class="icon icon--sm" /></span>
         <div class="vital__track">
           <div class="vital__fill vital__fill--health" :style="{ width: healthWidth }" />
         </div>
         <span class="vital__value">{{ ui.health }}</span>
       </div>
       <div class="vital">
-        <span class="vital__label">AR</span>
+        <span class="vital__icon vital__icon--armor"><IconShield class="icon icon--sm" /></span>
         <div class="vital__track">
           <div class="vital__fill vital__fill--armor" :style="{ width: armorWidth }" />
         </div>
@@ -60,8 +97,23 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
     </div>
 
     <div class="hud__hints">
-      <span>F2 菜单</span>
-      <span v-if="!spectating">长按 Y 回放</span>
+      <span><IconKeyboard class="icon icon--sm" />F2 菜单</span>
+      <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放</span>
+    </div>
+
+    <div v-if="ui.room" class="track">
+      <p class="track__label">
+        <IconWaypoints class="icon icon--sm" />
+        当前赛道
+      </p>
+      <p class="track__map">
+        <IconMap class="icon" />
+        <span>{{ ui.room.mapName }}</span>
+      </p>
+      <p class="track__author">
+        <IconPenLine class="icon icon--sm" />
+        <span>作者 · {{ ui.room.author }}</span>
+      </p>
     </div>
   </div>
 </template>
@@ -80,7 +132,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   left: 24px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 10px;
 }
 
 .hud__brand {
@@ -99,7 +151,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   height: 6px;
   border-radius: 50%;
   background: var(--rst-accent);
-  box-shadow: 0 0 8px var(--rst-accent);
+  box-shadow: 0 0 9px var(--rst-accent);
 }
 
 .hud__brand-name {
@@ -110,40 +162,78 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 
 .hud__player {
   display: flex;
-  flex-direction: column;
-  gap: 2px;
-  padding-left: 4px;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 12px 7px 8px;
+  width: fit-content;
+  border: 1px solid var(--rst-border);
+  border-radius: 12px;
+  background: linear-gradient(160deg, rgba(17, 28, 44, 0.85), rgba(8, 13, 21, 0.85));
 }
 
-.hud__player strong {
-  font-size: 15px;
+.hud__avatar {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  background: rgba(88, 200, 255, 0.12);
+  border: 1px solid rgba(88, 200, 255, 0.2);
+  color: var(--rst-accent);
+}
+
+.hud__player-main {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.hud__player-main strong {
+  font-size: 14px;
   font-weight: 600;
 }
 
-.hud__player span {
-  font-size: 11px;
+.hud__player-main span {
+  font-size: 10px;
   color: var(--rst-muted);
+}
+
+.hud__tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(139, 124, 255, 0.3);
+  color: #b8aeff;
+  font-size: 9px;
+  letter-spacing: 0.08em;
 }
 
 .room {
   position: absolute;
   top: 20px;
   right: 24px;
-  width: 240px;
+  width: 258px;
   padding: 14px 16px;
   border: 1px solid var(--rst-border);
-  border-radius: 12px;
+  border-radius: 14px;
   background: var(--rst-panel);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
 }
 
 .room__head {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  gap: 7px;
+}
+
+.room__flag {
+  color: var(--rst-accent);
 }
 
 .room__name {
+  flex: 1;
   font-size: 12px;
   font-weight: 600;
 }
@@ -152,54 +242,65 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   padding: 2px 8px;
   border-radius: 999px;
   font-size: 10px;
-  color: #7ee2a8;
+  color: var(--rst-green);
   background: rgba(126, 226, 168, 0.12);
 }
 
 .room__mode--spectate {
-  color: #ffd479;
+  color: var(--rst-gold);
   background: rgba(255, 212, 121, 0.12);
 }
 
-.room__map {
-  margin: 8px 0 10px;
-  font-size: 13px;
-  color: var(--rst-accent);
+.room__rows {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px 12px;
+  margin: 14px 0 0;
 }
 
-.room__stats {
+.room__rows dt {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 12px;
-  font-size: 11px;
+  align-items: center;
+  gap: 4px;
+  font-size: 10px;
+  letter-spacing: 0.06em;
   color: var(--rst-muted);
 }
 
-.room__stats strong {
-  color: var(--rst-text);
-  font-variant-numeric: tabular-nums;
+.room__rows dd {
+  margin: 3px 0 0;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .room__vote {
-  margin: 10px 0 0;
-  padding-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 12px 0 0;
+  padding-top: 10px;
   border-top: 1px solid var(--rst-border);
   font-size: 11px;
-  color: #ffd479;
+  color: var(--rst-gold);
 }
 
 .spectate {
   position: absolute;
-  top: 76px;
+  top: 78px;
   left: 50%;
   transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 6px;
   padding: 6px 14px;
   border: 1px solid rgba(255, 212, 121, 0.3);
   border-radius: 999px;
-  background: rgba(40, 32, 12, 0.7);
-  color: #ffd479;
+  background: rgba(40, 32, 12, 0.72);
+  color: var(--rst-gold);
   font-size: 11px;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.04em;
 }
 
 .hud__vitals {
@@ -208,27 +309,42 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   bottom: 24px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--rst-border);
+  border-radius: 12px;
+  background: var(--rst-panel-soft);
 }
 
 .vital {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 9px;
 }
 
-.vital__label {
-  width: 18px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  color: var(--rst-muted);
+.vital__icon {
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+}
+
+.vital__icon--health {
+  color: #7ee2a8;
+  background: rgba(126, 226, 168, 0.12);
+}
+
+.vital__icon--armor {
+  color: #8fc7ff;
+  background: rgba(56, 189, 248, 0.12);
 }
 
 .vital__track {
-  width: 180px;
-  height: 6px;
+  width: 150px;
+  height: 5px;
   border-radius: 3px;
-  background: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.1);
   overflow: hidden;
 }
 
@@ -251,23 +367,75 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   font-size: 11px;
   color: var(--rst-muted);
   font-variant-numeric: tabular-nums;
+  text-align: right;
 }
 
 .hud__hints {
   position: absolute;
   right: 24px;
-  bottom: 24px;
+  bottom: 138px;
   display: flex;
-  gap: 8px;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
 }
 
 .hud__hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
   padding: 6px 10px;
   border: 1px solid var(--rst-border);
   border-radius: 8px;
   background: var(--rst-panel-soft);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--rst-muted);
+}
+
+.track {
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 258px;
+  padding: 12px 15px 13px;
+  border: 1px solid var(--rst-border);
+  border-radius: 14px;
+  background:
+    linear-gradient(160deg, rgba(23, 38, 58, 0.9), rgba(8, 13, 22, 0.94));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+}
+
+.track__label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  color: var(--rst-muted);
+}
+
+.track__map {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 7px 0 3px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--rst-text);
+}
+
+.track__map .icon {
+  color: var(--rst-accent);
+}
+
+.track__author {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 10px;
   color: var(--rst-muted);
 }
 </style>

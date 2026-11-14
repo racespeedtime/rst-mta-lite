@@ -16,11 +16,12 @@ RST.config = {
     weapon = 31,            -- M4
     ammo = 500,
 
+    -- 地图作者是占位信息，换成实际赛道作者即可
     maps = {
-        airport = { name = 'Los Santos 机场', x = 1678.0, y = -2286.0, z = 14.0, rot = 90 },
-        grove = { name = 'Grove Street', x = 2495.0, y = -1687.0, z = 13.6, rot = 180 },
-        beach = { name = 'Santa Maria 海滩', x = 374.0, y = -2074.0, z = 8.0, rot = 0 },
-        pershing = { name = 'Pershing Square', x = 1481.0, y = -1772.0, z = 19.0, rot = 90 },
+        airport = { name = 'Los Santos 机场', author = 'RST Team', x = 1678.0, y = -2286.0, z = 14.0, rot = 90 },
+        grove = { name = 'Grove Street', author = 'RST Team', x = 2495.0, y = -1687.0, z = 13.6, rot = 180 },
+        beach = { name = 'Santa Maria 海滩', author = 'RST Team', x = 374.0, y = -2074.0, z = 8.0, rot = 0 },
+        pershing = { name = 'Pershing Square', author = 'RST Team', x = 1481.0, y = -1772.0, z = 19.0, rot = 90 },
     },
 
     mapPool = { 'airport', 'grove', 'beach', 'pershing' },

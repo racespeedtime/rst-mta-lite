@@ -1,10 +1,15 @@
 <script setup lang="ts">
+import IconInfo from '~icons/lucide/info'
+
 defineProps<{ text: string }>()
 </script>
 
 <template>
   <transition name="toast">
-    <div v-if="text" class="toast">{{ text }}</div>
+    <div v-if="text" class="toast">
+      <IconInfo class="icon icon--sm" />
+      <span>{{ text }}</span>
+    </div>
   </transition>
 </template>
 
@@ -14,11 +19,14 @@ defineProps<{ text: string }>()
   left: 50%;
   top: 22px;
   transform: translateX(-50%);
-  padding: 9px 16px;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px 15px;
   border: 1px solid var(--rst-border);
   border-radius: 999px;
   background: var(--rst-panel);
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
   font-size: 12px;
   color: var(--rst-text);
   pointer-events: none;
