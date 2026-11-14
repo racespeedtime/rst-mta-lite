@@ -25,8 +25,13 @@ local function contains(list, value)
     return false
 end
 
+local teamsBalanced
+
 local function allPlayersReady(room)
     if #room.players == 0 then
+        return false
+    end
+    if room.mode == 'competitive' and room.competitiveMode == 'team' and not teamsBalanced(room) then
         return false
     end
     for _, player in ipairs(room.players) do
@@ -49,6 +54,82 @@ local function removePlayer(list, player)
         end
     end
     return false
+end
+
+local TEAM_NAMES = { red = '红队', blue = '蓝队' }
+
+local function teamColor(team)
+    local colors = config.teamColors or {}
+    local color = colors[team]
+    if not color then
+        return nil
+    end
+    return color[1], color[2], color[3]
+end
+
+local function applyTeamColor(player, team)
+    if not isElement(player) then
+        return
+    end
+
+    if not team then
+        pcall(setPlayerNametagColor, player, false)
+        return
+    end
+
+    local r, g, b = teamColor(team)
+    if r then
+        pcall(setPlayerNametagColor, player, r, g, b)
+    end
+end
+
+local function clearTeams(room)
+    for player in pairs(room.teamOf or {}) do
+        applyTeamColor(player, nil)
+    end
+    room.teams = { red = {}, blue = {} }
+    room.teamOf = {}
+end
+
+local function removeFromTeam(room, player)
+    local team = room.teamOf[player]
+    if not team then
+        return
+    end
+    removePlayer(room.teams[team], player)
+    room.teamOf[player] = nil
+    applyTeamColor(player, nil)
+end
+
+local function putInTeam(room, player, team)
+    if not room.teams[team] then
+        return false
+    end
+    removeFromTeam(room, player)
+    room.teamOf[player] = team
+    room.teams[team][#room.teams[team] + 1] = player
+    applyTeamColor(player, team)
+    return true
+end
+
+teamsBalanced = function(room)
+    if #room.players == 0 then
+        return false
+    end
+    for _, player in ipairs(room.players) do
+        if not room.teamOf[player] then
+            return false
+        end
+    end
+    return #room.teams.red == #room.teams.blue and #room.teams.red > 0
+end
+
+local function autoAssignTeams(room)
+    clearTeams(room)
+    for index, player in ipairs(room.players) do
+        local team = (index % 2 == 1) and 'red' or 'blue'
+        putInTeam(room, player, team)
+    end
 end
 
 local function mapUsedByOtherRoom(room, mapId)
@@ -294,7 +375,9 @@ local function startRound(room, forcedMapId)
     room.ready = {}
     room.lives = {}
     room.mode = room.mode or config.defaultMode or 'training'
+    room.competitiveMode = room.competitiveMode or 'solo'
     room.waiting = room.mode == 'competitive'
+    clearTeams(room)
     room.finishOrder = {}
     room.finished = {}
     room.raceStartedAt = now()
@@ -315,6 +398,10 @@ local function startRound(room, forcedMapId)
         end
     end
     room.spectators = stayingSpectators
+
+    if room.mode == 'competitive' and room.competitiveMode == 'team' then
+        autoAssignTeams(room)
+    end
 
     for _, player in ipairs(room.players) do
         if isElement(player) then
@@ -337,6 +424,8 @@ local function topEntries(room, player)
         top[#top + 1] = {
             rank = index,
             name = entry.name,
+            team = entry.team,
+            points = entry.points,
             elapsed = entry.elapsed,
             me = entry.player == player,
         }
@@ -354,8 +443,10 @@ local function finishPlayer(room, player, time)
     local entry = {
         player = player,
         name = getPlayerName(player) or '?',
+        team = room.teamOf[player],
         elapsed = elapsed,
         rank = rank,
+        points = scoreForRank(rank),
     }
     room.finished[player] = entry
     room.finishOrder[rank] = entry
@@ -443,6 +534,7 @@ function Rooms.raceResultState(room, player)
         return {
             active = true,
             mode = 'training',
+            format = 'solo',
             final = true,
             countdown = 0,
             returnIn = math.max(0, (room.trainingReturns[player] or 0) - now()),
@@ -461,10 +553,12 @@ function Rooms.raceResultState(room, player)
     return {
         active = true,
         mode = 'competitive',
+        format = room.competitiveMode or 'solo',
         final = room.raceFinal == true,
         countdown = room.raceFinal and 0 or math.max(0, room.raceEndsAt - now()),
         resultsIn = room.raceFinal and math.max(0, room.resultsUntil - now()) or nil,
         top = topEntries(room, player),
+        teams = room.competitiveMode == 'team' and teamScores(room) or nil,
         me = room.finished[player] and {
             rank = room.finished[player].rank,
             elapsed = room.finished[player].elapsed,
@@ -490,7 +584,10 @@ function Rooms.init(onChanged)
             vote = nil,
             modeVote = nil,
             mode = config.defaultMode or 'training',
+            competitiveMode = 'solo',
             waiting = false,
+            teams = { red = {}, blue = {} },
+            teamOf = {},
             ready = {},
             lives = {},
             ob = {},
@@ -515,6 +612,9 @@ function Rooms.beginCountdown(room)
     if not room or not room.waiting then
         return
     end
+    if room.mode == 'competitive' and room.competitiveMode == 'team' and not teamsBalanced(room) then
+        return
+    end
 
     room.waiting = false
     room.ready = {}
@@ -537,6 +637,9 @@ function Rooms.setReady(player)
     end
     if not contains(room.players, player) then
         return false, '观战者不能准备'
+    end
+    if room.competitiveMode == 'team' and not room.teamOf[player] then
+        return false, '请先选择红队或蓝队'
     end
     if room.ready[player] then
         return true
@@ -563,12 +666,129 @@ function Rooms.readyState(room, player)
         end
     end
 
+    local teamMode = room.mode == 'competitive' and room.competitiveMode == 'team'
     return {
         waiting = true,
         ready = ready,
         total = #room.players,
         me = room.ready[player] == true,
-        canReady = contains(room.players, player),
+        canReady = contains(room.players, player) and (not teamMode or room.teamOf[player] ~= nil),
+        teamMode = teamMode,
+        team = room.teamOf[player],
+        teams = {
+            red = #room.teams.red,
+            blue = #room.teams.blue,
+        },
+        balanced = not teamMode or teamsBalanced(room),
+    }
+end
+
+function Rooms.selectTeam(player, team)
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'competitive' or room.competitiveMode ~= 'team' then
+        return false, '当前不是团队竞技'
+    end
+    if not room.active or not room.waiting then
+        return false, '当前不能切换队伍'
+    end
+    if not contains(room.players, player) then
+        return false, '观战者不能选队'
+    end
+    if team ~= 'red' and team ~= 'blue' then
+        return false, '无效队伍'
+    end
+    if room.teamOf[player] == team then
+        return true
+    end
+
+    putInTeam(room, player, team)
+    room.ready = {}
+    stateChanged()
+    return true
+end
+
+local function scoreForRank(rank)
+    local scores = config.scoreTable or {}
+    return tonumber(scores[rank]) or tonumber(scores[#scores]) or 0
+end
+
+local function mapProgress(room, player, map)
+    local finish = map and map.finish
+    if not finish or not isElement(player) then
+        return nil
+    end
+
+    local x, y, z = getElementPosition(player)
+    local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
+    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+    if room.finished[player] then
+        return 100, 0, true
+    end
+
+    local totalX, totalY, totalZ = map.x - finish.x, map.y - finish.y, map.z - finish.z
+    local total = math.sqrt(totalX * totalX + totalY * totalY + totalZ * totalZ)
+    if total <= 0 then
+        return nil
+    end
+
+    local percent = (1 - distance / total) * 100
+    percent = math.max(0, math.min(100, percent))
+    return math.floor(percent + 0.5), math.floor(distance + 0.5), false
+end
+
+local function teamScores(room)
+    local teams = {
+        { id = 'red', name = TEAM_NAMES.red, score = 0, finished = 0, bestRank = math.huge },
+        { id = 'blue', name = TEAM_NAMES.blue, score = 0, finished = 0, bestRank = math.huge },
+    }
+    local byId = { red = teams[1], blue = teams[2] }
+
+    for _, player in ipairs(room.players) do
+        local team = room.teamOf[player]
+        local entry = team and byId[team]
+        local result = room.finished[player]
+        if entry and result then
+            entry.score = entry.score + (result.points or 0)
+            entry.finished = entry.finished + 1
+            entry.bestRank = math.min(entry.bestRank, result.rank or math.huge)
+        end
+    end
+
+    table.sort(teams, function(a, b)
+        if a.score ~= b.score then
+            return a.score > b.score
+        end
+        if a.bestRank ~= b.bestRank then
+            return a.bestRank < b.bestRank
+        end
+        return a.id < b.id
+    end)
+
+    for index, team in ipairs(teams) do
+        team.rank = index
+        if team.bestRank == math.huge then
+            team.bestRank = nil
+        end
+    end
+    return teams
+end
+
+function Rooms.progressState(room, player)
+    if not room or not room.mapId then
+        return nil
+    end
+
+    local map = MapRegistry.get(room.mapId)
+    local percent, distance, finished = mapProgress(room, player, map)
+    if percent == nil then
+        return nil
+    end
+
+    return {
+        percent = percent,
+        distance = distance,
+        finished = finished,
     }
 end
 
@@ -579,12 +799,9 @@ function Rooms.competitionState(room, player)
 
     local map = room.mapId and MapRegistry.get(room.mapId)
     local finish = map and map.finish
-    local startX = map and map.x
-    local startY = map and map.y
-    local startZ = map and map.z
-    local hasStart = startX and startY and startZ
+    local hasStart = map and map.x and map.y and map.z
+    local format = room.competitiveMode or 'solo'
 
-    -- 有终点按到终点距离升序；没有终点按远离起点距离降序；都没有才按命数
     local ranking = 'lives'
     if finish then
         ranking = 'finish'
@@ -595,22 +812,19 @@ function Rooms.competitionState(room, player)
     local entries = {}
 
     for _, p in ipairs(room.players) do
-        local distance
-        if isElement(p) and (finish or hasStart) then
-            local x, y, z = getElementPosition(p)
-            local tx = finish and finish.x or startX
-            local ty = finish and finish.y or startY
-            local tz = finish and finish.z or startZ
-            local dx, dy, dz = x - tx, y - ty, z - tz
-            distance = math.floor(math.sqrt(dx * dx + dy * dy + dz * dz) + 0.5)
-        end
-
+        local percent, distance, completed = mapProgress(room, p, map)
+        local result = room.finished[p]
         entries[#entries + 1] = {
             name = getPlayerName(p) or '?',
+            team = room.teamOf[p],
             lives = room.lives[p] or 0,
             alive = true,
             me = p == player,
             distance = distance,
+            progress = percent,
+            finished = completed == true,
+            finishRank = result and result.rank or nil,
+            points = result and result.points or 0,
         }
     end
 
@@ -618,10 +832,14 @@ function Rooms.competitionState(room, player)
         if room.lives[p] ~= nil then
             entries[#entries + 1] = {
                 name = getPlayerName(p) or '?',
+                team = room.teamOf[p],
                 lives = room.lives[p] or 0,
                 alive = false,
                 me = p == player,
                 distance = nil,
+                progress = nil,
+                finished = false,
+                points = 0,
             }
         end
     end
@@ -630,7 +848,14 @@ function Rooms.competitionState(room, player)
         if a.alive ~= b.alive then
             return a.alive
         end
-        if ranking == 'finish' then
+        if a.finished ~= b.finished then
+            return a.finished
+        end
+        if a.finished and b.finished then
+            if a.finishRank ~= b.finishRank then
+                return (a.finishRank or math.huge) < (b.finishRank or math.huge)
+            end
+        elseif ranking == 'finish' then
             local ad = a.distance or math.huge
             local bd = b.distance or math.huge
             if ad ~= bd then
@@ -655,11 +880,13 @@ function Rooms.competitionState(room, player)
 
     return {
         mode = 'competitive',
+        format = format,
         alive = #room.players,
         total = #entries,
         waiting = room.waiting == true,
         finish = finish ~= nil,
         ranking = ranking,
+        teams = format == 'team' and teamScores(room) or nil,
         players = entries,
     }
 end
@@ -682,6 +909,7 @@ function Rooms.eliminate(player, room)
     end
 
     table.remove(room.players, index)
+    removeFromTeam(room, player)
     if not contains(room.spectators, player) then
         room.spectators[#room.spectators + 1] = player
     end
@@ -759,6 +987,7 @@ function Rooms.becomeSpectator(player)
     end
 
     table.remove(room.players, index)
+    removeFromTeam(room, player)
     if not contains(room.spectators, player) then
         room.spectators[#room.spectators + 1] = player
     end
@@ -818,6 +1047,10 @@ function Rooms.returnToRace(player)
         room.players[#room.players + 1] = player
         room.ready[player] = false
         room.lives[player] = config.competitiveLives or 10
+        if room.competitiveMode == 'team' then
+            local team = #room.teams.red <= #room.teams.blue and 'red' or 'blue'
+            putInTeam(room, player, team)
+        end
         spawnPlayerInRoom(player, room, false, true)
         stateChanged()
         return true, 'ready'
@@ -903,6 +1136,7 @@ function Rooms.leave(player)
         end
 
         if removed then
+            removeFromTeam(room, player)
             room.ready[player] = nil
             room.lives[player] = nil
             room.ob[player] = nil
@@ -927,12 +1161,14 @@ function Rooms.leave(player)
                 room.modeVote = nil
                 room.waiting = false
                 room.ready = {}
+                clearTeams(room)
 
                 -- 只有完全空房才重置模式和纯 OB 标记；只剩观战者时保留偏好
                 if #room.spectators == 0 then
                     room.lives = {}
                     room.ob = {}
                     room.mode = config.defaultMode or 'training'
+                    room.competitiveMode = 'solo'
                     room.lastVoteAt = 0
                     room.lastModeVoteAt = 0
                 end
@@ -1135,7 +1371,8 @@ end
 
 local MODE_NAMES = {
     training = '训练模式',
-    competitive = '竞技模式',
+    competitive = '个人竞技',
+    team = '团队竞技',
 }
 
 function Rooms.startModeVote(room)
@@ -1174,7 +1411,12 @@ function Rooms.startModeVote(room)
         {
             id = 'competitive',
             name = MODE_NAMES.competitive,
-            description = ('每人 %d 条命，每次 rewind 消耗 1 条'):format(lives),
+            description = ('每人 %d 条命，按个人名次计分'):format(lives),
+        },
+        {
+            id = 'team',
+            name = MODE_NAMES.team,
+            description = '红蓝队，人数平衡后开局，按队伍总分结算',
         },
     }
 
@@ -1264,15 +1506,19 @@ function Rooms.finishModeVote(room)
     end
 
     -- 平票或没人投票时保持当前模式
+    local currentMode = room.mode == 'competitive'
+        and (room.competitiveMode == 'team' and 'team' or 'competitive')
+        or 'training'
     local winner
-    if bestCount <= 0 or contains(tied, room.mode) then
-        winner = room.mode
+    if bestCount <= 0 or contains(tied, currentMode) then
+        winner = currentMode
     else
         winner = tied[math.random(#tied)]
     end
 
     room.modeVote = nil
-    room.mode = winner
+    room.mode = winner == 'training' and 'training' or 'competitive'
+    room.competitiveMode = winner == 'team' and 'team' or 'solo'
     startRound(room, room.mapId)
     stateChanged()
 end
@@ -1300,7 +1546,9 @@ function Rooms.modeVoteState(room, player)
     return {
         active = true,
         timeLeft = math.max(0, room.modeVote.endsAt - now()),
-        currentMode = room.mode,
+        currentMode = room.mode == 'competitive'
+            and (room.competitiveMode == 'team' and 'team' or 'competitive')
+            or 'training',
         options = options,
         mine = room.modeVote.votes[player],
     }
@@ -1348,6 +1596,7 @@ function Rooms.summary(room)
         timeLeft = room.active and math.max(0, room.roundEnds - now()) or 0,
         voteActive = room.vote ~= nil,
         gameMode = room.mode,
+        competitiveMode = room.competitiveMode,
         waiting = room.waiting == true,
     }
 end

@@ -5,8 +5,10 @@ import IconCar from '~icons/lucide/car'
 import IconCheck from '~icons/lucide/check'
 import IconClock from '~icons/lucide/clock'
 import IconTrophy from '~icons/lucide/trophy'
+import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
 import { emitAction } from '@/mta/bridge'
+import type { ModeVoteId } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
@@ -15,9 +17,10 @@ const totalVotes = computed(() =>
   (vote.value?.options ?? []).reduce((sum, option) => sum + option.votes, 0),
 )
 
-const currentLabel = computed(() =>
-  vote.value?.currentMode === 'competitive' ? '竞技模式' : '训练模式',
-)
+const currentLabel = computed(() => {
+  if (vote.value?.currentMode === 'team') return '团队竞技'
+  return vote.value?.currentMode === 'competitive' ? '个人竞技' : '训练模式'
+})
 
 const votedName = computed(() => {
   const mine = vote.value?.mine
@@ -30,7 +33,7 @@ function percent(votes: number): number {
   return Math.round((votes / totalVotes.value) * 100)
 }
 
-function cast(mode: 'training' | 'competitive'): void {
+function cast(mode: ModeVoteId): void {
   if (vote.value?.mine) return
   emitAction('modevote:cast', { mode })
 }
@@ -74,6 +77,7 @@ function cast(mode: 'training' | 'competitive'): void {
           <span class="mode-option__fill" :style="{ width: `${percent(option.votes)}%` }" />
           <span class="mode-option__icon">
             <IconTrophy v-if="option.id === 'competitive'" class="icon" />
+            <IconUsers v-else-if="option.id === 'team'" class="icon" />
             <IconCar v-else class="icon" />
           </span>
           <span class="mode-option__main">

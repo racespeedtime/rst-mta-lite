@@ -20,6 +20,7 @@ import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
 const spectating = computed(() => ui.mode === 'spectating')
+const teamLabel = computed(() => (ui.team === 'red' ? '红队' : ui.team === 'blue' ? '蓝队' : ''))
 const spectateLabel = computed(() => {
   if (!spectating.value) return ''
   if (ui.ob) return '纯观战'
@@ -27,7 +28,10 @@ const spectateLabel = computed(() => {
   return '观战中'
 })
 const modeLabel = computed(() => (spectating.value ? '观战' : '比赛中'))
-const gameModeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技' : '训练'))
+const gameModeLabel = computed(() => {
+  if (ui.gameMode !== 'competitive') return '训练'
+  return ui.competitiveMode === 'team' ? '团队' : '个人'
+})
 const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:--'))
 </script>
 
@@ -45,6 +49,9 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
           <span>{{ ui.guest ? '游客' : '已登录' }} · {{ ui.serverName }}</span>
         </div>
         <span v-if="ui.guest" class="hud__tag"><IconGhost class="icon icon--sm" />游客</span>
+        <span v-if="ui.team" class="hud__tag" :class="`hud__tag--${ui.team}`">
+          {{ teamLabel }}
+        </span>
       </div>
     </div>
 
@@ -409,5 +416,17 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   margin: 0;
   font-size: 10px;
   color: #ffd167;
+}
+
+.hud__tag--red {
+  border-color: rgba(255, 110, 110, 0.4);
+  background: rgba(255, 110, 110, 0.14);
+  color: #ff9b9b;
+}
+
+.hud__tag--blue {
+  border-color: rgba(100, 170, 255, 0.4);
+  background: rgba(100, 170, 255, 0.14);
+  color: #9cc9ff;
 }
 </style>

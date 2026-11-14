@@ -11,6 +11,7 @@ import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
+import TrackProgress from '@/components/TrackProgress.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -53,7 +54,11 @@ function applyState(state: StatePayload): void {
     ui.playerName = state.me.name || ui.playerName
     ui.guest = state.me.guest === true
     ui.mode = state.me.mode || 'playing'
+    ui.team = state.me.team || null
   }
+
+  ui.competitiveMode = state.competitiveMode === 'team' ? 'team' : 'solo'
+  ui.progress = state.progress || null
 
   ui.rooms = state.rooms || []
   ui.room = state.room || null
@@ -184,6 +189,7 @@ onUnmounted(() => {
     <template v-else-if="ui.phase === 'playing'">
       <GameHud />
       <MapTimer v-if="ui.room" />
+      <TrackProgress v-if="ui.room" />
       <ChatPanel />
       <Transition name="speedo">
         <Speedometer v-if="ui.vehicle" />
@@ -191,7 +197,7 @@ onUnmounted(() => {
       <SpawnCountdown v-if="ui.countdown.active" />
       <CompetitionPanel v-if="ui.competition" />
       <RaceResultOverlay v-if="ui.raceResult" />
-      <ReadyOverlay v-if="ui.ready.waiting && ui.ready.canReady !== false" />
+      <ReadyOverlay v-if="ui.ready.waiting" />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <ModeVoteView v-if="ui.modeVote?.active" />

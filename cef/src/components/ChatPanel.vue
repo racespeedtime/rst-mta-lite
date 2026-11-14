@@ -16,9 +16,11 @@ const stickToBottom = ref(true)
 const unread = ref(0)
 let lastMessageId = ui.messages.at(-1)?.id ?? 0
 
-function nameColor(name: string): string {
+function nameColor(message: ChatEntry): string {
+  if (message.team === 'red') return 'rgb(255, 110, 110)'
+  if (message.team === 'blue') return 'rgb(100, 170, 255)'
   let hash = 0
-  for (const char of name) {
+  for (const char of message.name || '') {
     hash = (hash * 31 + (char.codePointAt(0) ?? 0)) % 360
   }
   return `hsl(${hash} 72% 72%)`
@@ -119,7 +121,7 @@ onMounted(() => scrollToBottom(true))
         <span class="chat__time">{{ formatClock(message.time) }}</span>
 
         <template v-if="message.kind === 'player'">
-          <span class="chat__name" :style="{ color: nameColor(message.name || '') }">
+          <span class="chat__name" :style="{ color: nameColor(message) }">
             {{ message.name }}
           </span>
           <span class="chat__text">{{ message.text }}</span>

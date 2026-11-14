@@ -116,7 +116,7 @@ function actionLabel(room: RoomSummary): string {
           <span><IconEye class="icon icon--sm" />{{ room.spectators }} 观战</span>
           <span>
             <IconTrophy class="icon icon--sm" />
-            {{ room.gameMode === 'competitive' ? '竞技' : '训练' }}
+            {{ room.gameMode === 'competitive' ? (room.competitiveMode === 'team' ? '团队竞技' : '个人竞技') : '训练' }}
           </span>
           <span>
             <IconClock class="icon icon--sm" />

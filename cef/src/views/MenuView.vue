@@ -28,7 +28,10 @@ const voteHint = computed(() => {
   return '当前不可发起'
 })
 
-const modeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技模式' : '训练模式'))
+const modeLabel = computed(() => {
+  if (ui.gameMode !== 'competitive') return '训练模式'
+  return ui.competitiveMode === 'team' ? '团队竞技' : '个人竞技'
+})
 const spectating = computed(() => ui.mode === 'spectating')
 
 const obLabel = computed(() => {

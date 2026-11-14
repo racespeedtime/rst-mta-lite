@@ -24,6 +24,11 @@ RST.config = {
     raceEndCountdown = 30,   -- 竞速第一名完赛后的结算倒计时
     raceResultSeconds = 8,   -- 结算排行展示时间，之后进入换图投票
     trainingReturnSeconds = 5, -- 训练模式完赛回出生点延迟
+    scoreTable = { 10, 8, 6, 4, 3, 2, 1 },
+    teamColors = {
+        red = { 255, 80, 80 },
+        blue = { 70, 150, 255 },
+    },
     minPasswordLength = 8,
     maxPasswordLength = 128,
 

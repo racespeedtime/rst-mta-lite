@@ -10,9 +10,18 @@ const percent = computed(() => {
   return Math.round(((ui.ready.ready || 0) / ui.ready.total) * 100)
 })
 
+const teamMode = computed(() => ui.ready.teamMode === true)
+const teamCounts = computed(() => ui.ready.teams || { red: 0, blue: 0 })
+const balanced = computed(() => ui.ready.balanced !== false)
+
 function ready(): void {
-  if (ui.ready.me) return
+  if (ui.ready.me || ui.ready.canReady === false) return
   emitAction('ready')
+}
+
+function selectTeam(team: 'red' | 'blue'): void {
+  if (ui.ready.team === team) return
+  emitAction('team:select', { team })
 }
 
 function spectate(): void {
@@ -26,7 +35,32 @@ function spectate(): void {
       <span class="ready__emblem"><IconFlag class="icon icon--lg" /></span>
       <p class="ready__eyebrow">竞技准备</p>
       <h1 class="ready__title">准备发车</h1>
-      <p class="ready__hint">竞技模式需要所有玩家准备后，才会开始 5 秒倒计时。</p>
+      <p class="ready__hint">
+        {{ teamMode ? '团队竞技需要红蓝人数相等，所有玩家准备后开始倒计时。' : '竞技模式需要所有玩家准备后，才会开始 5 秒倒计时。' }}
+      </p>
+
+      <div v-if="teamMode" class="ready__teams">
+        <button
+          type="button"
+          class="ready__team ready__team--red"
+          :class="{ 'is-active': ui.ready.team === 'red' }"
+          @click="selectTeam('red')"
+        >
+          红队 <strong>{{ teamCounts.red }}</strong>
+        </button>
+        <button
+          type="button"
+          class="ready__team ready__team--blue"
+          :class="{ 'is-active': ui.ready.team === 'blue' }"
+          @click="selectTeam('blue')"
+        >
+          蓝队 <strong>{{ teamCounts.blue }}</strong>
+        </button>
+      </div>
+
+      <p v-if="teamMode && !balanced" class="ready__warning">
+        红蓝人数必须相等，当前 {{ teamCounts.red }} : {{ teamCounts.blue }}。请切换队伍或改为观战。
+      </p>
 
       <div class="ready__count">
         <strong>{{ ui.ready.ready || 0 }}</strong>
@@ -40,7 +74,7 @@ function spectate(): void {
         type="button"
         class="ready__button"
         :class="{ 'ready__button--done': ui.ready.me }"
-        :disabled="ui.ready.me"
+        :disabled="ui.ready.me || ui.ready.canReady === false"
         @click="ready"
       >
         {{ ui.ready.me ? '已准备，等待其他玩家' : '准备' }}
@@ -105,6 +139,58 @@ function spectate(): void {
   font-size: 11px;
   line-height: 1.6;
   color: var(--rst-muted);
+}
+
+.ready__teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.ready__team {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 9px 10px;
+  border: 1px solid var(--rst-border);
+  border-radius: 9px;
+  color: var(--rst-muted);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: 11px;
+}
+
+.ready__team strong {
+  font-size: 15px;
+}
+
+.ready__team--red {
+  color: #ff9b9b;
+}
+
+.ready__team--blue {
+  color: #9cc9ff;
+}
+
+.ready__team--red.is-active {
+  border-color: rgba(255, 110, 110, 0.55);
+  background: rgba(255, 110, 110, 0.14);
+}
+
+.ready__team--blue.is-active {
+  border-color: rgba(100, 170, 255, 0.55);
+  background: rgba(100, 170, 255, 0.14);
+}
+
+.ready__warning {
+  margin: 0 0 14px;
+  padding: 7px 9px;
+  border: 1px solid rgba(255, 190, 92, 0.24);
+  border-radius: 7px;
+  color: #ffd18a;
+  background: rgba(255, 190, 92, 0.08);
+  font-size: 10px;
 }
 
 .ready__count {

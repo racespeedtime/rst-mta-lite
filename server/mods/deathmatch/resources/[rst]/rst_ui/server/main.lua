@@ -90,8 +90,11 @@ local function buildState(player, session)
             if room then
                 state.phase = 'playing'
                 state.mode = room.mode
+                state.competitiveMode = room.competitiveMode or 'solo'
                 state.room = Rooms.summary(room)
                 state.room.mode = session.mode or 'playing'
+                state.me.team = room.teamOf[player]
+                state.progress = Rooms.progressState(room, player)
                 state.vote = Rooms.voteState(room, player)
                 state.modeVote = Rooms.modeVoteState(room, player)
                 state.ready = Rooms.readyState(room, player)
@@ -397,6 +400,18 @@ actions['ready'] = function(player, session)
     broadcastState()
 end
 
+actions['team:select'] = function(player, session, data)
+    if not session.roomId then
+        return
+    end
+
+    local ok, err = Rooms.selectTeam(player, tostring(data.team or ''))
+    if not ok then
+        notify(player, err or '选择队伍失败')
+    end
+    broadcastState()
+end
+
 actions['ob:spectate'] = function(player, session)
     if not session.roomId then
         return
@@ -473,10 +488,13 @@ actions['chat:send'] = function(player, session, data)
     session.lastChatAt = time
 
     local name = getPlayerName(player) or 'player'
+    local room = session.roomId and Rooms.get(session.roomId)
+    local team = room and room.teamOf[player] or nil
     outputServerLog('[CHAT] ' .. name .. ': ' .. text)
     broadcastChat({
         kind = 'player',
         name = name,
+        team = team,
         text = text,
         time = time,
     })

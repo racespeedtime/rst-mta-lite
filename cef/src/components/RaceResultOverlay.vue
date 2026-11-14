@@ -67,15 +67,35 @@ const remaining = computed(() => {
         </span>
       </div>
 
+      <div v-if="result.format === 'team' && result.teams" class="race-result__teams">
+        <div
+          v-for="team in result.teams"
+          :key="team.id"
+          class="race-result__team-score"
+          :class="`race-result__team-score--${team.id}`"
+        >
+          <span>{{ team.name }}</span>
+          <strong>{{ team.score }} 分</strong>
+          <small>{{ team.finished }} 人完赛</small>
+        </div>
+      </div>
+
       <div class="race-result__podium">
         <div
           v-for="entry in result.top"
           :key="entry.rank"
           class="race-result__row"
-          :class="{ 'is-me': entry.me }"
+          :class="{
+            'is-me': entry.me,
+            'is-red': entry.team === 'red',
+            'is-blue': entry.team === 'blue',
+          }"
         >
           <span class="race-result__rank">#{{ entry.rank }}</span>
-          <span class="race-result__name">{{ entry.name }}</span>
+          <span class="race-result__name">
+            {{ entry.name }}
+            <small v-if="entry.team">{{ entry.team === 'red' ? '红队' : '蓝队' }}</small>
+          </span>
           <span class="race-result__time">{{ formatTime(entry.elapsed) }}</span>
         </div>
         <p v-if="result.top.length === 0" class="race-result__empty">还没有人冲线</p>
@@ -213,6 +233,45 @@ const remaining = computed(() => {
   gap: 6px;
 }
 
+.race-result__teams {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 7px;
+  margin-bottom: 10px;
+}
+
+.race-result__team-score {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 9px;
+  border: 1px solid var(--rst-border);
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.race-result__team-score strong {
+  font-size: 17px;
+  color: var(--rst-text);
+}
+
+.race-result__team-score small {
+  color: var(--rst-muted);
+  font-size: 9px;
+}
+
+.race-result__team-score--red {
+  color: #ff9b9b;
+  border-color: rgba(255, 110, 110, 0.3);
+  background: rgba(255, 110, 110, 0.07);
+}
+
+.race-result__team-score--blue {
+  color: #9cc9ff;
+  border-color: rgba(100, 170, 255, 0.3);
+  background: rgba(100, 170, 255, 0.07);
+}
+
 .race-result__row {
   display: grid;
   grid-template-columns: 34px minmax(0, 1fr) auto;
@@ -227,6 +286,20 @@ const remaining = computed(() => {
 .race-result__row.is-me {
   border-color: rgba(88, 200, 255, 0.35);
   background: rgba(88, 200, 255, 0.08);
+}
+
+.race-result__row.is-red {
+  border-left: 2px solid rgba(255, 110, 110, 0.7);
+}
+
+.race-result__row.is-blue {
+  border-left: 2px solid rgba(100, 170, 255, 0.7);
+}
+
+.race-result__name small {
+  margin-left: 5px;
+  color: var(--rst-muted);
+  font-size: 8px;
 }
 
 .race-result__rank {

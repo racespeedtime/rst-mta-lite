@@ -8,10 +8,24 @@
 export type Phase = 'auth' | 'stage' | 'playing'
 export type PlayMode = 'playing' | 'spectating'
 export type GameMode = 'training' | 'competitive'
+export type CompetitiveFormat = 'solo' | 'team'
+export type TeamId = 'red' | 'blue'
+export type ModeVoteId = 'training' | 'competitive' | 'team'
+
+export interface TeamScore {
+  id: TeamId
+  name: string
+  score: number
+  finished: number
+  rank: number
+  bestRank?: number
+}
 
 export interface RaceResultEntry {
   rank: number
   name: string
+  team?: TeamId | null
+  points?: number
   elapsed: number
   me?: boolean
 }
@@ -19,11 +33,13 @@ export interface RaceResultEntry {
 export interface RaceResultState {
   active: boolean
   mode: 'training' | 'competitive'
+  format?: CompetitiveFormat
   final: boolean
   countdown: number
   returnIn?: number
   resultsIn?: number
   top: RaceResultEntry[]
+  teams?: TeamScore[]
   me?: {
     rank: number
     elapsed: number
@@ -61,6 +77,7 @@ export interface RoomSummary {
   voteActive?: boolean
   mode?: PlayMode
   gameMode?: GameMode
+  competitiveMode?: CompetitiveFormat
   waiting?: boolean
 }
 
@@ -81,7 +98,7 @@ export interface VoteState {
 }
 
 export interface ModeVoteOption {
-  id: GameMode
+  id: ModeVoteId
   name: string
   description: string
   votes: number
@@ -90,9 +107,9 @@ export interface ModeVoteOption {
 export interface ModeVoteState {
   active: boolean
   timeLeft: number
-  currentMode: GameMode
+  currentMode: ModeVoteId
   options: ModeVoteOption[]
-  mine?: GameMode
+  mine?: ModeVoteId
 }
 
 export interface ReadyState {
@@ -101,25 +118,44 @@ export interface ReadyState {
   total?: number
   me?: boolean
   canReady?: boolean
+  teamMode?: boolean
+  team?: TeamId | null
+  teams?: {
+    red: number
+    blue: number
+  }
+  balanced?: boolean
 }
 
 export interface CompetitionPlayer {
   rank: number
   name: string
+  team?: TeamId | null
   lives: number
   alive: boolean
   me: boolean
   distance?: number
+  progress?: number
+  finished?: boolean
+  points?: number
 }
 
 export interface CompetitionState {
   mode: 'competitive'
+  format?: CompetitiveFormat
   alive: number
   total: number
   waiting: boolean
   finish?: boolean
   ranking?: 'finish' | 'progress' | 'lives'
+  teams?: TeamScore[]
   players: CompetitionPlayer[]
+}
+
+export interface ProgressState {
+  percent: number
+  distance: number
+  finished: boolean
 }
 
 export interface StatePayload {
@@ -131,10 +167,13 @@ export interface StatePayload {
     name: string
     guest: boolean
     mode?: PlayMode
+    team?: TeamId | null
   }
   rooms?: RoomSummary[]
   room?: RoomSummary
   mode?: GameMode
+  competitiveMode?: CompetitiveFormat
+  progress?: ProgressState | null
   lives?: number
   ob?: boolean
   ready?: ReadyState
@@ -169,6 +208,7 @@ export type ChatKind = 'player' | 'system' | 'native'
 export interface ChatMessagePayload {
   kind: ChatKind
   name?: string
+  team?: TeamId | null
   text: string
   time?: number
   color?: { r: number; g: number; b: number }
