@@ -500,6 +500,18 @@ end
 -- 渲染
 -- ---------------------------------------------------------------------------
 
+local function applyUiScale()
+    if not browser or not browserReady then
+        return
+    end
+
+    executeBrowserJavascript(
+        browser,
+        ('window.rst && window.rst.setViewportSize && window.rst.setViewportSize(%d, %d)')
+            :format(screenW, screenH)
+    )
+end
+
 local function render()
     if not browserReady then
         return
@@ -509,6 +521,7 @@ local function render()
     if width > 0 and height > 0 and (width ~= screenW or height ~= screenH) then
         screenW, screenH = width, height
         resizeBrowser(browser, screenW, screenH)
+        applyUiScale()
     end
 
     -- CEF 有时会抢回键盘焦点；非交互状态下立即释放，bindKey 才能收到 F1/F2/T
@@ -614,6 +627,7 @@ addEventHandler('rst:ui:ready', root, function()
     if type(cachedState) == 'string' and #cachedState > 2 then
         dispatchRaw('state', cachedState)
     end
+    applyUiScale()
     triggerServerEvent('rst:ui:requestState', localPlayer)
     applyInteractive()
     if interactive and browserReady then

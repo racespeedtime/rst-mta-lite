@@ -11,6 +11,7 @@ declare global {
     mta?: MtaBridgeGlobal
     rst?: {
       dispatch: (event: string, payloadJson?: string) => void
+      setViewportSize?: (width: number, height: number) => void
     }
     __rstMockState?: (state: unknown) => void
   }
