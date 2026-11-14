@@ -13,6 +13,8 @@
 - [x] 竞速出生：直接给赛车、带氮气，移除武器和玩家血条 / 护甲
 - [x] 换图投票：随机图池、票数/热度/随机决胜、手动投票冷却
 - [x] 地图投票面板：名称升 / 降序、模糊搜索、热度排序
+- [x] 地图热度：源站基础热度 + 服务器游玩次数（SQLite 持久化）
+- [x] mtavault DM 地图元数据抓取脚本（手动运行，默认不抓）
 - [x] 长按 Y 的 rewind 回放（位置 / 朝向 / 速度，最近 8 秒）
 - [x] 按钮点击 / 确认音效（`playSound`）
 - [x] 界面视觉升级：Iconify 本地图标、毛玻璃面板、赛道作者信息
@@ -121,6 +123,7 @@
 - `votePoolSize = 5`：每次投票随机抽取的候选数（地图不够时自动减少）
 - `voteCooldown = 180`：手动发起投票的冷却秒数
 - `recentMapLimit = 2`：抽池时尽量避开最近玩过的地图
+- `playPopularityWeight = 5`：服务器内每玩一场给热度加多少分
 - `respawnDelay = 4000`：死亡重生间隔
 - `maps`：地图名称、作者、流行度、赛车模型、出生点坐标 / 朝向（当前是出生点，不依赖赛道资源）
 - `mapPool`：随机换图池
@@ -135,6 +138,8 @@
 - 不发放武器；玩家血条 / 护甲 / 武器 HUD 都隐藏
 - 房间空掉时回合结束；下一次有人进入重新开回合
 - 投票随机图池会尽量避免和另一舞台当前地图重复
+- 换图后重置 30 分钟计时
+- 进入舞台后，右下角显示「当前赛道」面板：地图名称 + 作者
 
 ## 投票规则
 
@@ -149,6 +154,32 @@
   - 按流行度排序
 - `popularity` 目前是配置里的占位数据，后续可以从外部站点抓取后写入（UI / 排序 / 结算已按这个字段工作）
 
+## 地图热度
+
+有效热度在运行时计算：
+
+```text
+有效热度 = 基础热度（配置 / 爬虫写入） + 服务器内游玩次数 × playPopularityWeight
+```
+
+- 每次回合开始，`server/mapstats.lua` 给当前地图 `+1` 场
+- 游玩次数写入 SQLite：`server/mods/deathmatch/databases/global/rst_ui_mapstats.db`（运行时生成，已忽略）
+- 服务端启动时加载，重启后累计不丢
+- 投票排序 / 平票判定 / 面板「热度」显示都使用有效热度
+- `playPopularityWeight` 在 `shared/config.lua` 调整
+
+## mtavault 抓取（预留）
+
+抓取脚本：[tools/mtavault/fetch-dm-maps.mjs](tools/mtavault/fetch-dm-maps.mjs)，说明见 [tools/mtavault/README.md](tools/mtavault/README.md)。
+
+- 走 `https://api.mtavault.com/maps`，不解析网页 HTML
+- 默认按 `downloads` 降序，分页拉取后按 `DM` 标签 / `[DM]` 文件名过滤
+- 精简字段：名称、作者、上传日期、热度（下载量）、难度、文件大小、标签、源站链接、YouTube 封面
+- 默认只写 `tools/mtavault/output/`（已忽略），**不会自动执行**
+- 封面可 `--cover-dir` 下载为本地 JPEG；CEF 不能直接加载外网图片，接入前需要放进资源并在 `meta.xml` 登记
+- 受限网络可用 `--proxy http://127.0.0.1:7890` 或 `HTTPS_PROXY` 下载封面
+- 这是元数据，不是可玩地图：真正跑赛道还需要出生点 / 检查点 / 圈数数据
+
 ## 赛道排行
 
 竞速排行榜需要赛道检查点 / 圈数数据才能按“完成赛道”结算：
@@ -156,8 +187,6 @@
 - 计划每张图配置 `checkpoints` 和 `laps`，服务端按顺序校验检查点，记录完成时间与名次
 - 当前还没有检查点数据，因此暂时没有圈速 / 名次结算
 - 地图流行度以后可以按完成次数、投票数或外部抓取结果更新
-- 换图后重置 30 分钟计时
-- 进入舞台后，右下角显示「当前赛道」面板：地图名称 + 作者
 
 ## 账号与数据
 
@@ -170,6 +199,9 @@
 
 ```
 rst-mta-lite/
+├─ tools/mtavault/                           # mtavault 元数据抓取（手动运行）
+│  ├─ fetch-dm-maps.mjs                      # API 分页 / DM 过滤 / 封面下载
+│  └─ output/                                # 抓取结果（不入库）
 ├─ cef/                                      # 客户端 UI 源码（Vue 3 + Vite + TS）
 │  ├─ src/
 │  │  ├─ mta/bridge.ts                       # window.rst / mta.triggerEvent 桥
@@ -191,8 +223,9 @@ rst-mta-lite/
 └─ server/mods/deathmatch/resources/
    └─ [rst]/rst_ui/                          # CEF UI + 玩法资源
       ├─ meta.xml
-      ├─ shared/config.lua                   # 地图 / 房间 / 时长
+      ├─ shared/config.lua                   # 地图 / 房间 / 时长 / 热度权重
       ├─ server/accounts.lua                 # SQLite + bcrypt 账号
+      ├─ server/mapstats.lua                 # 地图游玩次数 / 有效热度
       ├─ server/rooms.lua                    # 房间、回合、投票
       ├─ server/main.lua                     # 会话、action、状态推送
       ├─ client/main.lua                     # 浏览器、输入、登录/观战/HUD
@@ -275,6 +308,7 @@ __rstMockState({
 - 操作帮助：快捷键分组、F1/Esc 关闭在 Headless Chrome 中验证渲染
 - 出生倒计时：3-2-1-GO 环形动画在 Headless Chrome 中验证渲染
 - 地图投票：随机图池 / 名称排序 / 模糊搜索 / 热度排序在 Headless Chrome 中验证渲染
+- mtavault 抓取脚本：单页小样本运行通过，输出作者 / 上传日期 / 下载量 / 标签 / YouTube 封面等字段
 - 构建信息：构建日期 / git hash 注入与右下角水印在 Headless Chrome 中验证
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
@@ -289,6 +323,8 @@ __rstMockState({
 - 登录密码经 MTA 客户端事件发到服务端后再 bcrypt 存储；正式运营建议后续换用独立 Web 登录或额外加密
 - 地图目前只是出生点配置，没有加载赛道资源和检查点
 - 圈数 / 检查点 / 名次结算还没做，当前是出生给赛车 + 换图 / 投票的竞速基础框架
+- mtavault 脚本默认不抓、不自动更新配置；全量抓取需要手动运行并自行确认源站条款
+- 服务器内游玩次数在资源重启后保留，但必须先重启 `rst_ui` 才会加载 `mapstats.lua`
 
 ## 约定
 

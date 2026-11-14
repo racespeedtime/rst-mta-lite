@@ -1,0 +1,134 @@
+# mtavault 地图元数据
+
+从 `mtavault.com` 的公开 API 获取 DM 赛道元数据。**脚本只手动运行，不接进服务器启动流程，也不会现在自动抓取。**
+
+## 为什么走 API
+
+mtavault 是 Nuxt 前端，直接解析网页会很脆弱。站点前端配置里暴露了：
+
+- API：`https://api.mtavault.com`
+- 图片：`https://assets.mtavault.com`
+- 下载：`https://dl.mtavault.com`
+
+实际使用的接口是：
+
+```text
+GET https://api.mtavault.com/maps?page=1&size=100&sort=downloads&direction=-1
+```
+
+返回 `data.maps[]` 和 `data.totalItems`。列表接口已经带了作者、标签、上传时间、下载量、文件信息等字段，不需要对每张图再请求详情。
+
+## 用法
+
+在仓库根目录：
+
+```bash
+# 只抓元数据，输出 JSON
+node tools/mtavault/fetch-dm-maps.mjs
+
+# 指定输出
+node tools/mtavault/fetch-dm-maps.mjs --out tools/mtavault/output/dm-maps.json
+
+# 同时下载封面到本地
+node tools/mtavault/fetch-dm-maps.mjs --cover-dir tools/mtavault/output/covers
+
+# 调试：只抓两页
+node tools/mtavault/fetch-dm-maps.mjs --max-pages 2 --page-size 20
+```
+
+可选参数：
+
+| 参数 | 默认 | 说明 |
+| --- | --- | --- |
+| `--out` | `tools/mtavault/output/dm-maps.json` | 输出文件 |
+| `--cover-dir` | 空 | 给了才下载封面 |
+| `--cover-limit` | `0` | 最多下载多少张封面，0 不限 |
+| `--page-size` | `100` | 分页大小 |
+| `--max-pages` | `0` | 最多抓多少页，0 全量 |
+| `--delay` | `150` | 请求间隔毫秒 |
+| `--tag` | `DM` | 过滤标签 |
+| `--api-base` | `https://api.mtavault.com` | API 地址 |
+| `--retries` | `3` | 请求重试次数 |
+| `--timeout` | `20000` | 单次请求超时毫秒 |
+| `--proxy` | 读 `HTTPS_PROXY` | 封面下载代理，如 `http://127.0.0.1:7890` |
+
+输出目录默认被 `.gitignore` 忽略，元数据和封面不会进源码仓库。
+
+## 输出结构
+
+```json
+{
+  "source": "mtavault",
+  "apiBase": "https://api.mtavault.com",
+  "fetchedAt": "2026-11-15T00:00:00.000Z",
+  "filter": { "tag": "DM" },
+  "sourceTotal": 4548,
+  "count": 0,
+  "maps": [
+    {
+      "id": "6af0fd1423c27a890aa5abee",
+      "name": "The Reaping",
+      "authors": ["YuRi"],
+      "uploadedAt": "2026-11-08",
+      "popularity": 400,
+      "difficulty": "Intermediate",
+      "fileSize": 9293667,
+      "tags": ["DM", "No Deco", "Custom Models"],
+      "fileName": "[DM]YuRi_The_Reaping",
+      "sourceUrl": "https://mtavault.com/map/the-reaping",
+      "coverUrl": "https://img.youtube.com/vi/dwk3Yo1KJvI/hqdefault.jpg",
+      "coverLocal": null
+    }
+  ]
+}
+```
+
+刻意没有抓：长描述、评论、版本历史、奖励、上传者资料、`meta` 里的物件统计等。
+
+## DM 判定
+
+API 列表没有精确的“模式”过滤参数，脚本会拉取全量后按以下任一条件判定：
+
+- `tags` 里有 `DM`（大小写不敏感）
+- `fileName` 或 `name` 里有 `[DM]`
+
+`--tag` 可以改成别的标签复用。
+
+## 封面
+
+列表接口没有封面字段；脚本用 `videoURL`（YouTube 视频 ID）生成缩略图地址：
+
+```text
+https://img.youtube.com/vi/<videoId>/hqdefault.jpg
+```
+
+没有视频的地图 `coverUrl` 为 `null`。
+
+**CEF 限制**：MTA 的 CEF 是 local 模式，不能直接加载外网图片。`--cover-dir` 会把封面下载为本地 JPEG，输出 `coverLocal` 相对路径；后续接入 UI 时需要：
+
+1. 把封面文件放进资源目录
+2. 在 `meta.xml` 里登记这些文件（或用构建脚本生成登记）
+3. 前端用本地 `./covers/<id>.jpg` 路径
+
+目前没有把封面接进 UI，先保留数据。
+
+封面走 `img.youtube.com`。在需要代理的网络里，Node `fetch` 可能 `ECONNRESET`，脚本会回退到 `curl`；用 `--proxy http://127.0.0.1:7890` 或设置 `HTTPS_PROXY` 即可（本机已用这种方式验证单张封面下载）。
+
+## 热度与服务器游玩次数
+
+- 抓取时 `popularity = downloads`（源站热度）
+- 服务端实际排序用「有效热度」：
+
+```text
+有效热度 = 配置里的基础热度（可写入抓取结果） + 服务器内游玩次数 × playPopularityWeight
+```
+
+- 游玩次数由 `server/mapstats.lua` 持久化到 SQLite（`rst_ui_mapstats.db`）
+- 每次回合开始 `+1`，重启不丢
+- 权重在 `shared/config.lua` 的 `playPopularityWeight` 调整
+
+## 限制
+
+- 这里只抓**元数据**，不下载地图资源；真正把赛道跑起来还需要出生点、检查点和圈数数据
+- 源站字段和接口可能变化，脚本报错时先检查 `data.maps` 结构
+- 全量抓取请控制频率，遵守源站条款；默认 150ms 间隔

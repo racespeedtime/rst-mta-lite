@@ -126,7 +126,8 @@ local function pickVoteOptions(room)
             id = mapId,
             name = map.name,
             author = map.author,
-            popularity = map.popularity or 0,
+            popularity = MapStats.popularity(mapId),
+            plays = MapStats.getPlays(mapId),
         }
     end
 
@@ -217,6 +218,7 @@ local function startRound(room, forcedMapId)
     end
 
     room.mapId = forcedMapId or pickMap(room)
+    MapStats.recordPlay(room.mapId)
     room.active = true
     room.roundEnds = now() + config.roundSeconds
     room.vote = nil
@@ -512,7 +514,8 @@ function Rooms.voteState(room, player)
             id = option.id,
             name = option.name,
             author = map and map.author or '未知作者',
-            popularity = option.popularity or (map and map.popularity) or 0,
+            popularity = MapStats.popularity(option.id),
+            plays = MapStats.getPlays(option.id),
             votes = counts[option.id] or 0,
         }
     end

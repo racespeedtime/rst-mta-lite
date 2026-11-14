@@ -26,6 +26,7 @@ export interface VoteOption {
   name: string
   author: string
   popularity: number
+  plays?: number
   votes: number
 }
 

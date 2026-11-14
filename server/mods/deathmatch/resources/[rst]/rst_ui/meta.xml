@@ -10,6 +10,7 @@
     <!-- 服务端 -->
     <script src="shared/config.lua" type="server" />
     <script src="server/accounts.lua" type="server" />
+    <script src="server/mapstats.lua" type="server" />
     <script src="server/rooms.lua" type="server" />
     <script src="server/main.lua" type="server" />
 

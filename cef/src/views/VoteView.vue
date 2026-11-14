@@ -140,6 +140,7 @@ function vote(mapId: string): void {
               <span class="vote__option-popularity">
                 <IconFlame class="icon icon--sm" />
                 热度 {{ option.popularity }}
+                <span v-if="option.plays" class="vote__option-plays">· {{ option.plays }} 场</span>
               </span>
             </span>
           </span>
@@ -399,6 +400,10 @@ function vote(mapId: string): void {
 
 .vote__option-popularity {
   color: rgba(255, 212, 121, 0.8);
+}
+
+.vote__option-plays {
+  color: var(--rst-muted);
 }
 
 .vote__option-right {

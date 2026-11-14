@@ -380,6 +380,7 @@ end)
 
 addEventHandler('onResourceStart', resourceRoot, function()
     Accounts.init()
+    MapStats.init()
     Rooms.init(broadcastState)
 
     for _, player in ipairs(getElementsByType('player')) do

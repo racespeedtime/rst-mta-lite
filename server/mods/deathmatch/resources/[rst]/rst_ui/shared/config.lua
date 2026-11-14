@@ -12,6 +12,7 @@ RST.config = {
     votePoolSize = 5,       -- 每次投票随机从地图池抽取的候选数量
     voteCooldown = 180,     -- 手动发起投票的冷却（秒）
     recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
+    playPopularityWeight = 5, -- 服务器内每玩一场给热度加分
     respawnDelay = 4000,    -- 死亡后重生间隔
     spawnCountdown = 3,     -- 进入回合出生后的 3-2-1-GO 倒计时（秒）
     minPasswordLength = 4,
