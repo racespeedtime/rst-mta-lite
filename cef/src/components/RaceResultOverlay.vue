@@ -4,10 +4,12 @@ import { computed } from 'vue'
 import IconFlag from '~icons/lucide/flag'
 import IconTimer from '~icons/lucide/timer'
 import IconTrophy from '~icons/lucide/trophy'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
 const result = computed(() => ui.raceResult)
+const now = useTicker()
 
 const isTraining = computed(() => result.value?.mode === 'training')
 const isFinal = computed(() => result.value?.final === true)
@@ -22,9 +24,19 @@ const subtitle = computed(() => {
   return isFinal.value ? '最终排行' : '其他玩家还可以继续冲线'
 })
 
-const remaining = computed(() => {
-  if (!result.value) return 0
-  return isTraining.value ? result.value.returnIn || 0 : result.value.countdown
+const elapsedMs = computed(() => (ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0))
+
+const remainingMs = computed(() => {
+  const value = result.value
+  if (!value) return 0
+
+  if (isTraining.value) {
+    return Math.max(0, (value.returnInMs ?? (value.returnIn || 0) * 1000) - elapsedMs.value)
+  }
+  if (!isFinal.value) {
+    return Math.max(0, (value.countdownMs ?? (value.countdown || 0) * 1000) - elapsedMs.value)
+  }
+  return Math.max(0, (value.resultsInMs ?? (value.resultsIn || 0) * 1000) - elapsedMs.value)
 })
 </script>
 
@@ -37,7 +49,7 @@ const remaining = computed(() => {
     <div v-if="!isTraining && !isFinal" class="race-result__banner">
       <span class="race-result__banner-title"><IconFlag class="icon icon--sm" />{{ title }}</span>
       <span class="race-result__banner-sub">{{ subtitle }}</span>
-      <strong class="race-result__banner-time">{{ remaining }}s 后结算</strong>
+      <strong class="race-result__banner-time">{{ formatMs(remainingMs) }} 后结算</strong>
       <div class="race-result__mini">
         <span v-for="entry in result.top" :key="entry.rank">
           #{{ entry.rank }} {{ entry.name }}
@@ -60,10 +72,10 @@ const remaining = computed(() => {
       <div class="race-result__timer">
         <IconTimer class="icon icon--sm" />
         <span v-if="isTraining">
-          {{ Math.ceil(remaining) }} 秒后回到出生点
+          {{ formatMs(remainingMs) }} 后回到出生点
         </span>
         <span v-else>
-          {{ Math.ceil(result.resultsIn || 0) }} 秒后进入换图投票
+          {{ formatMs(remainingMs) }} 后进入换图投票
         </span>
       </div>
 
@@ -96,17 +108,18 @@ const remaining = computed(() => {
             {{ entry.name }}
             <small v-if="entry.team">{{ entry.team === 'red' ? '红队' : '蓝队' }}</small>
           </span>
-          <span class="race-result__time">{{ formatTime(entry.elapsed) }}</span>
+          <span class="race-result__time">{{ formatMs(entry.elapsedMs ?? entry.elapsed * 1000) }}</span>
         </div>
         <p v-if="result.top.length === 0" class="race-result__empty">还没有人冲线</p>
       </div>
 
       <p v-if="result.me" class="race-result__mine">
-        你的成绩：第 {{ result.me.rank }} 名 · {{ formatTime(result.me.elapsed) }}
+        你的成绩：第 {{ result.me.rank }} 名 ·
+        {{ formatMs(result.me.elapsedMs ?? result.me.elapsed * 1000) }}
       </p>
       <p v-else-if="!isTraining" class="race-result__mine">你还没有完成比赛</p>
-      <p v-if="ui.personalBest !== null" class="race-result__best">
-        当前地图个人最佳 · {{ formatTime(ui.personalBest) }}
+      <p v-if="ui.personalBestMs !== null" class="race-result__best">
+        当前地图个人最佳 · {{ formatMs(ui.personalBestMs) }}
       </p>
     </section>
   </div>

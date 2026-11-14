@@ -26,6 +26,8 @@ local function contains(list, value)
 end
 
 local teamsBalanced
+local scoreForRank
+local teamScores
 
 local function allPlayersReady(room)
     if #room.players == 0 then
@@ -370,6 +372,7 @@ local function startRound(room, forcedMapId)
     MapStats.recordPlay(room.mapId)
     room.active = true
     room.roundEnds = now() + config.roundSeconds
+    room.roundEndsMs = RST.nowMs() + config.roundSeconds * 1000
     room.vote = nil
     room.modeVote = nil
     room.ready = {}
@@ -381,10 +384,14 @@ local function startRound(room, forcedMapId)
     room.finishOrder = {}
     room.finished = {}
     room.raceStartedAt = now()
+    room.raceStartedAtMs = RST.nowMs()
     room.raceEndsAt = 0
+    room.raceEndsAtMs = 0
     room.raceFinal = false
     room.resultsUntil = 0
+    room.resultsUntilMs = 0
     room.trainingReturns = {}
+    room.trainingReturnsMs = {}
     room.trainingResults = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
@@ -427,6 +434,7 @@ local function topEntries(room, player)
             team = entry.team,
             points = entry.points,
             elapsed = entry.elapsed,
+            elapsedMs = entry.elapsedMs,
             me = entry.player == player,
         }
     end
@@ -438,25 +446,29 @@ local function finishPlayer(room, player, time)
         return
     end
 
-    local elapsed = math.max(0, time - (room.raceStartedAt or time))
+    local elapsedMs = math.max(0, RST.nowMs() - (room.raceStartedAtMs or RST.nowMs()))
+    local elapsed = elapsedMs / 1000
     local rank = #room.finishOrder + 1
     local entry = {
         player = player,
         name = getPlayerName(player) or '?',
         team = room.teamOf[player],
         elapsed = elapsed,
+        elapsedMs = elapsedMs,
         rank = rank,
         points = scoreForRank(rank),
     }
     room.finished[player] = entry
     room.finishOrder[rank] = entry
-    Records.record(player, room.mapId, elapsed)
+    Records.record(player, room.mapId, elapsedMs)
 
     if room.mode == 'training' then
         room.trainingResults[player] = entry
         room.trainingReturns[player] = time + (config.trainingReturnSeconds or 5)
+        room.trainingReturnsMs[player] = RST.nowMs() + (config.trainingReturnSeconds or 5) * 1000
     elseif room.raceEndsAt == 0 then
         room.raceEndsAt = time + (config.raceEndCountdown or 30)
+        room.raceEndsAtMs = RST.nowMs() + (config.raceEndCountdown or 30) * 1000
     end
 
     stateChanged()
@@ -465,7 +477,9 @@ end
 local function finishRace(room)
     room.raceFinal = true
     room.resultsUntil = now() + (config.raceResultSeconds or 8)
+    room.resultsUntilMs = RST.nowMs() + (config.raceResultSeconds or 8) * 1000
     room.roundEnds = 0
+    room.roundEndsMs = 0
 
     for _, player in ipairs(room.players) do
         if isElement(player) then
@@ -507,6 +521,7 @@ end
 
 local function returnTrainingPlayer(room, player, time)
     room.trainingReturns[player] = nil
+    room.trainingReturnsMs[player] = nil
     room.trainingResults[player] = nil
     room.finished[player] = nil
 
@@ -538,10 +553,12 @@ function Rooms.raceResultState(room, player)
             final = true,
             countdown = 0,
             returnIn = math.max(0, (room.trainingReturns[player] or 0) - now()),
+            returnInMs = math.max(0, (room.trainingReturnsMs[player] or 0) - RST.nowMs()),
             top = topEntries(room, player),
             me = {
                 rank = mine.rank,
                 elapsed = mine.elapsed,
+                elapsedMs = mine.elapsedMs,
             },
         }
     end
@@ -556,12 +573,15 @@ function Rooms.raceResultState(room, player)
         format = room.competitiveMode or 'solo',
         final = room.raceFinal == true,
         countdown = room.raceFinal and 0 or math.max(0, room.raceEndsAt - now()),
+        countdownMs = room.raceFinal and 0 or math.max(0, (room.raceEndsAtMs or 0) - RST.nowMs()),
         resultsIn = room.raceFinal and math.max(0, room.resultsUntil - now()) or nil,
+        resultsInMs = room.raceFinal and math.max(0, (room.resultsUntilMs or 0) - RST.nowMs()) or nil,
         top = topEntries(room, player),
         teams = room.competitiveMode == 'team' and teamScores(room) or nil,
         me = room.finished[player] and {
             rank = room.finished[player].rank,
             elapsed = room.finished[player].elapsed,
+            elapsedMs = room.finished[player].elapsedMs,
         } or nil,
     }
 end
@@ -579,6 +599,7 @@ function Rooms.init(onChanged)
             mapId = nil,
             active = false,
             roundEnds = 0,
+            roundEndsMs = 0,
             players = {},
             spectators = {},
             vote = nil,
@@ -601,11 +622,22 @@ function Rooms.init(onChanged)
             raceFinal = false,
             resultsUntil = 0,
             trainingReturns = {},
+            trainingReturnsMs = {},
             trainingResults = {},
         }
     end
 
     setTimer(Rooms.tick, 1000, 0)
+
+    -- 冲线单独用 100ms 检测，避免 1s tick 把毫秒成绩量化成整秒
+    setTimer(function()
+        local time = now()
+        for _, room in pairs(rooms) do
+            if not room.vote and not room.modeVote then
+                checkFinishes(room, time)
+            end
+        end
+    end, 100, 0)
 end
 
 function Rooms.beginCountdown(room)
@@ -707,7 +739,7 @@ function Rooms.selectTeam(player, team)
     return true
 end
 
-local function scoreForRank(rank)
+scoreForRank = function(rank)
     local scores = config.scoreTable or {}
     return tonumber(scores[rank]) or tonumber(scores[#scores]) or 0
 end
@@ -737,7 +769,7 @@ local function mapProgress(room, player, map)
     return math.floor(percent + 0.5), math.floor(distance + 0.5), false
 end
 
-local function teamScores(room)
+teamScores = function(room)
     local teams = {
         { id = 'red', name = TEAM_NAMES.red, score = 0, finished = 0, bestRank = math.huge },
         { id = 'blue', name = TEAM_NAMES.blue, score = 0, finished = 0, bestRank = math.huge },
@@ -1141,6 +1173,7 @@ function Rooms.leave(player)
             room.lives[player] = nil
             room.ob[player] = nil
             room.trainingReturns[player] = nil
+            room.trainingReturnsMs[player] = nil
             room.trainingResults[player] = nil
             if room.mode == 'training' then
                 room.finished[player] = nil
@@ -1202,9 +1235,12 @@ function Rooms.tick()
                 if ok then
                     room.raceFinal = false
                     room.raceEndsAt = 0
+                    room.raceEndsAtMs = 0
                     room.resultsUntil = 0
+                    room.resultsUntilMs = 0
                 else
                     room.resultsUntil = 0
+                    room.resultsUntilMs = 0
                     for _, player in ipairs(room.players) do
                         if isElement(player) then
                             setPlayerFrozen(player, false)
@@ -1272,10 +1308,12 @@ function Rooms.startVote(room, reason)
     room.lastVoteAt = now()
     room.active = false
     room.roundEnds = 0
+    room.roundEndsMs = 0
     room.vote = {
         options = options,
         votes = {},
         endsAt = now() + config.voteSeconds,
+        endsAtMs = RST.nowMs() + config.voteSeconds * 1000,
     }
 
     stateChanged()
@@ -1423,10 +1461,12 @@ function Rooms.startModeVote(room)
     room.lastModeVoteAt = now()
     room.active = false
     room.roundEnds = 0
+    room.roundEndsMs = 0
     room.modeVote = {
         options = options,
         votes = {},
         endsAt = now() + (config.modeVoteSeconds or 20),
+        endsAtMs = RST.nowMs() + (config.modeVoteSeconds or 20) * 1000,
     }
 
     stateChanged()
@@ -1546,6 +1586,7 @@ function Rooms.modeVoteState(room, player)
     return {
         active = true,
         timeLeft = math.max(0, room.modeVote.endsAt - now()),
+        timeLeftMs = math.max(0, (room.modeVote.endsAtMs or 0) - RST.nowMs()),
         currentMode = room.mode == 'competitive'
             and (room.competitiveMode == 'team' and 'team' or 'competitive')
             or 'training',
@@ -1594,6 +1635,7 @@ function Rooms.summary(room)
         spectators = #room.spectators,
         active = room.active,
         timeLeft = room.active and math.max(0, room.roundEnds - now()) or 0,
+        timeLeftMs = room.active and math.max(0, (room.roundEndsMs or 0) - RST.nowMs()) or 0,
         voteActive = room.vote ~= nil,
         gameMode = room.mode,
         competitiveMode = room.competitiveMode,
@@ -1627,6 +1669,7 @@ function Rooms.voteState(room, player)
     return {
         active = true,
         timeLeft = math.max(0, room.vote.endsAt - now()),
+        timeLeftMs = math.max(0, (room.vote.endsAtMs or 0) - RST.nowMs()),
         options = options,
         mine = room.vote.votes[player],
     }

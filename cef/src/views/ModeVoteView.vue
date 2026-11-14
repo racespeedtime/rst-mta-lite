@@ -9,10 +9,17 @@ import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
 import { emitAction } from '@/mta/bridge'
 import type { ModeVoteId } from '@/mta/protocol'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
 const vote = computed(() => ui.modeVote)
+const now = useTicker()
+const remainingMs = computed(() => {
+  const base = vote.value?.timeLeftMs ?? (vote.value?.timeLeft ?? 0) * 1000
+  const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
+  return Math.max(0, base - elapsed)
+})
 const totalVotes = computed(() =>
   (vote.value?.options ?? []).reduce((sum, option) => sum + option.votes, 0),
 )
@@ -52,7 +59,7 @@ function cast(mode: ModeVoteId): void {
         </div>
         <span class="mode-vote__timer">
           <IconClock class="icon icon--sm" />
-          {{ formatTime(vote.timeLeft) }}
+          {{ formatMs(remainingMs) }}
         </span>
       </header>
 

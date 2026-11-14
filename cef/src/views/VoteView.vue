@@ -10,16 +10,24 @@ import IconPenLine from '~icons/lucide/pen-line'
 import IconSearch from '~icons/lucide/search'
 import IconVote from '~icons/lucide/vote'
 import { emitAction } from '@/mta/bridge'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
 type SortMode = 'name-asc' | 'name-desc' | 'popularity'
 
 const query = ref('')
 const sortMode = ref<SortMode>('popularity')
+const now = useTicker()
 
 const options = computed(() => ui.vote?.options ?? [])
 const totalVotes = computed(() => options.value.reduce((sum, option) => sum + option.votes, 0))
+
+const remainingMs = computed(() => {
+  const base = ui.vote?.timeLeftMs ?? (ui.vote?.timeLeft ?? 0) * 1000
+  const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
+  return Math.max(0, base - elapsed)
+})
 
 const visibleOptions = computed(() => {
   const keyword = query.value.trim().toLowerCase()
@@ -70,7 +78,7 @@ function vote(mapId: string): void {
         </div>
         <span class="vote__timer">
           <IconClock class="icon icon--sm" />
-          {{ formatTime(ui.vote?.timeLeft || 0) }}
+          {{ formatMs(remainingMs) }}
         </span>
       </header>
 

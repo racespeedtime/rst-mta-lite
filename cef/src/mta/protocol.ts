@@ -27,6 +27,7 @@ export interface RaceResultEntry {
   team?: TeamId | null
   points?: number
   elapsed: number
+  elapsedMs?: number
   me?: boolean
 }
 
@@ -36,13 +37,17 @@ export interface RaceResultState {
   format?: CompetitiveFormat
   final: boolean
   countdown: number
+  countdownMs?: number
   returnIn?: number
+  returnInMs?: number
   resultsIn?: number
+  resultsInMs?: number
   top: RaceResultEntry[]
   teams?: TeamScore[]
   me?: {
     rank: number
     elapsed: number
+    elapsedMs?: number
   } | null
 }
 
@@ -74,6 +79,7 @@ export interface RoomSummary {
   spectators: number
   active: boolean
   timeLeft: number
+  timeLeftMs?: number
   voteActive?: boolean
   mode?: PlayMode
   gameMode?: GameMode
@@ -93,6 +99,7 @@ export interface VoteOption {
 export interface VoteState {
   active: boolean
   timeLeft: number
+  timeLeftMs?: number
   options: VoteOption[]
   mine?: string
 }
@@ -107,6 +114,7 @@ export interface ModeVoteOption {
 export interface ModeVoteState {
   active: boolean
   timeLeft: number
+  timeLeftMs?: number
   currentMode: ModeVoteId
   options: ModeVoteOption[]
   mine?: ModeVoteId
@@ -180,6 +188,7 @@ export interface StatePayload {
   competition?: CompetitionState | null
   raceResult?: RaceResultState | null
   personalBest?: number | null
+  personalBestMs?: number | null
   vote?: VoteState
   modeVote?: ModeVoteState
   canStartVote?: boolean
@@ -187,6 +196,7 @@ export interface StatePayload {
   canStartModeVote?: boolean
   modeVoteCooldown?: number
   mapTime?: number
+  mapTimeMs?: number
 }
 
 export interface RewindPayload {

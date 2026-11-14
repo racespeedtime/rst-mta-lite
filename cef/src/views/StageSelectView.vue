@@ -13,7 +13,7 @@ import IconUsers from '~icons/lucide/users'
 import { emitAction } from '@/mta/bridge'
 import type { RoomSummary } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
 function select(room: RoomSummary): void {
   if (ui.busy || ui.mapPoolEmpty) return
@@ -121,7 +121,9 @@ function actionLabel(room: RoomSummary): string {
           <span>
             <IconClock class="icon icon--sm" />
             <template v-if="room.waiting">等待准备</template>
-            <template v-else-if="room.active">剩余 {{ formatTime(room.timeLeft) }}</template>
+            <template v-else-if="room.active">
+              剩余 {{ formatMs(room.timeLeftMs ?? room.timeLeft * 1000) }}
+            </template>
             <template v-else-if="room.voteActive">换图投票中</template>
             <template v-else>等待开局</template>
           </span>

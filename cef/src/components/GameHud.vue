@@ -16,10 +16,24 @@ import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
 import IconWaypoints from '~icons/lucide/waypoints'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
 const spectating = computed(() => ui.mode === 'spectating')
+const now = useTicker()
+const elapsedMs = computed(() => (ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0))
+const remainingFrom = (baseMs?: number): number =>
+  Math.max(0, (baseMs ?? 0) - elapsedMs.value)
+const roundTime = computed(() =>
+  ui.room ? formatMs(remainingFrom(ui.room.timeLeftMs ?? ui.room.timeLeft * 1000)) : '--:--.---',
+)
+const voteTime = computed(() =>
+  formatMs(remainingFrom(ui.vote?.timeLeftMs ?? (ui.vote?.timeLeft ?? 0) * 1000)),
+)
+const modeVoteTime = computed(() =>
+  formatMs(remainingFrom(ui.modeVote?.timeLeftMs ?? (ui.modeVote?.timeLeft ?? 0) * 1000)),
+)
 const teamLabel = computed(() => (ui.team === 'red' ? '红队' : ui.team === 'blue' ? '蓝队' : ''))
 const spectateLabel = computed(() => {
   if (!spectating.value) return ''
@@ -32,7 +46,6 @@ const gameModeLabel = computed(() => {
   if (ui.gameMode !== 'competitive') return '训练'
   return ui.competitiveMode === 'team' ? '团队' : '个人'
 })
-const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:--'))
 </script>
 
 <template>
@@ -86,11 +99,11 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 
       <p v-if="ui.vote?.active" class="room__vote">
         <IconVote class="icon icon--sm" />
-        换图投票 · {{ formatTime(ui.vote.timeLeft) }}
+        换图投票 · {{ voteTime }}
       </p>
       <p v-else-if="ui.modeVote?.active" class="room__vote">
         <IconVote class="icon icon--sm" />
-        模式投票 · {{ formatTime(ui.modeVote.timeLeft) }}
+        模式投票 · {{ modeVoteTime }}
       </p>
     </section>
 
@@ -122,7 +135,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
       </p>
       <p class="track__best">
         <IconTrophy class="icon icon--sm" />
-        <span>最佳 · {{ ui.personalBest !== null ? formatTime(ui.personalBest) : '暂无' }}</span>
+        <span>最佳 · {{ ui.personalBestMs !== null ? formatMs(ui.personalBestMs) : '暂无' }}</span>
       </p>
     </div>
   </div>

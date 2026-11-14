@@ -5,22 +5,36 @@ import IconClock from '~icons/lucide/clock'
 import IconMap from '~icons/lucide/map'
 import IconTimer from '~icons/lucide/timer'
 import IconTrophy from '~icons/lucide/trophy'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs } from '@/utils/format'
 
+const now = useTicker()
 const voteActive = computed(() => ui.vote?.active === true)
 const remainingLabel = computed(() => (voteActive.value ? '投票' : '剩余'))
-const remainingSeconds = computed(() =>
-  voteActive.value ? (ui.vote?.timeLeft ?? 0) : (ui.room?.timeLeft ?? 0),
-)
-const remainingValue = computed(() => formatTime(remainingSeconds.value))
+
+const elapsedMs = computed(() => (ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0))
+
+const remainingMs = computed(() => {
+  const base = voteActive.value
+    ? (ui.vote?.timeLeftMs ?? (ui.vote?.timeLeft ?? 0) * 1000)
+    : (ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000)
+  return Math.max(0, base - elapsedMs.value)
+})
+
+const remainingValue = computed(() => formatMs(remainingMs.value))
 const remainingTone = computed(() => {
   if (voteActive.value) return 'is-vote'
-  if (remainingSeconds.value <= 60) return 'is-danger'
-  if (remainingSeconds.value <= 300) return 'is-warn'
+  if (remainingMs.value <= 60_000) return 'is-danger'
+  if (remainingMs.value <= 300_000) return 'is-warn'
   return ''
 })
-const personalTime = computed(() => formatTime(ui.mapTime))
+
+const personalMs = computed(
+  () => (ui.mapTimeMs || ui.mapTime * 1000) + elapsedMs.value,
+)
+const personalTime = computed(() => formatMs(personalMs.value))
+const bestMs = computed(() => ui.personalBestMs)
 </script>
 
 <template>
@@ -47,7 +61,7 @@ const personalTime = computed(() => formatTime(ui.mapTime))
     <span class="maptimer__item maptimer__item--best">
       <IconTrophy class="icon icon--sm" />
       <span class="maptimer__label">最佳</span>
-      <strong>{{ ui.personalBest !== null ? formatTime(ui.personalBest) : '--:--' }}</strong>
+      <strong>{{ bestMs !== null ? formatMs(bestMs) : '--:--.---' }}</strong>
     </span>
   </div>
 </template>

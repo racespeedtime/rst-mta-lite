@@ -42,6 +42,7 @@ local function initSession(player)
         mode = nil,
         mapId = nil,
         mapEnteredAt = nil,
+        mapEnteredAtMs = nil,
         lastAuthAt = 0,
         lastChatAt = 0,
     }
@@ -61,12 +62,14 @@ local function settleSessions()
                 if session.mapId ~= room.mapId or not session.mapEnteredAt then
                     session.mapId = room.mapId
                     session.mapEnteredAt = now()
+                    session.mapEnteredAtMs = RST.nowMs()
                 end
             else
                 session.roomId = nil
                 session.mode = nil
                 session.mapId = nil
                 session.mapEnteredAt = nil
+                session.mapEnteredAtMs = nil
             end
         end
     end
@@ -100,7 +103,9 @@ local function buildState(player, session)
                 state.ready = Rooms.readyState(room, player)
                 state.competition = Rooms.competitionState(room, player)
                 state.raceResult = Rooms.raceResultState(room, player)
-                state.personalBest = Records.getBest(player, room.mapId)
+                local best = Records.getBest(player, room.mapId)
+                state.personalBestMs = best
+                state.personalBest = best and math.floor(best / 1000) or nil
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
                 state.ob = room.ob[player] == true
 
@@ -136,6 +141,7 @@ local function buildState(player, session)
         end
 
         state.mapTime = session.mapEnteredAt and math.max(0, now() - session.mapEnteredAt) or 0
+    state.mapTimeMs = session.mapEnteredAtMs and math.max(0, RST.nowMs() - session.mapEnteredAtMs) or 0
 
         if state.phase ~= 'playing' then
             state.phase = 'stage'

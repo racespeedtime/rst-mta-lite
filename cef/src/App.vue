@@ -69,6 +69,12 @@ function applyState(state: StatePayload): void {
   ui.competition = state.competition || null
   ui.raceResult = state.raceResult || null
   ui.personalBest = typeof state.personalBest === 'number' ? state.personalBest : null
+  ui.personalBestMs =
+    typeof state.personalBestMs === 'number'
+      ? state.personalBestMs
+      : typeof state.personalBest === 'number'
+        ? state.personalBest * 1000
+        : null
   ui.vote = state.vote || null
   ui.modeVote = state.modeVote || null
   ui.canStartVote = state.canStartVote === true
@@ -76,6 +82,12 @@ function applyState(state: StatePayload): void {
   ui.canStartModeVote = state.canStartModeVote === true
   ui.modeVoteCooldown = Math.max(0, Number(state.modeVoteCooldown) || 0)
   ui.mapTime = Math.max(0, Number(state.mapTime) || 0)
+  ui.mapTimeMs =
+    typeof state.mapTimeMs === 'number'
+      ? Math.max(0, state.mapTimeMs)
+      : Math.max(0, (Number(state.mapTime) || 0) * 1000)
+
+  ui.stateAt = performance.now()
 
   if (previousPhase !== state.phase) {
     ui.busy = false

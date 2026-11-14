@@ -6,6 +6,11 @@
 
 RST = RST or {}
 
+function RST.nowMs()
+    local t = getRealTime()
+    return t.timestamp * 1000 + (tonumber(t.millisecond) or 0)
+end
+
 RST.config = {
     roundSeconds = 30 * 60, -- 每张地图最长 30 分钟
     defaultMode = 'training', -- training | competitive

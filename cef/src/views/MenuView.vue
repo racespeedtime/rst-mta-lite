@@ -17,8 +17,16 @@ import IconUser from '~icons/lucide/user'
 import IconVote from '~icons/lucide/vote'
 import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
+import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatTime } from '@/utils/format'
+import { formatMs, formatTime } from '@/utils/format'
+
+const now = useTicker()
+const roomRemainingMs = computed(() => {
+  const base = ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000
+  const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
+  return Math.max(0, base - elapsed)
+})
 
 const voteHint = computed(() => {
   if (ui.mapPoolEmpty) return '地图池为空'
@@ -140,7 +148,7 @@ function leaveStage(): void {
       </dl>
 
       <div v-if="ui.room" class="menu-round">
-        <span>本图剩余 <strong>{{ formatTime(ui.room.timeLeft) }}</strong></span>
+        <span>本图剩余 <strong>{{ formatMs(roomRemainingMs) }}</strong></span>
         <span>{{ ui.room.players }} 玩家 / {{ ui.room.spectators }} 观战</span>
       </div>
 

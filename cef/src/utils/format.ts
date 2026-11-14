@@ -5,6 +5,24 @@ export function formatTime(seconds: number): string {
   return `${mm}:${ss}`
 }
 
+/** 毫秒 -> mm:ss.mmm（超过 1 小时显示 h:mm:ss.mmm）。 */
+export function formatMs(milliseconds: number): string {
+  const total = Math.max(0, Math.floor(Number(milliseconds) || 0))
+  const hours = Math.floor(total / 3_600_000)
+  const minutes = Math.floor(total / 60_000) % 60
+  const seconds = Math.floor(total / 1000) % 60
+  const millis = total % 1000
+
+  const mm = String(minutes).padStart(2, '0')
+  const ss = String(seconds).padStart(2, '0')
+  const mmm = String(millis).padStart(3, '0')
+
+  if (hours > 0) {
+    return `${hours}:${mm}:${ss}.${mmm}`
+  }
+  return `${mm}:${ss}.${mmm}`
+}
+
 export function formatSeconds(seconds: number): string {
   return `${(Math.max(0, Number(seconds) || 0)).toFixed(1)}s`
 }
