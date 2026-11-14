@@ -37,6 +37,38 @@ function showToast(text: string): void {
   }, 3200)
 }
 
+function playSound(name: string): void {
+  emitToLua('sound', { name })
+}
+
+function handleRaceAudio(
+  previousRace: typeof ui.raceResult,
+  previousPhase: typeof ui.phase,
+): void {
+  const current = ui.raceResult
+  if (!current || previousPhase !== 'playing') return
+
+  const justFinished = current.me != null && previousRace?.me == null
+  if (justFinished) {
+    playSound('finish')
+  }
+
+  const becameFinal = current.final && previousRace?.final !== true
+  if (!becameFinal || ui.mode === 'spectating') return
+
+  if (current.format === 'team') {
+    if (!ui.team) return
+    const winner = current.teams?.[0]?.id
+    playSound(winner === ui.team ? 'finish' : 'fail')
+    return
+  }
+
+  // 个人竞技：没冲线 = 未完赛；第一名已经在对局中有冲线音效，不再重复
+  if (!current.me && !justFinished) {
+    playSound('fail')
+  }
+}
+
 function applyState(state: StatePayload): void {
   if (!state || (state.phase !== 'auth' && state.phase !== 'stage' && state.phase !== 'playing')) {
     console.error('[rst-ui] 收到无效 state.phase', state)
@@ -45,6 +77,8 @@ function applyState(state: StatePayload): void {
   }
 
   const previousPhase = ui.phase
+  const previousRaceResult = ui.raceResult
+  const previousLives = ui.lives
 
   ui.phase = state.phase
   if (state.serverName) ui.serverName = state.serverName
@@ -64,10 +98,14 @@ function applyState(state: StatePayload): void {
   ui.room = state.room || null
   ui.gameMode = state.mode === 'competitive' ? 'competitive' : 'training'
   ui.lives = typeof state.lives === 'number' ? state.lives : null
+  if (previousPhase === 'playing' && previousLives !== null && previousLives > 0 && ui.lives === 0) {
+    playSound('fail')
+  }
   ui.ob = state.ob === true
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
   ui.raceResult = state.raceResult || null
+  handleRaceAudio(previousRaceResult, previousPhase)
   ui.personalBest = typeof state.personalBest === 'number' ? state.personalBest : null
   ui.personalBestMs =
     typeof state.personalBestMs === 'number'

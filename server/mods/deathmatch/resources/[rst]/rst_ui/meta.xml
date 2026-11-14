@@ -30,6 +30,10 @@
     <!-- UI 音效 -->
     <file src="sounds/click.wav" />
     <file src="sounds/confirm.wav" />
+    <file src="sounds/countdown.wav" />
+    <file src="sounds/go.wav" />
+    <file src="sounds/finish.wav" />
+    <file src="sounds/fail.wav" />
 
     <!-- Vue 构建产物（cef/vite.config.ts 输出到这里，ui/ 不入库） -->
     <file src="ui/index.html" />

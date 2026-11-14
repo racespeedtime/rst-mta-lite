@@ -126,6 +126,10 @@ RST.dispatch = dispatch
 local SOUND_FILES = {
     click = 'sounds/click.wav',
     confirm = 'sounds/confirm.wav',
+    countdown = 'sounds/countdown.wav',
+    go = 'sounds/go.wav',
+    finish = 'sounds/finish.wav',
+    fail = 'sounds/fail.wav',
 }
 
 local lastSound

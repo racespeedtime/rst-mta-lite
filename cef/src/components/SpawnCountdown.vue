@@ -28,7 +28,7 @@ watch(
   (value) => {
     if (!value || value === lastLabel) return
     lastLabel = value
-    emitAction('sound', { name: value === 'GO' ? 'confirm' : 'click' })
+    emitAction('sound', { name: value === 'GO' ? 'go' : 'countdown' })
   },
   { immediate: true },
 )
