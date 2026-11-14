@@ -21,11 +21,32 @@ local activatedAt = 0
 local frozenElement = nil
 local lastDispatchAt = 0
 local currentVX, currentVY, currentVZ = 0, 0, 0
+local currentNitroLevel, currentNitroCount
+local appliedNitroLevel, appliedNitroCount
 
 local rewindRender
 
 local function now()
     return getTickCount()
+end
+
+local function applyNitroState(vehicle, level, count)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' then
+        return
+    end
+
+    if type(level) == 'number' then
+        level = math.max(0, math.min(1, level))
+        if appliedNitroLevel == nil or math.abs(level - appliedNitroLevel) > 0.005 then
+            pcall(setVehicleNitroLevel, vehicle, level)
+            appliedNitroLevel = level
+        end
+    end
+
+    if type(count) == 'number' and count ~= appliedNitroCount then
+        pcall(setVehicleNitroCount, vehicle, count)
+        appliedNitroCount = count
+    end
 end
 
 local function captureSample()
@@ -39,6 +60,12 @@ local function captureSample()
     local rx, ry, rz = getElementRotation(target)
     local vx, vy, vz = getElementVelocity(target)
 
+    local nitroLevel, nitroCount
+    if vehicle and isElement(vehicle) then
+        nitroLevel = getVehicleNitroLevel(vehicle)
+        nitroCount = getVehicleNitroCount(vehicle)
+    end
+
     samples[#samples + 1] = {
         t = now(),
         x = x,
@@ -50,6 +77,8 @@ local function captureSample()
         vx = vx,
         vy = vy,
         vz = vz,
+        nitroLevel = nitroLevel,
+        nitroCount = nitroCount,
     }
 
     local cutoff = now() - HISTORY_SECONDS * 1000
@@ -73,11 +102,14 @@ local function stopRewind()
     removeEventHandler('onClientRender', root, rewindRender)
 
     if isElement(frozenElement) then
+        applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
         setElementFrozen(frozenElement, false)
         setElementVelocity(frozenElement, currentVX, currentVY, currentVZ)
     end
 
     frozenElement = nil
+    appliedNitroLevel = nil
+    appliedNitroCount = nil
     resetSamples()
 
     if RST.dispatch then
@@ -127,8 +159,21 @@ local function startRewind()
     activatedAt = now()
     lastDispatchAt = 0
     currentVX, currentVY, currentVZ = 0, 0, 0
+    appliedNitroLevel = nil
+    appliedNitroCount = nil
+
+    local latest = samples[#samples]
+    currentNitroLevel = latest.nitroLevel
+    currentNitroCount = latest.nitroCount
+
     frozenElement = getPedOccupiedVehicle(localPlayer) or localPlayer
 
+    -- 回放期间关掉正在喷的氮气，否则历史 level 会被当前喷射持续覆盖
+    if isElement(frozenElement) and getElementType(frozenElement) == 'vehicle' then
+        pcall(setVehicleNitroActivated, frozenElement, false)
+    end
+
+    applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
     setElementFrozen(frozenElement, true)
     setElementVelocity(frozenElement, 0, 0, 0)
 
@@ -161,6 +206,9 @@ rewindRender = function()
         setElementPosition(frozenElement, first.x, first.y, first.z)
         setElementRotation(frozenElement, first.rx, first.ry, first.rz)
         currentVX, currentVY, currentVZ = first.vx, first.vy, first.vz
+        currentNitroLevel = first.nitroLevel
+        currentNitroCount = first.nitroCount
+        applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
         stopRewind()
         return
     end
@@ -193,6 +241,16 @@ rewindRender = function()
     currentVX = lerp(a.vx, b.vx, alpha)
     currentVY = lerp(a.vy, b.vy, alpha)
     currentVZ = lerp(a.vz, b.vz, alpha)
+
+    if type(a.nitroLevel) == 'number' and type(b.nitroLevel) == 'number' then
+        currentNitroLevel = lerp(a.nitroLevel, b.nitroLevel, alpha)
+    elseif type(a.nitroLevel) == 'number' then
+        currentNitroLevel = a.nitroLevel
+    else
+        currentNitroLevel = nil
+    end
+    currentNitroCount = type(b.nitroCount) == 'number' and b.nitroCount or a.nitroCount
+    applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
 
     if RST.dispatch and now() - lastDispatchAt >= 100 then
         lastDispatchAt = now()
