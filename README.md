@@ -19,6 +19,7 @@
 - [x] 操作帮助面板：F1 呼出，F2 菜单也可进入
 - [x] 出生倒计时：每人独立的 3-2-1-GO 动画，结束后才可移动
 - [x] 隐藏原生血条 / 武器等 HUD，保留雷达和准星
+- [x] 右下角 Vite 构建信息：日期 + git 短提交号
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -77,6 +78,16 @@
 - 数据由客户端 10Hz 通过 `vehicle` 事件推给 CEF
 
 目前地图还没有载具，调试用 `/car` 生成一辆带氮气的 Infernus；上车后会补满并设为无限氮气。
+
+## 构建信息
+
+右下角常驻 `BUILD 2026.11.15 · bf823d9` 小水印（所有界面可见，鼠标悬停显示 ISO 构建时间）：
+
+- `__RST_BUILD_DATE__`：本地构建日期 `YYYY.MM.DD`
+- `__RST_BUILD_TIME__`：ISO 构建时间，用于 tooltip
+- `__RST_BUILD_HASH__`：构建时读取 `.git/HEAD` 的 7 位提交号，非 git 环境回退 `dev`
+- 这些值由 [vite.config.ts](cef/vite.config.ts) 的 `define` 在构建时注入，运行时不需要读 git
+- 改完 UI 重新 `pnpm build` 即可刷新版本号；hash 是**构建时**的 HEAD，不是运行时 HEAD
 
 ## 原生 HUD
 
@@ -143,6 +154,7 @@ rst-mta-lite/
 │  │  ├─ components/Speedometer.vue          # 载具速度 / 血量 / 氮气
 │  │  ├─ components/SpawnCountdown.vue       # 3-2-1-GO 出生倒计时
 │  │  ├─ components/HelpOverlay.vue          # F1 操作帮助
+│  │  ├─ components/BuildTag.vue             # 右下角构建日期 / hash
 │  │  └─ components/RewindOverlay.vue        # rewind 覆盖层
 │  └─ vite.config.ts                         # 构建输出到 rst_ui/ui/
 └─ server/mods/deathmatch/resources/
@@ -231,6 +243,7 @@ __rstMockState({
 - 观战切换：跟随对象与左右键提示在 Headless Chrome 中验证渲染
 - 操作帮助：快捷键分组、F1/Esc 关闭在 Headless Chrome 中验证渲染
 - 出生倒计时：3-2-1-GO 环形动画在 Headless Chrome 中验证渲染
+- 构建信息：构建日期 / git hash 注入与右下角水印在 Headless Chrome 中验证
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：

@@ -7,6 +7,7 @@ import MapTimer from '@/components/MapTimer.vue'
 import Speedometer from '@/components/Speedometer.vue'
 import SpawnCountdown from '@/components/SpawnCountdown.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
+import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
@@ -152,6 +153,7 @@ onUnmounted(() => {
       <RewindOverlay v-if="ui.rewind.active" />
       <HelpOverlay v-if="ui.helpOpen" />
     </template>
+    <BuildTag />
     <ToastMessage :text="toast" />
   </div>
 </template>

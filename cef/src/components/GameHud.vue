@@ -386,7 +386,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 .hud__hints {
   position: absolute;
   right: 24px;
-  bottom: 138px;
+  bottom: 166px;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
@@ -409,7 +409,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 .track {
   position: absolute;
   right: 24px;
-  bottom: 24px;
+  bottom: 52px;
   width: 258px;
   padding: 12px 15px 13px;
   border: 1px solid var(--rst-border);
