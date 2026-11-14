@@ -1,49 +1,26 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
-import { useRouter } from 'vue-router'
-
-import { emitToLua, onBridge } from '@/mta/bridge'
-import { session } from '@/stores/session'
-
-const router = useRouter()
-const toast = ref('')
-
-let offToast: (() => void) | undefined
-let toastTimer: number | undefined
+import { emitAction } from '@/mta/bridge'
+import { ui } from '@/stores/ui'
+import { formatTime } from '@/utils/format'
 
 function close(): void {
-  emitToLua('menu:close')
-  void router.push('/')
+  emitAction('menu:close')
 }
 
-function testLua(): void {
-  emitToLua('test')
+function startVote(): void {
+  if (!ui.canStartVote) return
+  emitAction('vote:start')
+  emitAction('menu:close')
 }
 
-function openDevTools(): void {
-  emitToLua('devtools')
+function devtools(): void {
+  emitAction('devtools')
 }
 
-function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') close()
+function leaveStage(): void {
+  emitAction('stage:leave')
+  emitAction('menu:close')
 }
-
-onMounted(() => {
-  window.addEventListener('keydown', onKeydown)
-  offToast = onBridge('toast', (payload) => {
-    toast.value = payload.text || ''
-    window.clearTimeout(toastTimer)
-    toastTimer = window.setTimeout(() => {
-      toast.value = ''
-    }, 3000)
-  })
-})
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeydown)
-  offToast?.()
-  window.clearTimeout(toastTimer)
-})
 </script>
 
 <template>
@@ -52,7 +29,7 @@ onUnmounted(() => {
       <header class="menu-panel__head">
         <div>
           <p class="menu-panel__eyebrow">RST MTA LITE</p>
-          <h1 class="menu-panel__title">主菜单</h1>
+          <h1 class="menu-panel__title">菜单</h1>
         </div>
         <button class="menu-close" type="button" aria-label="关闭菜单" @click="close">×</button>
       </header>
@@ -60,36 +37,46 @@ onUnmounted(() => {
       <dl class="menu-meta">
         <div>
           <dt>玩家</dt>
-          <dd>{{ session.playerName }}</dd>
+          <dd>{{ ui.playerName }}</dd>
         </div>
         <div>
-          <dt>服务器</dt>
-          <dd>{{ session.serverName }}</dd>
+          <dt>舞台</dt>
+          <dd>{{ ui.room?.name || '-' }}</dd>
         </div>
         <div>
-          <dt>在线</dt>
-          <dd>{{ session.online }}</dd>
+          <dt>地图</dt>
+          <dd>{{ ui.room?.mapName || '-' }}</dd>
         </div>
       </dl>
 
+      <div v-if="ui.room" class="menu-round">
+        <span>本图剩余 <strong>{{ formatTime(ui.room.timeLeft) }}</strong></span>
+        <span>{{ ui.room.players }} 玩家 / {{ ui.room.spectators }} 观战</span>
+      </div>
+
       <div class="menu-actions">
-        <button type="button" class="menu-action" @click="testLua">
-          <span>测试 Lua 回调</span>
-          <small>JS → Lua → JS</small>
+        <button
+          type="button"
+          class="menu-action"
+          :disabled="!ui.canStartVote"
+          @click="startVote"
+        >
+          <span>发起换图投票</span>
+          <small>{{ ui.canStartVote ? '30 秒后结算' : '当前不可发起' }}</small>
         </button>
-        <button type="button" class="menu-action" @click="openDevTools">
+        <button type="button" class="menu-action" @click="devtools">
           <span>打开 DevTools</span>
           <small>CEF 调试</small>
+        </button>
+        <button type="button" class="menu-action menu-action--ghost" @click="leaveStage">
+          <span>离开舞台</span>
+          <small>回到舞台选择</small>
         </button>
         <button type="button" class="menu-action menu-action--ghost" @click="close">
           <span>关闭菜单</span>
           <small>Esc</small>
         </button>
       </div>
-
-      <transition name="fade">
-        <p v-if="toast" class="menu-toast">{{ toast }}</p>
-      </transition>
     </section>
   </div>
 </template>
@@ -102,12 +89,12 @@ onUnmounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(circle at 50% 30%, rgba(20, 40, 70, 0.55), rgba(4, 7, 12, 0.78));
+  background: radial-gradient(circle at 50% 30%, rgba(20, 40, 70, 0.45), rgba(4, 7, 12, 0.72));
   animation: menu-fade 0.16s ease-out;
 }
 
 .menu-panel {
-  width: min(560px, calc(100vw - 96px));
+  width: min(520px, calc(100vw - 96px));
   padding: 26px 28px;
   border: 1px solid var(--rst-border);
   border-radius: 16px;
@@ -115,7 +102,7 @@ onUnmounted(() => {
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.45);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 18px;
 }
 
 .menu-panel__head {
@@ -136,7 +123,6 @@ onUnmounted(() => {
   margin: 0;
   font-size: 22px;
   font-weight: 600;
-  letter-spacing: 0.02em;
 }
 
 .menu-close {
@@ -147,7 +133,6 @@ onUnmounted(() => {
   color: var(--rst-muted);
   font-size: 18px;
   line-height: 1;
-  transition: background 0.15s ease, color 0.15s ease;
 }
 
 .menu-close:hover {
@@ -182,6 +167,19 @@ onUnmounted(() => {
   text-overflow: ellipsis;
 }
 
+.menu-round {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  font-size: 11px;
+  color: var(--rst-muted);
+}
+
+.menu-round strong {
+  color: var(--rst-text);
+  font-variant-numeric: tabular-nums;
+}
+
 .menu-actions {
   display: flex;
   flex-direction: column;
@@ -201,9 +199,13 @@ onUnmounted(() => {
   transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.menu-action:hover {
+.menu-action:hover:not(:disabled) {
   background: rgba(76, 194, 255, 0.12);
   border-color: rgba(76, 194, 255, 0.4);
+}
+
+.menu-action:disabled {
+  opacity: 0.45;
 }
 
 .menu-action small {
@@ -213,25 +215,6 @@ onUnmounted(() => {
 
 .menu-action--ghost {
   color: var(--rst-muted);
-}
-
-.menu-toast {
-  margin: 0;
-  padding: 10px 12px;
-  border-radius: 8px;
-  background: rgba(76, 194, 255, 0.12);
-  color: var(--rst-accent);
-  font-size: 12px;
-}
-
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s ease;
-}
-
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
 }
 
 @keyframes menu-fade {

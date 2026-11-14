@@ -4,7 +4,7 @@
   --rst-text: #e8eef8;
   --rst-muted: #93a4bd;
   --rst-accent: #4cc2ff;
-  --rst-panel: rgba(10, 16, 26, 0.88);
+  --rst-panel: rgba(10, 16, 26, 0.9);
   --rst-panel-soft: rgba(13, 21, 33, 0.72);
   --rst-border: rgba(140, 180, 255, 0.16);
   --rst-font: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
@@ -31,6 +31,11 @@ body {
   user-select: none;
 }
 
+input,
+button {
+  font-family: inherit;
+}
+
 button {
   padding: 0;
   border: 0;
@@ -38,6 +43,10 @@ button {
   color: inherit;
   font: inherit;
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
 }
 
 .app-root {

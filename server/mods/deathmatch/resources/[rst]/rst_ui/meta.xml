@@ -2,13 +2,24 @@
     <info
         author="rst"
         name="rst_ui"
-        version="0.1.0"
+        version="0.2.0"
         type="script"
-        description="rst-mta-lite 的 CEF + Vue 客户端界面"
+        description="rst-mta-lite：CEF + Vue 登录 / 舞台选择 / DeathMatch 房间 / 投票 / rewind"
     />
 
-    <script src="client/main.lua" type="client" />
+    <!-- 服务端 -->
+    <script src="shared/config.lua" type="server" />
+    <script src="server/accounts.lua" type="server" />
+    <script src="server/rooms.lua" type="server" />
     <script src="server/main.lua" type="server" />
+
+    <!-- 客户端 -->
+    <script src="client/main.lua" type="client" />
+    <script src="client/rewind.lua" type="client" />
+
+    <!-- UI 音效 -->
+    <file src="sounds/click.wav" />
+    <file src="sounds/confirm.wav" />
 
     <!-- Vue 构建产物（cef/vite.config.ts 输出到这里，ui/ 不入库） -->
     <file src="ui/index.html" />

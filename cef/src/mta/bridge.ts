@@ -12,6 +12,7 @@ declare global {
     rst?: {
       dispatch: (event: string, payloadJson?: string) => void
     }
+    __rstMockState?: (state: unknown) => void
   }
 }
 
@@ -43,6 +44,12 @@ export function installBridge(): void {
       dispatchLocal(event, payload)
     },
   }
+
+  if (import.meta.env.DEV) {
+    window.__rstMockState = (state) => {
+      window.rst?.dispatch('state', JSON.stringify(state))
+    }
+  }
 }
 
 export function onBridge<K extends keyof BridgeEventMap>(
@@ -73,19 +80,23 @@ export function emitToLua(event: string, payload?: unknown): void {
   }
 }
 
-/** 纯浏览器开发时模拟 Lua 推送的数据 */
+/** 业务动作，统一走 rst:ui:action */
+export function emitAction(action: string, payload?: Record<string, unknown>): void {
+  emitToLua('action', { ...payload, action })
+}
+
+/** 纯浏览器开发时模拟服务端状态 */
 export function installMockServer(): void {
   if (isMtaClient() || !import.meta.env.DEV) return
+
+  const mockState = {
+    phase: 'auth',
+    serverName: 'rst-mta-lite · browser mock',
+    me: { name: 'DevPlayer', guest: false },
+  }
+
   window.setTimeout(() => {
-    window.rst?.dispatch(
-      'bootstrap',
-      JSON.stringify({
-        playerName: 'DevPlayer',
-        serverName: 'rst-mta-lite · browser mock',
-        online: 1,
-        revision: 'dev',
-      }),
-    )
+    window.rst?.dispatch('state', JSON.stringify(mockState))
     window.rst?.dispatch('stats', JSON.stringify({ health: 87, armor: 42 }))
-  }, 400)
+  }, 300)
 }

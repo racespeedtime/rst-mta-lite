@@ -2,22 +2,49 @@
     rst_ui / client/main.lua
 
     职责：
-    1. 创建全屏 CEF 浏览器（local 模式），加载 http://mta/local/ui/index.html
-    2. 用 dxDrawImage 渲染浏览器纹理，并注入鼠标 / 键盘输入
-    3. 提供 Lua <-> JS 双向桥：
-       - JS -> Lua: mta.triggerEvent("rst:ui:*", jsonString)
-       - Lua -> JS: executeBrowserJavascript(browser, "window.rst.dispatch(...)")
+    - 全屏 CEF 浏览器（local 模式）+ dxDrawImage 渲染 + 输入注入
+    - 登录 / 选择舞台 / 游戏 HUD 的状态机与交互开关
+    - 浏览器 ↔ Lua ↔ 服务端 的消息转发
+    - 观战相机
 ]]
 
-local UI_URL = "http://mta/local/ui/index.html"
-local UI_VERSION = "0.1.0"
+local UI_URL = 'http://mta/local/ui/index.html'
 
 local browser
 local browserReady = false
-local menuOpen = false
-local interactive = false
 local screenW, screenH = guiGetScreenSize()
-local serverInfo = { name = "rst-mta-lite", online = 0 }
+
+local phase = 'auth'
+local mode = 'playing'
+local menuOpen = false
+local voteActive = false
+local interactive = false
+local cachedState = nil
+local spectateTarget = nil
+local spectateTimer = nil
+
+RST = {
+    phase = phase,
+    mode = mode,
+    interactive = false,
+    menuOpen = false,
+    voteActive = false,
+}
+
+function RST.isGameplayActive()
+    return RST.phase == 'playing'
+        and RST.mode == 'playing'
+        and not RST.interactive
+        and not RST.voteActive
+end
+
+function RST.canRewind()
+    return RST.isGameplayActive()
+        and getElementHealth(localPlayer) > 0
+        and not isChatBoxInputActive()
+        and not isConsoleActive()
+        and not isMTAWindowActive()
+end
 
 -- ---------------------------------------------------------------------------
 -- 与页面通信
@@ -29,21 +56,207 @@ local function callJs(name, ...)
     end
 
     local args = {}
-    for i = 1, select("#", ...) do
+    for i = 1, select('#', ...) do
         local value = select(i, ...)
-        if type(value) == "string" then
-            args[#args + 1] = string.format("%q", value)
+        if type(value) == 'string' then
+            args[#args + 1] = string.format('%q', value)
         else
             args[#args + 1] = tostring(value)
         end
     end
 
-    local code = ("window.rst && window.rst.%s(%s)"):format(name, table.concat(args, ","))
-    return executeBrowserJavascript(browser, code)
+    return executeBrowserJavascript(
+        browser,
+        ('window.rst && window.rst.%s(%s)'):format(name, table.concat(args, ','))
+    )
 end
 
 local function dispatch(name, payload)
-    return callJs("dispatch", name, toJSON(payload or {}))
+    return callJs('dispatch', name, toJSON(payload or {}))
+end
+
+local function dispatchRaw(name, json)
+    return callJs('dispatch', name, json or '{}')
+end
+
+RST.dispatch = dispatch
+
+-- ---------------------------------------------------------------------------
+-- 音效
+-- ---------------------------------------------------------------------------
+
+local SOUND_FILES = {
+    click = 'sounds/click.wav',
+    confirm = 'sounds/confirm.wav',
+}
+
+local lastSound
+
+local function playUiSound(name)
+    local path = SOUND_FILES[name]
+    if not path then
+        return
+    end
+
+    if lastSound and isElement(lastSound) then
+        destroyElement(lastSound)
+        lastSound = nil
+    end
+
+    local sound = playSound(path, false)
+    if sound then
+        setSoundVolume(sound, 0.55)
+        lastSound = sound
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- 输入 / 交互状态
+-- ---------------------------------------------------------------------------
+
+local function setInteractive(enabled)
+    enabled = enabled == true
+    if enabled == interactive then
+        return
+    end
+
+    if not enabled and RST.stopRewind then
+        RST.stopRewind()
+    end
+
+    interactive = enabled
+    RST.interactive = enabled
+
+    showCursor(enabled)
+    guiSetInputEnabled(enabled)
+    toggleAllControls(not enabled, true, false)
+
+    if browserReady then
+        if enabled then
+            focusBrowser(browser)
+        else
+            focusBrowser(nil)
+        end
+    end
+end
+
+local function applyInteractive()
+    setInteractive(phase ~= 'playing' or menuOpen or voteActive)
+end
+
+-- ---------------------------------------------------------------------------
+-- 观战相机
+-- ---------------------------------------------------------------------------
+
+local function stopSpectate()
+    if spectateTimer then
+        killTimer(spectateTimer)
+        spectateTimer = nil
+    end
+    spectateTarget = nil
+end
+
+local function findSpectateTarget()
+    for _, player in ipairs(getElementsByType('player')) do
+        if
+            player ~= localPlayer
+            and getElementDimension(player) == getElementDimension(localPlayer)
+            and getElementHealth(player) > 0
+        then
+            return player
+        end
+    end
+    return nil
+end
+
+local function updateSpectateTarget()
+    if mode ~= 'spectating' or phase ~= 'playing' then
+        return
+    end
+
+    if
+        not (
+            spectateTarget
+            and isElement(spectateTarget)
+            and getElementHealth(spectateTarget) > 0
+        )
+    then
+        spectateTarget = findSpectateTarget()
+    end
+
+    if spectateTarget then
+        setCameraTarget(spectateTarget)
+    end
+end
+
+local function startSpectate()
+    updateSpectateTarget()
+
+    if not spectateTimer then
+        spectateTimer = setTimer(function()
+            if phase ~= 'playing' or mode ~= 'spectating' then
+                stopSpectate()
+                return
+            end
+            updateSpectateTarget()
+        end, 2000, 0)
+    end
+end
+
+-- ---------------------------------------------------------------------------
+-- 状态机
+-- ---------------------------------------------------------------------------
+
+local function applyState(state)
+    local previousPhase = phase
+    local previousVote = voteActive
+
+    phase = state.phase or 'auth'
+    mode = (state.me and state.me.mode) or 'playing'
+    voteActive = type(state.vote) == 'table' and state.vote.active == true
+
+    RST.phase = phase
+    RST.mode = mode
+    RST.voteActive = voteActive
+
+    if phase ~= 'playing' and menuOpen then
+        menuOpen = false
+        RST.menuOpen = false
+        dispatch('menu', { open = false })
+    end
+
+    if phase == 'playing' and mode == 'spectating' then
+        startSpectate()
+    else
+        stopSpectate()
+    end
+
+    applyInteractive()
+
+    if phase == 'playing' and mode == 'playing' and getElementHealth(localPlayer) > 0 then
+        setCameraTarget(localPlayer)
+        fadeCamera(true)
+    end
+
+    if previousPhase ~= phase or (not previousVote and voteActive) then
+        playUiSound('confirm')
+    end
+end
+
+local function setMenuOpen(open)
+    open = open == true
+    if open == menuOpen then
+        return
+    end
+    if open and phase ~= 'playing' then
+        return
+    end
+
+    menuOpen = open
+    RST.menuOpen = open
+    dispatch('menu', { open = open })
+    applyInteractive()
+    playUiSound('click')
 end
 
 -- ---------------------------------------------------------------------------
@@ -61,81 +274,35 @@ local function render()
         resizeBrowser(browser, screenW, screenH)
     end
 
+    if RST.isRewinding and RST.isRewinding() then
+        dxDrawRectangle(0, 0, screenW, screenH, tocolor(70, 140, 255, 45))
+    end
+
     dxDrawImage(0, 0, screenW, screenH, browser, 0, 0, 0, tocolor(255, 255, 255, 255), false)
 end
-
--- ---------------------------------------------------------------------------
--- 交互状态：菜单打开时显示鼠标、接管键盘并禁用游戏控制
--- ---------------------------------------------------------------------------
-
-local function setInteractive(enabled)
-    enabled = enabled == true
-    if enabled == interactive then
-        return
-    end
-    interactive = enabled
-
-    showCursor(enabled)
-    guiSetInputEnabled(enabled)
-    toggleAllControls(not enabled, true, false)
-
-    if browserReady then
-        if enabled then
-            focusBrowser(browser)
-        else
-            focusBrowser(nil)
-        end
-    end
-end
-
-local function setMenuOpen(open)
-    open = open == true
-    if menuOpen == open then
-        return
-    end
-
-    menuOpen = open
-    setInteractive(open)
-    dispatch("menu", { open = menuOpen })
-end
-
--- ---------------------------------------------------------------------------
--- 向页面推送数据
--- ---------------------------------------------------------------------------
-
-local function sendBootstrap()
-    dispatch("bootstrap", {
-        playerName = getPlayerName(localPlayer) or "player",
-        serverName = serverInfo.name or "rst-mta-lite",
-        online = tonumber(serverInfo.online) or 0,
-        revision = UI_VERSION,
-    })
-    dispatch("menu", { open = menuOpen })
-end
-
-local statsTimer = setTimer(function()
-    if not browserReady then
-        return
-    end
-
-    dispatch("stats", {
-        health = math.floor(tonumber(getElementHealth(localPlayer)) or 100),
-        armor = math.floor(tonumber(getPedArmor(localPlayer)) or 0),
-    })
-end, 1000, 0)
 
 -- ---------------------------------------------------------------------------
 -- 浏览器生命周期
 -- ---------------------------------------------------------------------------
 
 local function onBrowserCreated()
+    if source ~= browser then
+        return
+    end
+
     browserReady = true
-    loadBrowserURL(source, UI_URL)
+    loadBrowserURL(browser, UI_URL)
+    addEventHandler('onClientRender', root, render)
+    setInteractive(true)
+    -- 状态可能在浏览器创建前就已到达，这里补一次聚焦，保证登录框能输入
+    if interactive then
+        focusBrowser(browser)
+    end
 end
 
 local function onBrowserLoadingFailed(url, errorCode, errorDescription)
     outputDebugString(
-        ("rst_ui: 页面加载失败 %s (%s: %s)"):format(
+        ('rst_ui: 页面加载失败 %s (%s: %s)'):format(
             tostring(url),
             tostring(errorCode),
             tostring(errorDescription)
@@ -148,109 +315,166 @@ local function createUiBrowser()
     screenW, screenH = guiGetScreenSize()
     browser = createBrowser(screenW, screenH, true, true)
     if not browser then
-        outputDebugString("rst_ui: createBrowser 失败", 1)
+        outputDebugString('rst_ui: createBrowser 失败', 1)
         return
     end
 
-    addEventHandler("onClientBrowserCreated", browser, onBrowserCreated)
-    addEventHandler("onClientBrowserLoadingFailed", browser, onBrowserLoadingFailed)
-    addEventHandler("onClientRender", root, render)
+    addEventHandler('onClientBrowserCreated', browser, onBrowserCreated)
+    addEventHandler('onClientBrowserLoadingFailed', browser, onBrowserLoadingFailed)
 end
 
 -- ---------------------------------------------------------------------------
--- 输入转发到 CEF
+-- 输入转发
 -- ---------------------------------------------------------------------------
 
-addEventHandler("onClientCursorMove", root, function(_, _, absoluteX, absoluteY)
+addEventHandler('onClientCursorMove', root, function(_, _, absoluteX, absoluteY)
     if interactive and browserReady then
         injectBrowserMouseMove(browser, absoluteX, absoluteY)
     end
 end)
 
-addEventHandler("onClientClick", root, function(button, state, absoluteX, absoluteY)
+addEventHandler('onClientClick', root, function(button, state, absoluteX, absoluteY)
     if not interactive or not browserReady then
         return
     end
 
     injectBrowserMouseMove(browser, absoluteX, absoluteY)
-    if state == "down" then
+    if state == 'down' then
         injectBrowserMouseDown(browser, button)
     else
         injectBrowserMouseUp(browser, button)
     end
 end)
 
-addEventHandler("onClientMouseWheel", root, function(delta)
-    if interactive and browserReady and type(delta) == "number" then
+addEventHandler('onClientMouseWheel', root, function(delta)
+    if interactive and browserReady and type(delta) == 'number' then
         injectBrowserMouseWheel(browser, delta)
     end
 end)
 
 -- ---------------------------------------------------------------------------
--- JS -> Lua 事件（页面里用 mta.triggerEvent 触发）
+-- 页面事件
 -- ---------------------------------------------------------------------------
 
-addEvent("rst:ui:ready", false)
-addEvent("rst:ui:menu:close", false)
-addEvent("rst:ui:test", false)
-addEvent("rst:ui:devtools", false)
-addEvent("rst:ui:serverInfo", true)
+addEvent('rst:ui:ready', false)
+addEvent('rst:ui:action', false)
+addEvent('rst:ui:state', true)
+addEvent('rst:ui:notice', true)
 
-addEventHandler("rst:ui:ready", root, function()
-    sendBootstrap()
-end)
-
-addEventHandler("rst:ui:menu:close", root, function()
-    setMenuOpen(false)
-end)
-
-addEventHandler("rst:ui:test", root, function()
-    dispatch("toast", {
-        text = "Lua 收到测试事件，玩家：" .. (getPlayerName(localPlayer) or "?"),
-    })
-end)
-
-addEventHandler("rst:ui:devtools", root, function()
-    if browser then
-        toggleBrowserDevTools(browser)
+addEventHandler('rst:ui:ready', root, function()
+    if cachedState then
+        dispatchRaw('state', cachedState)
+    end
+    triggerServerEvent('rst:ui:requestState', localPlayer)
+    applyInteractive()
+    if interactive and browserReady then
+        focusBrowser(browser)
     end
 end)
 
-addEventHandler("rst:ui:serverInfo", root, function(json)
-    local data = fromJSON(json)
-    if type(data) ~= "table" then
+addEventHandler('rst:ui:action', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) ~= 'table' or type(data.action) ~= 'string' then
         return
     end
 
-    serverInfo.name = data.name or serverInfo.name
-    serverInfo.online = data.online or serverInfo.online
-    if browserReady then
-        sendBootstrap()
+    if data.action == 'sound' then
+        playUiSound(tostring(data.name or 'click'))
+    elseif data.action == 'menu:close' then
+        setMenuOpen(false)
+    elseif data.action == 'devtools' then
+        if browser then
+            toggleBrowserDevTools(browser)
+        end
+    else
+        triggerServerEvent('rst:ui:action', localPlayer, json)
     end
 end)
+
+addEventHandler('rst:ui:state', root, function(json)
+    if type(json) ~= 'string' then
+        return
+    end
+
+    cachedState = json
+    local state = fromJSON(json)
+    if type(state) == 'table' then
+        applyState(state)
+    end
+    dispatchRaw('state', json)
+end)
+
+addEventHandler('rst:ui:notice', root, function(text)
+    if type(text) == 'string' then
+        dispatch('toast', { text = text })
+    end
+end)
+
+-- ---------------------------------------------------------------------------
+-- 本地玩家状态
+-- ---------------------------------------------------------------------------
+
+addEventHandler('onClientPlayerSpawn', localPlayer, function()
+    if phase == 'playing' and mode == 'playing' then
+        stopSpectate()
+        setCameraTarget(localPlayer)
+        fadeCamera(true)
+        if RST.resetRewind then
+            RST.resetRewind()
+        end
+    end
+end)
+
+addEventHandler('onClientPlayerWasted', localPlayer, function()
+    if RST.stopRewind then
+        RST.stopRewind()
+    end
+end)
+
+setTimer(function()
+    if not browserReady or phase ~= 'playing' then
+        return
+    end
+
+    dispatch('stats', {
+        health = math.floor(tonumber(getElementHealth(localPlayer)) or 100),
+        armor = math.floor(tonumber(getPedArmor(localPlayer)) or 0),
+    })
+end, 500, 0)
 
 -- ---------------------------------------------------------------------------
 -- 入口 / 退出
 -- ---------------------------------------------------------------------------
 
-bindKey("F2", "down", function()
+bindKey('F2', 'down', function()
+    if phase ~= 'playing' then
+        return
+    end
     setMenuOpen(not menuOpen)
 end)
 
-addCommandHandler("ui", function()
+addCommandHandler('ui', function()
+    if phase ~= 'playing' then
+        outputChatBox('rst: 选择舞台之后才能打开菜单')
+        return
+    end
     setMenuOpen(not menuOpen)
 end)
 
-addEventHandler("onClientResourceStop", resourceRoot, function()
-    if statsTimer and isTimer(statsTimer) then
-        killTimer(statsTimer)
+addEventHandler('onClientResourceStop', resourceRoot, function()
+    if RST.stopRewind then
+        RST.stopRewind()
     end
 
-    setInteractive(false)
+    stopSpectate()
+    showCursor(false)
+    guiSetInputEnabled(false)
+    toggleAllControls(true, true, false)
+
     if browser and isElement(browser) then
         destroyElement(browser)
     end
-    removeEventHandler("onClientRender", root, render)
+    removeEventHandler('onClientRender', root, render)
 end)
 
 createUiBrowser()
