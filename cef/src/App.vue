@@ -35,6 +35,12 @@ function showToast(text: string): void {
 }
 
 function applyState(state: StatePayload): void {
+  if (!state || (state.phase !== 'auth' && state.phase !== 'stage' && state.phase !== 'playing')) {
+    console.error('[rst-ui] 收到无效 state.phase', state)
+    ui.phase = 'auth'
+    return
+  }
+
   const previousPhase = ui.phase
 
   ui.phase = state.phase
@@ -153,7 +159,7 @@ onUnmounted(() => {
   <div class="app-root">
     <AuthView v-if="ui.phase === 'auth'" />
     <StageSelectView v-else-if="ui.phase === 'stage'" />
-    <template v-else>
+    <template v-else-if="ui.phase === 'playing'">
       <GameHud />
       <MapTimer v-if="ui.room" />
       <ChatPanel />
@@ -169,6 +175,7 @@ onUnmounted(() => {
       <RewindOverlay v-if="ui.rewind.active" />
       <HelpOverlay v-if="ui.helpOpen" />
     </template>
+    <AuthView v-else />
     <BuildTag />
     <ToastMessage :text="toast" />
   </div>

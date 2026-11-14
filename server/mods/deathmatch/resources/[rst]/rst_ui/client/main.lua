@@ -327,7 +327,13 @@ local function applyState(state)
     local previousPhase = phase
     local previousVote = voteActive
 
-    phase = state.phase or 'auth'
+    local nextPhase = state.phase
+    if nextPhase ~= 'auth' and nextPhase ~= 'stage' and nextPhase ~= 'playing' then
+        outputDebugString('[rst_ui] invalid state.phase: ' .. tostring(nextPhase), 1)
+        nextPhase = 'auth'
+    end
+
+    phase = nextPhase
     mode = (state.me and state.me.mode) or 'playing'
     voteActive = (type(state.vote) == 'table' and state.vote.active == true)
         or (type(state.modeVote) == 'table' and state.modeVote.active == true)
@@ -566,7 +572,7 @@ addEvent('rst:ui:countdown', true)
 addEvent('rst:ui:lives', true)
 
 addEventHandler('rst:ui:ready', root, function()
-    if cachedState then
+    if type(cachedState) == 'string' and #cachedState > 2 then
         dispatchRaw('state', cachedState)
     end
     triggerServerEvent('rst:ui:requestState', localPlayer)
@@ -602,7 +608,7 @@ addEventHandler('rst:ui:action', root, function(json)
 end)
 
 addEventHandler('rst:ui:state', root, function(json)
-    if type(json) ~= 'string' then
+    if type(json) ~= 'string' or #json < 2 then
         return
     end
 
