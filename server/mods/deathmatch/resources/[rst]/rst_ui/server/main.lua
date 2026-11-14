@@ -632,9 +632,8 @@ addCommandHandler('car', function(player, _, modelArg)
     end
 
     setElementDimension(vehicle, getElementDimension(player))
-    addVehicleUpgrade(vehicle, 1010)
     setElementData(vehicle, 'rst:testVehicle', true)
     testVehicles[player] = vehicle
 
-    notify(player, '已生成测试车辆（带氮气），按 F 上车')
+    notify(player, '已生成测试车辆，按 F 上车')
 end)

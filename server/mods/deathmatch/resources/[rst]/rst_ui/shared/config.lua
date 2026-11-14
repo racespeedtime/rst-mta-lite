@@ -23,9 +23,8 @@ RST.config = {
     minPasswordLength = 8,
     maxPasswordLength = 128,
 
-    -- 竞速模式：每张赛道出生直接给一辆赛车
+    -- 竞速模式：按地图 spawnpoint 给对应车辆，不默认安装氮气
     vehicle = 411,
-    vehicleNitro = true,
 
     -- 地图池不在这里维护：MapRegistry 运行时扫描原生 type="map" resource，
     -- 从 meta.xml / .map 读取 name、author、spawnpoint、vehicle、Hunter finish。

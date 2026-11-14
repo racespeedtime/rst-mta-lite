@@ -793,12 +793,8 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     setHelpOpen(false)
 end)
 
--- 测试车辆 / 竞速车辆：补满氮气
+-- 进入测试车辆 / 竞速车辆：刷新 ghost，不额外补氮气
 addEventHandler('onClientPlayerVehicleEnter', localPlayer, function(vehicle)
-    if getElementData(vehicle, 'rst:testVehicle') or getElementData(vehicle, 'rst:raceVehicle') then
-        setVehicleNitroCount(vehicle, 101)
-        setVehicleNitroLevel(vehicle, 1)
-    end
     if RST.refreshGhosts then
         RST.refreshGhosts()
     end

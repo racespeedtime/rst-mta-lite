@@ -69,15 +69,24 @@ local function readMap(resource)
         return nil
     end
 
-    local spawnNode
+    local spawns = {}
     local lastCheckpoint
     local hunterCount = 0
     local hunterX, hunterY, hunterZ = 0, 0, 0
 
     for _, node in ipairs(xmlNodeGetChildren(mapRoot) or {}) do
         local name = xmlNodeGetName(node)
-        if name == 'spawnpoint' and not spawnNode then
-            spawnNode = node
+        if name == 'spawnpoint' then
+            local x, y, z = num(node, 'posX'), num(node, 'posY'), num(node, 'posZ')
+            if x and y and z then
+                spawns[#spawns + 1] = {
+                    x = x,
+                    y = y,
+                    z = z,
+                    rot = num(node, 'rotZ') or 0,
+                    vehicle = tonumber(attr(node, 'vehicle')),
+                }
+            end
         elseif name == 'checkpoint' then
             if num(node, 'posX') and num(node, 'posY') and num(node, 'posZ') then
                 lastCheckpoint = node
@@ -98,34 +107,33 @@ local function readMap(resource)
     end
 
     local entry
-    if spawnNode then
-        local x, y, z = num(spawnNode, 'posX'), num(spawnNode, 'posY'), num(spawnNode, 'posZ')
-        if x and y and z then
-            local finish
-            if hunterCount > 0 then
-                finish = { x = hunterX / hunterCount, y = hunterY / hunterCount, z = hunterZ / hunterCount }
-            elseif lastCheckpoint then
-                finish = {
-                    x = num(lastCheckpoint, 'posX'),
-                    y = num(lastCheckpoint, 'posY'),
-                    z = num(lastCheckpoint, 'posZ'),
-                }
-            end
-
-            entry = {
-                id = resourceName,
-                resource = resourceName,
-                name = (infoNode and attr(infoNode, 'name')) or getResourceInfo(resource, 'name') or resourceName,
-                author = (infoNode and attr(infoNode, 'author')) or getResourceInfo(resource, 'author') or '未知作者',
-                dimension = tonumber(attr(mapNode, 'dimension')) or 0,
-                x = x,
-                y = y,
-                z = z,
-                rot = num(spawnNode, 'rotZ') or 0,
-                vehicle = tonumber(attr(spawnNode, 'vehicle')),
-                finish = finish,
+    if #spawns > 0 then
+        local first = spawns[1]
+        local finish
+        if hunterCount > 0 then
+            finish = { x = hunterX / hunterCount, y = hunterY / hunterCount, z = hunterZ / hunterCount }
+        elseif lastCheckpoint then
+            finish = {
+                x = num(lastCheckpoint, 'posX'),
+                y = num(lastCheckpoint, 'posY'),
+                z = num(lastCheckpoint, 'posZ'),
             }
         end
+
+        entry = {
+            id = resourceName,
+            resource = resourceName,
+            name = (infoNode and attr(infoNode, 'name')) or getResourceInfo(resource, 'name') or resourceName,
+            author = (infoNode and attr(infoNode, 'author')) or getResourceInfo(resource, 'author') or '未知作者',
+            dimension = tonumber(attr(mapNode, 'dimension')) or 0,
+            spawnpoints = spawns,
+            x = first.x,
+            y = first.y,
+            z = first.z,
+            rot = first.rot or 0,
+            vehicle = first.vehicle,
+            finish = finish,
+        }
     end
 
     xmlUnloadFile(mapRoot)
@@ -155,8 +163,9 @@ function MapRegistry.init()
 
     for _, id in ipairs(ids) do
         local entry = maps[id]
-        outputServerLog(('[MAP] native %s spawn=(%.2f, %.2f, %.2f) vehicle=%s finish=%s'):format(
+        outputServerLog(('[MAP] native %s spawns=%d first=(%.2f, %.2f, %.2f) vehicle=%s finish=%s'):format(
             tostring(entry.name),
+            #entry.spawnpoints,
             entry.x,
             entry.y,
             entry.z,

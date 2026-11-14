@@ -205,19 +205,15 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
     end
     raceVehicles[player] = nil
 
-    local index = 1
-    for i, value in ipairs(room.players) do
-        if value == player then
-            index = i
-            break
-        end
+    local spawns = map.spawnpoints
+    if type(spawns) ~= 'table' or #spawns == 0 then
+        spawns = { { x = map.x, y = map.y, z = map.z, rot = map.rot, vehicle = map.vehicle } }
     end
-    local column = (index - 1) % 2
-    local row = math.floor((index - 1) / 2)
-    local x = map.x + (column == 0 and -3.5 or 3.5)
-    local y = map.y - row * 7
-    local z = map.z + 0.7
-    local rot = map.rot + math.random(-5, 5)
+    local spawn = spawns[math.random(#spawns)]
+    local x = spawn.x
+    local y = spawn.y
+    local z = spawn.z + 0.5
+    local rot = spawn.rot or map.rot or 0
 
     spawnPlayer(player, x, y, z, rot)
     setElementDimension(player, room.dimension)
@@ -225,13 +221,11 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
     setPedArmor(player, 0)
     takeAllWeapons(player)
 
-    local vehicle = createVehicle(map.vehicle or config.vehicle or 411, x, y, z, 0, 0, rot)
+    local model = spawn.vehicle or map.vehicle or config.vehicle or 411
+    local vehicle = createVehicle(model, x, y, z, 0, 0, rot)
     if vehicle then
         setElementDimension(vehicle, room.dimension)
         setElementHealth(vehicle, 1000)
-        if config.vehicleNitro then
-            addVehicleUpgrade(vehicle, 1010)
-        end
         setElementData(vehicle, 'rst:raceVehicle', true)
         warpPedIntoVehicle(player, vehicle, 0)
         raceVehicles[player] = vehicle
