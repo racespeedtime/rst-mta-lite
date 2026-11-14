@@ -677,11 +677,15 @@ function Rooms.leave(player)
                 room.modeVote = nil
                 room.waiting = false
                 room.ready = {}
-                room.lives = {}
-                room.ob = {}
-                room.mode = config.defaultMode or 'training'
-                room.lastVoteAt = 0
-                room.lastModeVoteAt = 0
+
+                -- 只有完全空房才重置模式和纯 OB 标记；只剩观战者时保留偏好
+                if #room.spectators == 0 then
+                    room.lives = {}
+                    room.ob = {}
+                    room.mode = config.defaultMode or 'training'
+                    room.lastVoteAt = 0
+                    room.lastModeVoteAt = 0
+                end
             elseif room.waiting and allPlayersReady(room) then
                 Rooms.beginCountdown(room)
             end

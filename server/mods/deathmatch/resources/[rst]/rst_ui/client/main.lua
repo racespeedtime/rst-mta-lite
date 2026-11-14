@@ -386,7 +386,10 @@ local function applyState(state)
     end
 
     if phase == 'playing' and RST.refreshGhosts then
-        RST.refreshGhosts()
+        local ok, err = pcall(RST.refreshGhosts)
+        if not ok then
+            outputDebugString('[rst_ui] refreshGhosts failed: ' .. tostring(err), 1)
+        end
     end
 
     if previousPhase ~= phase or (not previousVote and voteActive) then
@@ -463,6 +466,14 @@ local function render()
         resizeBrowser(browser, screenW, screenH)
     end
 
+    -- CEF 有时会抢回键盘焦点；非交互状态下立即释放，bindKey 才能收到 F1/F2/T
+    if not interactive and browser and isElement(browser) then
+        local ok, focused = pcall(isBrowserFocused, browser)
+        if ok and focused then
+            focusBrowser(nil)
+        end
+    end
+
     if RST.isRewinding and RST.isRewinding() then
         dxDrawRectangle(0, 0, screenW, screenH, tocolor(70, 140, 255, 45))
     end
@@ -482,7 +493,7 @@ local function onBrowserCreated()
     browserReady = true
     loadBrowserURL(browser, UI_URL)
     addEventHandler('onClientRender', root, render)
-    setInteractive(true)
+    applyInteractive()
     -- 状态可能在浏览器创建前就已到达，这里补一次聚焦，保证登录框能输入
     if interactive then
         focusBrowser(browser)
@@ -598,8 +609,13 @@ addEventHandler('rst:ui:state', root, function(json)
     cachedState = json
     local state = fromJSON(json)
     if type(state) == 'table' then
-        applyState(state)
+        local ok, err = pcall(applyState, state)
+        if not ok then
+            outputDebugString('[rst_ui] applyState failed: ' .. tostring(err), 1)
+        end
     end
+
+    -- 即使客户端 Lua 状态处理出错，也先把状态送进 CEF，避免界面卡死在旧阶段
     dispatchRaw('state', json)
 end)
 
@@ -840,14 +856,20 @@ end, 100, 0)
 -- 入口 / 退出
 -- ---------------------------------------------------------------------------
 
-bindKey('F2', 'down', function()
+local function bindUiKey(key, handler)
+    if not bindKey(key, 'down', handler) then
+        outputDebugString('[rst_ui] bindKey failed: ' .. tostring(key), 1)
+    end
+end
+
+bindUiKey('F2', function()
     if phase ~= 'playing' then
         return
     end
     setMenuOpen(not menuOpen)
 end)
 
-bindKey('T', 'down', function()
+bindUiKey('T', function()
     if chatOpen then
         return
     end
@@ -858,21 +880,21 @@ bindKey('T', 'down', function()
 end)
 
 -- 观战：左键下一位、右键上一位
-bindKey('mouse1', 'down', function()
+bindUiKey('mouse1', function()
     if phase ~= 'playing' or mode ~= 'spectating' or interactive then
         return
     end
     switchSpectate(1)
 end)
 
-bindKey('mouse2', 'down', function()
+bindUiKey('mouse2', function()
     if phase ~= 'playing' or mode ~= 'spectating' or interactive then
         return
     end
     switchSpectate(-1)
 end)
 
-bindKey('F1', 'down', function()
+bindUiKey('F1', function()
     if phase ~= 'playing' then
         return
     end
@@ -897,6 +919,40 @@ addCommandHandler('ui', function()
     setMenuOpen(not menuOpen)
 end)
 
+-- 诊断：F8 控制台输入 uidiag，查看客户端状态 / 键位绑定 / CEF 焦点
+addCommandHandler('uidiag', function()
+    local focused = false
+    if browserReady and browser and isElement(browser) then
+        local ok, value = pcall(isBrowserFocused, browser)
+        focused = ok and value == true or false
+    end
+
+    local function boundCount(key)
+        local ok, handlers = pcall(getFunctionsBoundToKey, key, 'down')
+        return ok and type(handlers) == 'table' and #handlers or -1
+    end
+
+    local line = ('[rst_ui] phase=%s mode=%s interactive=%s browserReady=%s focused=%s menu=%s chat=%s help=%s vote=%s ready=%s rewindLives=%s f1=%d f2=%d t=%d')
+        :format(
+            tostring(phase),
+            tostring(mode),
+            tostring(interactive),
+            tostring(browserReady),
+            tostring(focused),
+            tostring(menuOpen),
+            tostring(chatOpen),
+            tostring(helpOpen),
+            tostring(voteActive),
+            tostring(RST.readyWaiting),
+            tostring(RST.rewindLives),
+            boundCount('f1'),
+            boundCount('f2'),
+            boundCount('t')
+        )
+    outputDebugString(line, 1)
+end)
+
+-- CEF 偶尔会在非交互状态下抢回键盘焦点，render 中会立即释放，保证 bindKey 正常触发
 addEventHandler('onClientResourceStop', resourceRoot, function()
     if RST.stopRewind then
         RST.stopRewind()

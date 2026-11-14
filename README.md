@@ -340,6 +340,15 @@ __rstMockState({
 - **聊天**：原生 `onClientChatMessage` 被拦截后转成 `chatMessage`；玩家发送走 `chat:send` action，服务端再广播 `rst:ui:chat`
 - **调试**：菜单「打开 DevTools」或 `toggleBrowserDevTools(browser)`
 
+## 调试
+
+- 游戏内快捷键无响应时，在 F8 控制台执行 `uidiag`，会输出：
+  `phase / mode / interactive / browserReady / CEF focus / menu / chat / help / vote / ready / rewindLives / F1/F2/T 绑定数量`
+- 客户端收到状态时会 `pcall` 保护状态处理；即使 Lua 状态处理报错，也会先把状态送进 CEF
+- 非交互状态每帧检查并释放 CEF 键盘焦点，避免浏览器抢焦点导致 `bindKey` 失效
+- MTA 客户端不要用管理员权限启动；控制台出现 `Running as Administrator - browser features may be limited` 时，CEF 可能被限制
+- 启动日志里缺失的 stock resources 已从本机 `mtaserver.conf` 移除，现在只加载 `rst_ui`
+
 ## 已验证 / 未验证
 
 已验证（本机）：
