@@ -55,6 +55,30 @@ function RST.canRewind()
 end
 
 -- ---------------------------------------------------------------------------
+-- 原生 HUD
+-- ---------------------------------------------------------------------------
+
+-- 血量 / 护甲 / 武器 / 金钱等改用 CEF 自绘，保留雷达和准星
+local NATIVE_HUD_HIDDEN = {
+    'health',
+    'armour',
+    'weapon',
+    'ammo',
+    'money',
+    'wanted',
+    'area_name',
+    'clock',
+    'vehicle_name',
+    'breath',
+}
+
+local function setNativeHudVisible(visible)
+    for _, component in ipairs(NATIVE_HUD_HIDDEN) do
+        setPlayerHudComponentVisible(component, visible)
+    end
+end
+
+-- ---------------------------------------------------------------------------
 -- 与页面通信
 -- ---------------------------------------------------------------------------
 
@@ -624,6 +648,7 @@ addEventHandler('onClientPlayerSpawn', localPlayer, function()
             RST.resetRewind()
         end
     end
+    setNativeHudVisible(false)
 end)
 
 addEventHandler('onClientPlayerWasted', localPlayer, function()
@@ -828,6 +853,7 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     guiSetInputEnabled(false)
     toggleAllControls(true, true, false)
     showChat(true, false)
+    setNativeHudVisible(true)
 
     if browser and isElement(browser) then
         destroyElement(browser)
@@ -837,5 +863,8 @@ end)
 
 -- 用 CEF 聊天替代原生聊天：隐藏原生聊天并屏蔽原生输入
 showChat(false, true)
+
+-- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
+setNativeHudVisible(false)
 
 createUiBrowser()
