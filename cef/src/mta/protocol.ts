@@ -47,6 +47,7 @@ export interface StatePayload {
   room?: RoomSummary
   vote?: VoteState
   canStartVote?: boolean
+  mapTime?: number
 }
 
 export interface RewindPayload {

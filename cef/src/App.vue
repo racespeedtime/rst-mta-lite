@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 import GameHud from '@/components/GameHud.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+import MapTimer from '@/components/MapTimer.vue'
 import Speedometer from '@/components/Speedometer.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -42,6 +43,7 @@ function applyState(state: StatePayload): void {
   ui.room = state.room || null
   ui.vote = state.vote || null
   ui.canStartVote = state.canStartVote === true
+  ui.mapTime = Math.max(0, Number(state.mapTime) || 0)
 
   if (previousPhase !== state.phase) {
     ui.busy = false
@@ -115,6 +117,7 @@ onUnmounted(() => {
     <StageSelectView v-else-if="ui.phase === 'stage'" />
     <template v-else>
       <GameHud />
+      <MapTimer v-if="ui.room" />
       <ChatPanel />
       <Transition name="speedo">
         <Speedometer v-if="ui.vehicle" />

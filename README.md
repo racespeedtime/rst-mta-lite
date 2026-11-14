@@ -14,6 +14,7 @@
 - [x] 界面视觉升级：Iconify 本地图标、毛玻璃面板、赛道作者信息
 - [x] CEF 聊天替代原生聊天：常驻聊天记录 + T 呼出输入 + Enter 发送 / Esc 取消
 - [x] 载具仪表：速度、车辆血量、氮气余量 / 触发状态
+- [x] 顶部地图计时：地图名、本图剩余倒计时、个人本图已玩时长
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -48,6 +49,16 @@
 - 按 `T` 呼出输入框，`Enter` 发送并关闭，`Esc` 取消；打开时显示鼠标、禁用游戏控制，关闭后恢复之前的游戏状态
 - 玩家消息走 `chat:send` action → 服务端校验长度 / 频率（1 秒）→ 广播给已登录玩家；同时写入服务端日志
 - 加入 / 离开服务器的系统消息也会以聊天形式推送
+
+## 地图计时
+
+进入舞台后，屏幕顶部居中常驻一条计时栏：
+
+- 地图名
+- 本图剩余倒计时：剩余 ≤ 5 分钟变金色、≤ 1 分钟变红色；投票期间切换为投票倒计时
+- 本图已玩：玩家个人在当前地图的累计时间
+
+个人时长由服务端 `session.mapEnteredAt` 计算：加入房间 / 换图时重置，观战、菜单、聊天期间都会累计；随 1 秒一次的 state 推送更新。
 
 ## 载具仪表
 
@@ -101,6 +112,7 @@ rst-mta-lite/
 │  │  ├─ views/MenuView.vue                  # F2 菜单
 │  │  ├─ views/VoteView.vue                  # 换图投票
 │  │  ├─ components/GameHud.vue              # 游戏内 HUD
+│  │  ├─ components/MapTimer.vue             # 顶部地图剩余 / 个人计时
 │  │  ├─ components/ChatPanel.vue            # 左上角常驻 CEF 聊天
 │  │  ├─ components/Speedometer.vue          # 载具速度 / 血量 / 氮气
 │  │  └─ components/RewindOverlay.vue        # rewind 覆盖层
@@ -187,6 +199,7 @@ __rstMockState({
 - Headless Chrome 渲染登录、选舞台、HUD（含赛道作者面板）、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
 - 聊天：原生消息 / 玩家消息渲染、T 输入框、Enter 发送动作（`chat:send` + `chat:close`）在 Headless Chrome 中验证通过
 - 载具仪表：速度 / 血量 / 氮气 / 档位在 Headless Chrome 中验证渲染
+- 顶部计时：地图名 / 剩余倒计时 / 个人本图时长在 Headless Chrome 中验证渲染
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：

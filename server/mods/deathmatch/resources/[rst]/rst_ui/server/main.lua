@@ -40,6 +40,8 @@ local function initSession(player)
         guest = false,
         roomId = nil,
         mode = nil,
+        mapId = nil,
+        mapEnteredAt = nil,
         lastAuthAt = 0,
         lastChatAt = 0,
     }
@@ -54,9 +56,17 @@ local function settleSessions()
             if room then
                 session.roomId = room.id
                 session.mode = mode
+
+                -- 进入新地图（换图 / 中途加入）时重置个人本图计时
+                if session.mapId ~= room.mapId or not session.mapEnteredAt then
+                    session.mapId = room.mapId
+                    session.mapEnteredAt = now()
+                end
             else
                 session.roomId = nil
                 session.mode = nil
+                session.mapId = nil
+                session.mapEnteredAt = nil
             end
         end
     end
@@ -83,6 +93,8 @@ local function buildState(player, session)
                 state.canStartVote = (room.vote == nil) and room.active
             end
         end
+
+        state.mapTime = session.mapEnteredAt and math.max(0, now() - session.mapEnteredAt) or 0
 
         if state.phase ~= 'playing' then
             state.phase = 'stage'
