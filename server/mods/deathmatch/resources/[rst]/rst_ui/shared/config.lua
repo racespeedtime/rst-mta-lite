@@ -26,12 +26,28 @@ RST.config = {
     vehicle = 411,
     vehicleNitro = true,
 
-    -- 地图作者与流行度是占位信息；流行度后续可从外部站点抓取后写入
+    -- 地图作者 / 流行度 / 终点是占位信息；终点坐标接真实赛道后替换
     maps = {
-        airport = { name = 'Los Santos 机场', author = 'RST Team', popularity = 78, vehicle = 411, x = 1678.0, y = -2286.0, z = 14.0, rot = 90 },
-        grove = { name = 'Grove Street', author = 'RST Team', popularity = 95, vehicle = 411, x = 2495.0, y = -1687.0, z = 13.6, rot = 180 },
-        beach = { name = 'Santa Maria 海滩', author = 'RST Team', popularity = 62, vehicle = 411, x = 374.0, y = -2074.0, z = 8.0, rot = 0 },
-        pershing = { name = 'Pershing Square', author = 'RST Team', popularity = 84, vehicle = 411, x = 1481.0, y = -1772.0, z = 19.0, rot = 90 },
+        airport = {
+            name = 'Los Santos 机场', author = 'RST Team', popularity = 78, vehicle = 411,
+            x = 1678.0, y = -2286.0, z = 14.0, rot = 90,
+            finish = { x = 1250.0, y = -2286.0, z = 14.0 },
+        },
+        grove = {
+            name = 'Grove Street', author = 'RST Team', popularity = 95, vehicle = 411,
+            x = 2495.0, y = -1687.0, z = 13.6, rot = 180,
+            finish = { x = 2495.0, y = -1250.0, z = 13.6 },
+        },
+        beach = {
+            name = 'Santa Maria 海滩', author = 'RST Team', popularity = 62, vehicle = 411,
+            x = 374.0, y = -2074.0, z = 8.0, rot = 0,
+            finish = { x = 750.0, y = -2074.0, z = 8.0 },
+        },
+        pershing = {
+            name = 'Pershing Square', author = 'RST Team', popularity = 84, vehicle = 411,
+            x = 1481.0, y = -1772.0, z = 19.0, rot = 90,
+            finish = { x = 1150.0, y = -1772.0, z = 19.0 },
+        },
     },
 
     mapPool = { 'airport', 'grove', 'beach', 'pershing' },

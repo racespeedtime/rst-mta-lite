@@ -69,6 +69,7 @@ export interface CompetitionPlayer {
   lives: number
   alive: boolean
   me: boolean
+  distance?: number
 }
 
 export interface CompetitionState {
@@ -76,6 +77,7 @@ export interface CompetitionState {
   alive: number
   total: number
   waiting: boolean
+  finish?: boolean
   players: CompetitionPlayer[]
 }
 

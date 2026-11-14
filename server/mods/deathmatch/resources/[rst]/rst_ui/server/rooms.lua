@@ -372,15 +372,26 @@ function Rooms.competitionState(room, player)
         return nil
     end
 
+    local finish = room.mapId and config.maps[room.mapId] and config.maps[room.mapId].finish
     local entries = {}
+
     for _, p in ipairs(room.players) do
+        local distance
+        if finish and isElement(p) then
+            local x, y, z = getElementPosition(p)
+            local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
+            distance = math.floor(math.sqrt(dx * dx + dy * dy + dz * dz) + 0.5)
+        end
+
         entries[#entries + 1] = {
             name = getPlayerName(p) or '?',
             lives = room.lives[p] or 0,
             alive = true,
             me = p == player,
+            distance = distance,
         }
     end
+
     for _, p in ipairs(room.spectators) do
         if room.lives[p] ~= nil then
             entries[#entries + 1] = {
@@ -388,16 +399,28 @@ function Rooms.competitionState(room, player)
                 lives = room.lives[p] or 0,
                 alive = false,
                 me = p == player,
+                distance = nil,
             }
         end
     end
 
     table.sort(entries, function(a, b)
-        if a.lives == b.lives then
-            return a.name < b.name
+        if a.alive ~= b.alive then
+            return a.alive
         end
-        return a.lives > b.lives
+        if finish then
+            local ad = a.distance or math.huge
+            local bd = b.distance or math.huge
+            if ad ~= bd then
+                return ad < bd
+            end
+        end
+        if a.lives ~= b.lives then
+            return a.lives > b.lives
+        end
+        return a.name < b.name
     end)
+
     for index, entry in ipairs(entries) do
         entry.rank = index
     end
@@ -407,6 +430,7 @@ function Rooms.competitionState(room, player)
         alive = #room.players,
         total = #entries,
         waiting = room.waiting == true,
+        finish = finish ~= nil,
         players = entries,
     }
 end

@@ -29,6 +29,9 @@ import { ui } from '@/stores/ui'
       >
         <span class="competition__rank">{{ player.rank }}</span>
         <span class="competition__name">{{ player.name }}</span>
+        <span v-if="player.alive" class="competition__distance">
+          {{ player.distance === undefined || player.distance === null ? '--' : `${player.distance}m` }}
+        </span>
         <span v-if="player.alive" class="competition__lives">
           <IconHeart class="icon icon--sm" />
           {{ player.lives }}
@@ -37,7 +40,9 @@ import { ui } from '@/stores/ui'
       </li>
     </ol>
 
-    <p class="competition__foot">每次 rewind 消耗 1 条命</p>
+    <p class="competition__foot">
+      {{ ui.competition.finish ? '按到终点距离排序 · rewind 消耗 1 命' : '未配置终点 · 按命数排序' }}
+    </p>
   </aside>
 </template>
 
@@ -138,6 +143,14 @@ import { ui } from '@/stores/ui'
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.competition__distance {
+  width: 44px;
+  text-align: right;
+  font-size: 9px;
+  color: var(--rst-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 .competition__lives {

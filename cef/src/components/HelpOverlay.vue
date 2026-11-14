@@ -135,6 +135,10 @@ onUnmounted(() => {
               <span>每人 10 条命，每次 rewind 消耗 1 条，扣完淘汰</span>
             </li>
             <li>
+              <span class="help__keys"><kbd>排行</kbd></span>
+              <span>右侧按到终点距离升序，命数是同距离时的次级排序</span>
+            </li>
+            <li>
               <span class="help__keys"><kbd>Ghost</kbd></span>
               <span>其他赛车半透明显示，车辆之间没有碰撞</span>
             </li>

@@ -502,6 +502,7 @@ end
 
 local function createUiBrowser()
     screenW, screenH = guiGetScreenSize()
+    -- 第 4 个参数 = 透明浏览器；HTML body 也是透明，游戏画面才能透出
     browser = createBrowser(screenW, screenH, true, true)
     if not browser then
         outputDebugString('rst_ui: createBrowser 失败', 1)
