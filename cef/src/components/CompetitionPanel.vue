@@ -41,7 +41,13 @@ import { ui } from '@/stores/ui'
     </ol>
 
     <p class="competition__foot">
-      {{ ui.competition.finish ? '按到终点距离排序 · rewind 消耗 1 命' : '未配置终点 · 按命数排序' }}
+      {{
+        ui.competition.ranking === 'finish'
+          ? '按到终点距离排序 · rewind 消耗 1 命'
+          : ui.competition.ranking === 'progress'
+            ? '无终点 · 按远离起点距离排序'
+            : '无终点/起点 · 按命数排序'
+      }}
     </p>
   </aside>
 </template>

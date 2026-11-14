@@ -74,6 +74,32 @@ function collectPickups(xml) {
   return { total: Object.values(types).reduce((sum, n) => sum + n, 0), types }
 }
 
+function collectHunterFinish(xml) {
+  const points = []
+  const re = /<racepickup\b[^>]*>/g
+  let match
+  while ((match = re.exec(xml))) {
+    const a = attrs(match[0])
+    if (a.type !== 'vehiclechange' || Number(a.vehicle) !== 425) continue
+    points.push({
+      x: Number(a.posX) || 0,
+      y: Number(a.posY) || 0,
+      z: Number(a.posZ) || 0,
+    })
+  }
+
+  if (points.length === 0) return null
+  const count = points.length
+  return {
+    source: 'hunter',
+    count,
+    x: points.reduce((sum, p) => sum + p.x, 0) / count,
+    y: points.reduce((sum, p) => sum + p.y, 0) / count,
+    z: points.reduce((sum, p) => sum + p.z, 0) / count,
+    points,
+  }
+}
+
 function collectSpawns(xml) {
   const result = []
   const re = /<spawnpoint\b[^>]*>/g
@@ -131,6 +157,7 @@ async function scanMeta(metaPath, root) {
   const spawns = collectSpawns(xml)
   const markers = collectMarkers(xml)
   const pickups = collectPickups(xml)
+  const hunterFinish = collectHunterFinish(xml)
 
   return {
     resource: relative(root, resourceDir) || '.',
@@ -143,10 +170,11 @@ async function scanMeta(metaPath, root) {
     checkpoints,
     markers,
     pickups,
+    hunterFinish,
     vehicles: countTag(xml, 'vehicle'),
     objects: countTag(xml, 'object'),
     settings: parseSettings(meta),
-    hasFinishData: checkpoints > 0,
+    hasFinishData: checkpoints > 0 || hunterFinish !== null,
   }
 }
 
@@ -169,17 +197,24 @@ async function main() {
   }
 
   maps.sort((a, b) => a.resource.localeCompare(b.resource))
+  const withCheckpoints = maps.filter((map) => map.checkpoints > 0).length
+  const withHunterFinish = maps.filter((map) => map.hunterFinish !== null).length
   const output = {
     scannedAt: new Date().toISOString(),
     root: options.root,
     count: maps.length,
+    withCheckpoints,
+    withHunterFinish,
     withFinishData: maps.filter((map) => map.hasFinishData).length,
     maps,
   }
 
   await fs.mkdir(resolve(options.out, '..'), { recursive: true })
   await fs.writeFile(options.out, `${JSON.stringify(output, null, 2)}\n`, 'utf8')
-  console.log(`[scan] ${maps.length} maps, ${output.withFinishData} with checkpoints -> ${options.out}`)
+  console.log(
+    `[scan] ${maps.length} maps, ${withCheckpoints} with checkpoints, ` +
+      `${withHunterFinish} with Hunter finish -> ${options.out}`,
+  )
 }
 
 main().catch((error) => {

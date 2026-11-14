@@ -380,14 +380,31 @@ function Rooms.competitionState(room, player)
         return nil
     end
 
-    local finish = room.mapId and config.maps[room.mapId] and config.maps[room.mapId].finish
+    local map = room.mapId and config.maps[room.mapId]
+    local finish = map and map.finish
+    local startX = map and map.x
+    local startY = map and map.y
+    local startZ = map and map.z
+    local hasStart = startX and startY and startZ
+
+    -- 有终点按到终点距离升序；没有终点按远离起点距离降序；都没有才按命数
+    local ranking = 'lives'
+    if finish then
+        ranking = 'finish'
+    elseif hasStart then
+        ranking = 'progress'
+    end
+
     local entries = {}
 
     for _, p in ipairs(room.players) do
         local distance
-        if finish and isElement(p) then
+        if isElement(p) and (finish or hasStart) then
             local x, y, z = getElementPosition(p)
-            local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
+            local tx = finish and finish.x or startX
+            local ty = finish and finish.y or startY
+            local tz = finish and finish.z or startZ
+            local dx, dy, dz = x - tx, y - ty, z - tz
             distance = math.floor(math.sqrt(dx * dx + dy * dy + dz * dz) + 0.5)
         end
 
@@ -416,11 +433,17 @@ function Rooms.competitionState(room, player)
         if a.alive ~= b.alive then
             return a.alive
         end
-        if finish then
+        if ranking == 'finish' then
             local ad = a.distance or math.huge
             local bd = b.distance or math.huge
             if ad ~= bd then
                 return ad < bd
+            end
+        elseif ranking == 'progress' then
+            local ad = a.distance or -math.huge
+            local bd = b.distance or -math.huge
+            if ad ~= bd then
+                return ad > bd
             end
         end
         if a.lives ~= b.lives then
@@ -439,6 +462,7 @@ function Rooms.competitionState(room, player)
         total = #entries,
         waiting = room.waiting == true,
         finish = finish ~= nil,
+        ranking = ranking,
         players = entries,
     }
 end

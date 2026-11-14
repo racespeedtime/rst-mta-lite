@@ -183,10 +183,10 @@
 - 竞技模式开局所有玩家出生后先冻结，所有人点「准备」后才发送 5 秒倒计时
 - 纯 OB：玩家可在 F2 菜单或准备面板主动切换纯观战；纯 OB 不会在下一回合被自动提升为玩家，需要手动「下回合参赛」
 - 纯 OB 不占准备人数、不进竞技排行，也不消耗命数；命数耗尽是淘汰，不等于纯 OB
-- 右侧中间排行：存活玩家按到终点 `finish` 的直线距离升序，命数作为同距离时的次级排序；淘汰玩家沉底
+- 右侧中间排行：存活玩家优先；有终点按到终点直线距离升序，没有终点按远离起点距离降序，命数作为同距离时的次级排序；淘汰玩家沉底
 - 每张图在 `config.maps.*.finish` 配终点坐标；当前 4 张图是示例坐标，接真实赛道后替换
-- 没配终点时退回按剩余命数排序，面板底部会提示
-- 显示存活人数 / 参赛人数，淘汰玩家标「淘汰」
+- Hunter 约定：`racepickup type="vehiclechange" vehicle="425"` 的位置可作为终点候选；扫描器会提取 `hunterFinish`
+- 没有终点时退回按远离起点距离排行；起点也没有时才退回按命数排序，面板底部会提示当前规则
 - 模式投票：地图不变，只切换训练 / 竞技；平票或无人投票保持当前模式
 - 手动模式投票有冷却，回合结束的自动换图不受影响
 
@@ -272,12 +272,16 @@
 - 结构清单：`server/mods/deathmatch/map-cache/map-catalog.json`
 - 扫描脚本：[tools/mtavault/scan-maps.mjs](tools/mtavault/scan-maps.mjs)
 
-扫描结果：3 张图 **0 个 checkpoint**；只有 spawnpoint、vehicle、racepickup 和视觉 marker。
+扫描结果：3 张图 **0 个 checkpoint**，但都有 **Hunter 终点 pickup**（`racepickup type="vehiclechange" vehicle="425"`）；只有 spawnpoint、vehicle、racepickup 和视觉 marker。
 
 - `spawnpoint` 可用于取出生点和车型（1 / 1 / 2 个）
 - marker 是 arrow / corona / cylinder，属于视觉引导，不是检查点
+- Hunter 坐标可以作为 finish：
+  - Silent Hill：`1524.6, 3812.6, 8.4`
+  - A New Dawn：`6877.4, -828.0, 1.3`
+  - Descendant's Skills V：`6940.9, 291.6, 332.9`
 - settings 是 `vehicleweapons=true`、`ghostmode=true`、`duration=1800`、`respawn=none`
-- 这些实际是车辆 DM / 技巧图，不是带终点的竞速图
+- 这些实际是车辆 DM / 技巧图，不是带 checkpoint 的竞速图
 
 当前 `rst_ui` 还没有地图资源生命周期：不会 start / stop 这些 map resource，`config.maps` 仍是手写出生点，top 3 也还没进 `mapPool`。因此它们目前只是**已安装、可被扫描**，还不能直接走通现有竞速流程。要接入需要补：
 
@@ -448,7 +452,7 @@ __rstMockState({
 - 竞技命数由服务端在收到 rewind 事件时扣减；rewind 本身仍是客户端本地回放，没有独立反作弊
 - 竞技排行按到终点距离（终点坐标目前是占位），不是按圈速 / 完成时间；终点数据接入真实赛道后替换
 - 距离是直线距离，不是沿赛道距离；后续有检查点后可以改成沿赛道的剩余进度
-- top 3 mtavault 地图实际没有 checkpoint，现有终点距离排行无法从地图数据自动推导；需要额外目标数据或改用 DM 排名
+- top 3 mtavault 地图没有 checkpoint，但可用 Hunter pickup 作为终点；没有 Hunter 时仅能按远离起点距离估算，绕圈/回转赛道会不准
 - mtavault 脚本默认不抓、不自动更新配置；全量抓取需要手动运行并自行确认源站条款
 - 服务器内游玩次数在资源重启后保留，但必须先重启 `rst_ui` 才会加载 `mapstats.lua`
 

@@ -158,14 +158,22 @@ node tools/mtavault/scan-maps.mjs \
 当前 3 张图的结果：
 
 ```text
-3 maps, 0 with checkpoints
+3 maps, 0 with checkpoints, 3 with Hunter finish
 spawnpoints: 1 / 1 / 2
 markers: 31 ~ 41（arrow / corona / cylinder，视觉箭头，不是 checkpoint）
 racepickup: 35 ~ 62（nitro / repair）
 settings: ghostmode=true, vehicleweapons=true, duration=1800, respawn=none
 ```
 
-结论：它们是**车辆 DM / 技巧图**，不是带检查点的竞速图。出生点可以直接提取，但终点/圈速数据不存在，现有 `finish` 距离排行不能从这些地图自动推导。
+Hunter 终点候选（`racepickup type="vehiclechange" vehicle="425"`）：
+
+| 地图 | Hunter 数量 | 终点坐标（中心） |
+| --- | ---: | --- |
+| Silent Hill | 1 | `1524.6, 3812.6, 8.4` |
+| A New Dawn | 3 | `6877.4, -828.0, 1.3` |
+| Descendant's Skills V | 2 | `6940.9, 291.6, 332.9` |
+
+结论：它们是车辆 DM / 技巧图，不是带 checkpoint 的竞速图；但终点通常用 Hunter `vehiclechange` pickup 标记，可以把它的坐标当成 `finish`。没有 Hunter 时只能退回“远离起点”的进度估算。
 
 ## 热点与服务器游玩次数
 

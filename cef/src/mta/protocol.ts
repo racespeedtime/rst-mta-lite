@@ -78,6 +78,7 @@ export interface CompetitionState {
   total: number
   waiting: boolean
   finish?: boolean
+  ranking?: 'finish' | 'progress' | 'lives'
   players: CompetitionPlayer[]
 }
 
