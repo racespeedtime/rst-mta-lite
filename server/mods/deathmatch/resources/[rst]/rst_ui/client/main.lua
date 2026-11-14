@@ -25,6 +25,7 @@ local cachedState = nil
 local spectateTarget = nil
 local spectateName = ''
 local spectateTimer = nil
+local countdownTimer = nil
 
 RST = {
     phase = phase,
@@ -34,6 +35,7 @@ RST = {
     chatOpen = false,
     helpOpen = false,
     voteActive = false,
+    countdownActive = false,
 }
 
 function RST.isGameplayActive()
@@ -41,6 +43,7 @@ function RST.isGameplayActive()
         and RST.mode == 'playing'
         and not RST.interactive
         and not RST.voteActive
+        and not RST.countdownActive
 end
 
 function RST.canRewind()
@@ -314,6 +317,15 @@ local function applyState(state)
         dispatch('help', { open = false })
     end
 
+    if phase ~= 'playing' and RST.countdownActive then
+        RST.countdownActive = false
+        if countdownTimer then
+            killTimer(countdownTimer)
+            countdownTimer = nil
+        end
+        dispatch('countdown', { active = false })
+    end
+
     if phase == 'playing' and mode == 'spectating' then
         startSpectate()
     else
@@ -488,6 +500,7 @@ addEvent('rst:ui:action', false)
 addEvent('rst:ui:state', true)
 addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
+addEvent('rst:ui:countdown', true)
 
 addEventHandler('rst:ui:ready', root, function()
     if cachedState then
@@ -551,6 +564,27 @@ addEventHandler('rst:ui:chat', root, function(json)
     end
 end)
 
+addEventHandler('rst:ui:countdown', root, function(json)
+    local data = fromJSON(json or '')
+    local seconds = tonumber(data and data.seconds) or 3
+    if seconds <= 0 then
+        return
+    end
+
+    if countdownTimer then
+        killTimer(countdownTimer)
+        countdownTimer = nil
+    end
+
+    RST.countdownActive = true
+    dispatch('countdown', { active = true, duration = seconds })
+
+    countdownTimer = setTimer(function()
+        countdownTimer = nil
+        RST.countdownActive = false
+    end, math.floor(seconds * 1000) + 50, 1)
+end)
+
 -- 拦截所有原生聊天输出，改由 CEF 渲染
 addEventHandler('onClientChatMessage', root, function(text, r, g, b, messageType)
     if type(text) ~= 'string' then
@@ -596,6 +630,16 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     if RST.stopRewind then
         RST.stopRewind()
     end
+
+    if countdownTimer then
+        killTimer(countdownTimer)
+        countdownTimer = nil
+    end
+    if RST.countdownActive then
+        RST.countdownActive = false
+        dispatch('countdown', { active = false })
+    end
+
     setChatOpen(false)
     setHelpOpen(false)
 end)
@@ -772,6 +816,11 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     if helpOpen then
         helpOpen = false
         dispatch('help', { open = false })
+    end
+
+    if countdownTimer then
+        killTimer(countdownTimer)
+        countdownTimer = nil
     end
 
     stopSpectate()

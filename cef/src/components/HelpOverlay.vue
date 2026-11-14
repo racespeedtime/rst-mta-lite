@@ -73,6 +73,10 @@ onUnmounted(() => {
               <span class="help__keys"><kbd>Y</kbd></span>
               <span>长按回放最近 8 秒</span>
             </li>
+            <li>
+              <span class="help__keys"><kbd>GO</kbd></span>
+              <span>出生后 3-2-1-GO 倒计时结束才能移动</span>
+            </li>
           </ul>
         </section>
 

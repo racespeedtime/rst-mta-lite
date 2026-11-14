@@ -13,6 +13,7 @@ Rooms = {}
 local config = RST.config
 local rooms = {}
 local stateChanged = function() end
+local freezeTimers = {}
 
 local function now()
     return getRealTime().timestamp
@@ -70,7 +71,7 @@ local function pickMap(room)
     return candidates[math.random(#candidates)]
 end
 
-local function spawnPlayerInRoom(player, room)
+local function spawnPlayerInRoom(player, room, countdown)
     local map = config.maps[room.mapId]
     if not map or not isElement(player) then
         return
@@ -86,6 +87,28 @@ local function spawnPlayerInRoom(player, room)
     setPedArmor(player, 50)
     takeAllWeapons(player)
     giveWeapon(player, config.weapon, config.ammo, true)
+
+    if freezeTimers[player] then
+        killTimer(freezeTimers[player])
+        freezeTimers[player] = nil
+    end
+
+    -- 进入回合的玩家先冻结，播完 3-2-1-GO 再允许移动
+    if countdown and (config.spawnCountdown or 0) > 0 then
+        setElementFrozen(player, true)
+        triggerClientEvent(player, 'rst:ui:countdown', player, toJSON({
+            seconds = config.spawnCountdown,
+        }))
+
+        freezeTimers[player] = setTimer(function()
+            freezeTimers[player] = nil
+            if isElement(player) then
+                setElementFrozen(player, false)
+            end
+        end, math.floor(config.spawnCountdown * 1000) + 250, 1)
+    else
+        setElementFrozen(player, false)
+    end
 end
 
 local function startRound(room, forcedMapId)
@@ -102,7 +125,7 @@ local function startRound(room, forcedMapId)
 
     for _, player in ipairs(room.players) do
         if isElement(player) then
-            spawnPlayerInRoom(player, room)
+            spawnPlayerInRoom(player, room, true)
         end
     end
 
@@ -174,6 +197,14 @@ function Rooms.join(player, roomId)
 end
 
 function Rooms.leave(player)
+    if freezeTimers[player] then
+        killTimer(freezeTimers[player])
+        freezeTimers[player] = nil
+        if isElement(player) then
+            setElementFrozen(player, false)
+        end
+    end
+
     for _, room in pairs(rooms) do
         local removed = removePlayer(room.players, player)
         if removePlayer(room.spectators, player) then
@@ -390,7 +421,7 @@ function Rooms.handleDeath(player)
 
         local currentRoom = Rooms.playerRoom(player)
         if currentRoom == room and room.active then
-            spawnPlayerInRoom(player, room)
+            spawnPlayerInRoom(player, room, false)
         end
     end, config.respawnDelay, 1)
 end

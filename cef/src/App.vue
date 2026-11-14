@@ -5,6 +5,7 @@ import GameHud from '@/components/GameHud.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import MapTimer from '@/components/MapTimer.vue'
 import Speedometer from '@/components/Speedometer.vue'
+import SpawnCountdown from '@/components/SpawnCountdown.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -56,6 +57,7 @@ function applyState(state: StatePayload): void {
     ui.chatOpen = false
     ui.helpOpen = false
   }
+  if (state.phase !== 'playing') ui.countdown.active = false
 }
 
 function onAnyClick(event: MouseEvent): void {
@@ -108,6 +110,18 @@ onMounted(() => {
     onBridge('help', (payload) => {
       ui.helpOpen = payload.open === true
     }),
+    onBridge('countdown', (payload) => {
+      if (payload.active === false) {
+        ui.countdown.active = false
+        return
+      }
+
+      ui.countdown = {
+        active: true,
+        startedAt: Date.now(),
+        duration: Math.max(1, Number(payload.duration) || 3),
+      }
+    }),
   )
 
   document.addEventListener('click', onAnyClick, true)
@@ -132,6 +146,7 @@ onUnmounted(() => {
       <Transition name="speedo">
         <Speedometer v-if="ui.vehicle" />
       </Transition>
+      <SpawnCountdown v-if="ui.countdown.active" />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <RewindOverlay v-if="ui.rewind.active" />

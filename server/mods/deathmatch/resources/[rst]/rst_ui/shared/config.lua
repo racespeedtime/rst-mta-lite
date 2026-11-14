@@ -10,6 +10,7 @@ RST.config = {
     roundSeconds = 30 * 60, -- 每张地图最长 30 分钟
     voteSeconds = 30,       -- 投票持续时间
     respawnDelay = 4000,    -- 死亡后重生间隔
+    spawnCountdown = 3,     -- 进入回合出生后的 3-2-1-GO 倒计时（秒）
     minPasswordLength = 4,
     maxPasswordLength = 128,
 

@@ -111,6 +111,11 @@ export interface HelpPayload {
   open: boolean
 }
 
+export interface CountdownPayload {
+  active?: boolean
+  duration?: number
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -122,4 +127,5 @@ export type BridgeEventMap = {
   vehicle: VehiclePayload
   spectate: SpectatePayload
   help: HelpPayload
+  countdown: CountdownPayload
 }

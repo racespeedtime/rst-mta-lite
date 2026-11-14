@@ -17,6 +17,7 @@
 - [x] 顶部地图计时：地图名、本图剩余倒计时、个人本图已玩时长
 - [x] 观战模式：鼠标左键 / 右键切换下一位 / 上一位玩家
 - [x] 操作帮助面板：F1 呼出，F2 菜单也可进入
+- [x] 出生倒计时：每人独立的 3-2-1-GO 动画，结束后才可移动
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -76,6 +77,17 @@
 
 目前地图还没有载具，调试用 `/car` 生成一辆带氮气的 Infernus；上车后会补满并设为无限氮气。
 
+## 出生倒计时
+
+进入回合 / 换图后出生时：
+
+- 服务端冻结玩家，并给该玩家单独推送 `countdown` 事件
+- 客户端显示 3-2-1-GO 环形倒计时，每个数字有缩放淡入动画 + 提示音
+- GO 后约 0.25 秒服务端解冻，玩家可以移动（相机在倒计时期间仍可转动）
+- 倒计时期间禁用 rewind 录制；死亡重生不重复倒计时
+
+倒计时长度在 [config.lua](<server/mods/deathmatch/resources/[rst]/rst_ui/shared/config.lua>) 的 `spawnCountdown` 调整。
+
 ## 房间与回合
 
 配置在 `shared/config.lua`：
@@ -120,6 +132,7 @@ rst-mta-lite/
 │  │  ├─ components/MapTimer.vue             # 顶部地图剩余 / 个人计时
 │  │  ├─ components/ChatPanel.vue            # 左上角常驻 CEF 聊天
 │  │  ├─ components/Speedometer.vue          # 载具速度 / 血量 / 氮气
+│  │  ├─ components/SpawnCountdown.vue       # 3-2-1-GO 出生倒计时
 │  │  ├─ components/HelpOverlay.vue          # F1 操作帮助
 │  │  └─ components/RewindOverlay.vue        # rewind 覆盖层
 │  └─ vite.config.ts                         # 构建输出到 rst_ui/ui/
@@ -208,6 +221,7 @@ __rstMockState({
 - 顶部计时：地图名 / 剩余倒计时 / 个人本图时长在 Headless Chrome 中验证渲染
 - 观战切换：跟随对象与左右键提示在 Headless Chrome 中验证渲染
 - 操作帮助：快捷键分组、F1/Esc 关闭在 Headless Chrome 中验证渲染
+- 出生倒计时：3-2-1-GO 环形动画在 Headless Chrome 中验证渲染
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：
