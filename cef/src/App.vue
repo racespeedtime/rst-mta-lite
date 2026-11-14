@@ -49,6 +49,7 @@ function applyState(state: StatePayload): void {
   ui.room = state.room || null
   ui.gameMode = state.mode === 'competitive' ? 'competitive' : 'training'
   ui.lives = typeof state.lives === 'number' ? state.lives : null
+  ui.ob = state.ob === true
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
   ui.vote = state.vote || null

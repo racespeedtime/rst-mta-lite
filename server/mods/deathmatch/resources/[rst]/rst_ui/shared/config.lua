@@ -18,7 +18,8 @@ RST.config = {
     recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
     playPopularityWeight = 5, -- 服务器内每玩一场给热度加分
     respawnDelay = 4000,    -- 死亡后重生间隔
-    spawnCountdown = 3,     -- 进入回合出生后的 3-2-1-GO 倒计时（秒）
+    spawnCountdown = 3,     -- 训练模式出生倒计时（秒）
+    competitiveCountdown = 5, -- 竞技模式全员准备后的倒计时（秒）
     minPasswordLength = 4,
     maxPasswordLength = 128,
 

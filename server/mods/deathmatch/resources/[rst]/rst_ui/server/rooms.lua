@@ -163,11 +163,11 @@ local function clearFreezeTimer(player)
     end
 end
 
-local function beginCountdownFor(player)
+local function beginCountdownFor(player, seconds)
     clearFreezeTimer(player)
     setPlayerFrozen(player, true)
 
-    local seconds = config.spawnCountdown or 0
+    seconds = seconds or config.spawnCountdown or 0
     if seconds <= 0 then
         setPlayerFrozen(player, false)
         return
@@ -232,7 +232,7 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
         clearFreezeTimer(player)
         setPlayerFrozen(player, true)
     elseif countdown then
-        beginCountdownFor(player)
+        beginCountdownFor(player, config.spawnCountdown)
     else
         clearFreezeTimer(player)
         setPlayerFrozen(player, false)
@@ -258,11 +258,17 @@ local function startRound(room, forcedMapId)
     room.mode = room.mode or config.defaultMode or 'training'
     room.waiting = room.mode == 'competitive'
 
-    -- 新回合开始，观战者转为玩家一起出生
+    -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
+    local stayingSpectators = {}
     for _, player in ipairs(room.spectators) do
-        room.players[#room.players + 1] = player
+        if room.ob[player] then
+            stayingSpectators[#stayingSpectators + 1] = player
+        else
+            room.players[#room.players + 1] = player
+            room.ob[player] = nil
+        end
     end
-    room.spectators = {}
+    room.spectators = stayingSpectators
 
     for _, player in ipairs(room.players) do
         if isElement(player) then
@@ -298,6 +304,7 @@ function Rooms.init(onChanged)
             waiting = false,
             ready = {},
             lives = {},
+            ob = {},
             recentMaps = {},
             lastVoteAt = 0,
             lastModeVoteAt = 0,
@@ -314,9 +321,10 @@ function Rooms.beginCountdown(room)
 
     room.waiting = false
     room.ready = {}
+    local seconds = config.competitiveCountdown or 5
     for _, player in ipairs(room.players) do
         if isElement(player) then
-            beginCountdownFor(player)
+            beginCountdownFor(player, seconds)
         end
     end
     stateChanged()
@@ -503,6 +511,101 @@ function Rooms.consumeLife(player)
     return true, lives, eliminated
 end
 
+-- 主动选择纯 OB：本回合不参赛，后续回合也保持观战
+function Rooms.becomeSpectator(player)
+    local room = Rooms.playerRoom(player)
+    if not room then
+        return false, '不在舞台里'
+    end
+
+    if contains(room.spectators, player) then
+        room.ob[player] = true
+        room.lives[player] = nil
+        room.ready[player] = nil
+        stateChanged()
+        return true
+    end
+
+    local index
+    for i, p in ipairs(room.players) do
+        if p == player then
+            index = i
+            break
+        end
+    end
+    if not index then
+        return false, '不在参赛列表中'
+    end
+
+    table.remove(room.players, index)
+    if not contains(room.spectators, player) then
+        room.spectators[#room.spectators + 1] = player
+    end
+
+    room.ob[player] = true
+    room.lives[player] = nil
+    room.ready[player] = nil
+
+    clearFreezeTimer(player)
+    if isElement(raceVehicles[player]) then
+        destroyElement(raceVehicles[player])
+    end
+    raceVehicles[player] = nil
+    if isElement(player) then
+        setElementFrozen(player, false)
+    end
+
+    if #room.players == 0 then
+        room.active = false
+        room.roundEnds = 0
+        room.waiting = false
+    elseif room.waiting and allPlayersReady(room) then
+        Rooms.beginCountdown(room)
+    end
+
+    stateChanged()
+    return true
+end
+
+-- 从纯 OB 返回比赛：准备阶段立即上车，其他阶段下回合自动参赛
+function Rooms.returnToRace(player)
+    local room = Rooms.playerRoom(player)
+    if not room then
+        return false, '不在舞台里'
+    end
+
+    if contains(room.players, player) then
+        room.ob[player] = nil
+        stateChanged()
+        return true, 'playing'
+    end
+    if not contains(room.spectators, player) then
+        return false, '不在观战列表中'
+    end
+
+    room.ob[player] = nil
+
+    if not room.active and not room.vote and not room.modeVote and #room.players == 0 then
+        removePlayer(room.spectators, player)
+        room.players[#room.players + 1] = player
+        startRound(room)
+        return true, 'started'
+    end
+
+    if room.active and room.waiting and room.mode == 'competitive' then
+        removePlayer(room.spectators, player)
+        room.players[#room.players + 1] = player
+        room.ready[player] = false
+        room.lives[player] = config.competitiveLives or 10
+        spawnPlayerInRoom(player, room, false, true)
+        stateChanged()
+        return true, 'ready'
+    end
+
+    stateChanged()
+    return true, 'next-round'
+end
+
 function Rooms.all()
     return rooms
 end
@@ -565,6 +668,7 @@ function Rooms.leave(player)
         if removed then
             room.ready[player] = nil
             room.lives[player] = nil
+            room.ob[player] = nil
 
             if #room.players == 0 then
                 room.active = false
@@ -574,6 +678,7 @@ function Rooms.leave(player)
                 room.waiting = false
                 room.ready = {}
                 room.lives = {}
+                room.ob = {}
                 room.mode = config.defaultMode or 'training'
                 room.lastVoteAt = 0
                 room.lastModeVoteAt = 0

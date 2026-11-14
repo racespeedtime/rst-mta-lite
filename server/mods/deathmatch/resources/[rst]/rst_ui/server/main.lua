@@ -95,6 +95,7 @@ local function buildState(player, session)
                 state.ready = Rooms.readyState(room, player)
                 state.competition = Rooms.competitionState(room, player)
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
+                state.ob = room.ob[player] == true
 
                 local cooldownLeft = 0
                 if (room.lastVoteAt or 0) > 0 then
@@ -378,6 +379,38 @@ actions['ready'] = function(player, session)
     local ok, err = Rooms.setReady(player)
     if not ok then
         notify(player, err)
+    end
+    broadcastState()
+end
+
+actions['ob:spectate'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local ok, err = Rooms.becomeSpectator(player)
+    if not ok then
+        notify(player, err)
+    else
+        notify(player, '已切换为纯观战，下回合继续观战')
+    end
+    broadcastState()
+end
+
+actions['ob:race'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local ok, result = Rooms.returnToRace(player)
+    if not ok then
+        notify(player, result)
+    elseif result == 'ready' then
+        notify(player, '已回到比赛，等待准备')
+    elseif result == 'started' then
+        notify(player, '已回到比赛，回合已开始')
+    else
+        notify(player, '已取消纯观战，下回合参赛')
     end
     broadcastState()
 end

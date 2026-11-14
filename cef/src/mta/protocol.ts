@@ -93,6 +93,7 @@ export interface StatePayload {
   room?: RoomSummary
   mode?: GameMode
   lives?: number
+  ob?: boolean
   ready?: ReadyState
   competition?: CompetitionState | null
   vote?: VoteState

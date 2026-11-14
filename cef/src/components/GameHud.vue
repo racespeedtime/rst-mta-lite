@@ -18,6 +18,12 @@ import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
 const spectating = computed(() => ui.mode === 'spectating')
+const spectateLabel = computed(() => {
+  if (!spectating.value) return ''
+  if (ui.ob) return '纯观战'
+  if (ui.lives === 0) return '淘汰观战'
+  return '观战中'
+})
 const modeLabel = computed(() => (spectating.value ? '观战' : '比赛中'))
 const gameModeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技' : '训练'))
 const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:--'))
@@ -81,7 +87,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 
     <div v-if="spectating" class="spectate">
       <IconEye class="icon icon--sm" />
-      <span>观战中<span v-if="ui.spectateName"> · {{ ui.spectateName }}</span></span>
+      <span>{{ spectateLabel }}<span v-if="ui.spectateName"> · {{ ui.spectateName }}</span></span>
       <span class="spectate__hint">左键下一位 · 右键上一位</span>
     </div>
 

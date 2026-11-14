@@ -22,6 +22,7 @@ export const ui = reactive({
   mode: 'playing' as PlayMode,
   gameMode: 'training' as GameMode,
   lives: null as number | null,
+  ob: false,
   ready: { waiting: false, ready: 0, total: 0, me: false, canReady: false } as ReadyState,
   competition: null as CompetitionState | null,
   spectateName: '',

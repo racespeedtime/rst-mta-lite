@@ -6,6 +6,7 @@ import IconCar from '~icons/lucide/car'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
 import IconDoorOpen from '~icons/lucide/door-open'
+import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
 import IconSettings from '~icons/lucide/settings'
@@ -25,6 +26,17 @@ const voteHint = computed(() => {
 })
 
 const modeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技模式' : '训练模式'))
+const spectating = computed(() => ui.mode === 'spectating')
+
+const obLabel = computed(() => {
+  if (!spectating.value) return '切换纯观战'
+  return ui.ob ? '下回合参赛' : '保持纯观战'
+})
+
+const obHint = computed(() => {
+  if (!spectating.value) return '放弃本回合，下回合继续观战'
+  return ui.ob ? '取消纯观战，回到比赛' : '下回合不自动参赛'
+})
 
 const modeVoteHint = computed(() => {
   if (ui.modeVote?.active) return '模式投票进行中'
@@ -46,6 +58,17 @@ function startVote(): void {
 function startModeVote(): void {
   if (!ui.canStartModeVote) return
   emitAction('modevote:start')
+  emitAction('menu:close')
+}
+
+function toggleOb(): void {
+  if (!spectating.value) {
+    emitAction('ob:spectate')
+  } else if (ui.ob) {
+    emitAction('ob:race')
+  } else {
+    emitAction('ob:spectate')
+  }
   emitAction('menu:close')
 }
 
@@ -127,6 +150,18 @@ function leaveStage(): void {
           <span class="menu-action__text">
             <strong>切换比赛模式</strong>
             <small>{{ modeVoteHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="toggleOb">
+          <span class="menu-action__icon">
+            <IconEye v-if="spectating" class="icon" />
+            <IconCar v-else class="icon" />
+          </span>
+          <span class="menu-action__text">
+            <strong>{{ obLabel }}</strong>
+            <small>{{ obHint }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

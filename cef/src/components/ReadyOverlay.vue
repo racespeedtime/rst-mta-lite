@@ -14,6 +14,10 @@ function ready(): void {
   if (ui.ready.me) return
   emitAction('ready')
 }
+
+function spectate(): void {
+  emitAction('ob:spectate')
+}
 </script>
 
 <template>
@@ -22,7 +26,7 @@ function ready(): void {
       <span class="ready__emblem"><IconFlag class="icon icon--lg" /></span>
       <p class="ready__eyebrow">COMPETITIVE READY</p>
       <h1 class="ready__title">准备发车</h1>
-      <p class="ready__hint">竞技模式需要所有玩家准备后，才会开始 3-2-1-GO 倒计时。</p>
+      <p class="ready__hint">竞技模式需要所有玩家准备后，才会开始 5 秒倒计时。</p>
 
       <div class="ready__count">
         <strong>{{ ui.ready.ready || 0 }}</strong>
@@ -40,6 +44,10 @@ function ready(): void {
         @click="ready"
       >
         {{ ui.ready.me ? '已准备，等待其他玩家' : '准备' }}
+      </button>
+
+      <button type="button" class="ready__ob" @click="spectate">
+        改为纯观战
       </button>
     </section>
   </div>
@@ -155,5 +163,19 @@ function ready(): void {
   border-color: rgba(126, 226, 168, 0.35);
   background: rgba(126, 226, 168, 0.1);
   color: var(--rst-green);
+}
+
+.ready__ob {
+  margin-top: 10px;
+  padding: 6px 10px;
+  border: 0;
+  background: transparent;
+  color: var(--rst-muted);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+}
+
+.ready__ob:hover {
+  color: var(--rst-text);
 }
 </style>
