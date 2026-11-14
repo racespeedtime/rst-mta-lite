@@ -81,6 +81,10 @@ local function pickMap(room)
         candidates = config.mapPool
     end
 
+    if #candidates == 0 then
+        return nil
+    end
+
     return candidates[math.random(#candidates)]
 end
 
@@ -93,6 +97,10 @@ end
 
 -- 随机图池：优先不包含最近玩过和当前地图
 local function pickVoteOptions(room)
+    if #config.mapPool == 0 then
+        return {}
+    end
+
     local poolSize = math.max(1, config.votePoolSize or 3)
     local recent = {}
     for _, mapId in ipairs(room.recentMaps or {}) do
@@ -240,6 +248,17 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
 end
 
 local function startRound(room, forcedMapId)
+    if #config.mapPool == 0 then
+        room.active = false
+        room.roundEnds = 0
+        room.vote = nil
+        room.modeVote = nil
+        room.waiting = false
+        outputServerLog('[MAP] 地图池为空，无法开始回合')
+        stateChanged()
+        return false, '地图池为空，请联系管理员添加地图'
+    end
+
     if room.mapId then
         table.insert(room.recentMaps, 1, room.mapId)
         while #room.recentMaps > (config.recentMapLimit or 2) do
@@ -248,6 +267,30 @@ local function startRound(room, forcedMapId)
     end
 
     room.mapId = forcedMapId or pickMap(room)
+    if not room.mapId or not config.maps[room.mapId] then
+        room.active = false
+        room.roundEnds = 0
+        room.waiting = false
+        outputServerLog('[MAP] 没有可用地图')
+        stateChanged()
+        return false, '没有可用地图'
+    end
+
+    outputServerLog(('[ROUND] start map=%s players=%d spectators=%d'):format(
+        tostring(room.mapId), #room.players, #room.spectators
+    ))
+    local mapOk, mapErr = MapManager.load(room.mapId)
+    if not mapOk then
+        room.active = false
+        room.roundEnds = 0
+        room.vote = nil
+        room.modeVote = nil
+        room.waiting = false
+        outputServerLog(('[MAP] 加载失败：%s'):format(tostring(mapErr)))
+        stateChanged()
+        return false, mapErr or '地图加载失败'
+    end
+
     MapStats.recordPlay(room.mapId)
     room.active = true
     room.roundEnds = now() + config.roundSeconds
@@ -281,6 +324,7 @@ local function startRound(room, forcedMapId)
     end
 
     stateChanged()
+    return true, 'started'
 end
 
 function Rooms.init(onChanged)
@@ -668,7 +712,16 @@ function Rooms.join(player, roomId)
 
     -- 空房或上一回合已结束：直接开新回合，加入者参战
     room.players[#room.players + 1] = player
-    startRound(room)
+    outputServerLog(('[ROOM] join %s -> %s players=%d'):format(
+        tostring(getPlayerName(player)), tostring(room.id), #room.players
+    ))
+    local ok, err = startRound(room)
+    if not ok then
+        outputServerLog(('[ROOM] start failed %s: %s'):format(tostring(getPlayerName(player)), tostring(err)))
+        removePlayer(room.players, player)
+        stateChanged()
+        return nil, nil, err
+    end
     return 'playing', room
 end
 
@@ -693,6 +746,9 @@ function Rooms.leave(player)
             room.ready[player] = nil
             room.lives[player] = nil
             room.ob[player] = nil
+            outputServerLog(('[ROOM] leave %s room=%s players=%d spectators=%d'):format(
+                tostring(getPlayerName(player)), tostring(room.id), #room.players, #room.spectators
+            ))
 
             if #room.players == 0 then
                 room.active = false
@@ -743,6 +799,9 @@ function Rooms.startVote(room, reason)
 
     if not room then
         return false, '舞台不存在'
+    end
+    if #config.mapPool == 0 then
+        return false, '地图池为空，请联系管理员添加地图'
     end
     if room.vote then
         return false, '当前已经有投票了'

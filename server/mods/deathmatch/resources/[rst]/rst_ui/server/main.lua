@@ -76,6 +76,8 @@ local function buildState(player, session)
     local state = {
         phase = 'auth',
         serverName = getServerName() or 'rst-mta-lite',
+        mapPoolSize = #config.mapPool,
+        mapPoolEmpty = #config.mapPool == 0,
         me = {
             name = getPlayerName(player) or 'player',
             guest = session.guest == true,
@@ -104,7 +106,8 @@ local function buildState(player, session)
                         (config.voteCooldown or 0) - (now() - room.lastVoteAt)
                     )
                 end
-                state.canStartVote = (room.vote == nil)
+                state.canStartVote = #config.mapPool > 0
+                    and (room.vote == nil)
                     and (room.modeVote == nil)
                     and room.active
                     and not room.waiting

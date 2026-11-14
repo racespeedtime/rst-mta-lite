@@ -11,6 +11,7 @@
     <script src="shared/config.lua" type="server" />
     <script src="server/accounts.lua" type="server" />
     <script src="server/mapstats.lua" type="server" />
+    <script src="server/mapmanager.lua" type="server" />
     <script src="server/rooms.lua" type="server" />
     <script src="server/main.lua" type="server" />
 
@@ -28,4 +29,10 @@
     <file src="ui/assets/style.css" />
 
     <min_mta_version client="1.6.0" server="1.6.0" />
+
+    <!-- 需要管理员批准：允许切换 mtavault 地图资源 -->
+    <aclrequest>
+        <right name="function.startResource" access="true" />
+        <right name="function.stopResource" access="true" />
+    </aclrequest>
 </meta>

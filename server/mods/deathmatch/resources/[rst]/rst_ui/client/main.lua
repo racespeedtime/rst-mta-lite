@@ -362,6 +362,7 @@ end
 
 local function applyState(state)
     local previousPhase = phase
+    local previousMode = mode
     local previousVote = voteActive
 
     local nextPhase = state.phase
@@ -423,7 +424,13 @@ local function applyState(state)
 
     applyInteractive()
 
-    if phase == 'playing' and mode == 'playing' and getElementHealth(localPlayer) > 0 then
+    -- state 每秒推送；只在 phase/mode 真正切换时重置相机，避免把自由视角拉回车后
+    if
+        phase == 'playing'
+        and mode == 'playing'
+        and getElementHealth(localPlayer) > 0
+        and (previousPhase ~= 'playing' or previousMode ~= 'playing')
+    then
         setCameraTarget(localPlayer)
         fadeCamera(true)
     end

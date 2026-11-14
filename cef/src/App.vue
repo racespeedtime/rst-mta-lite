@@ -45,6 +45,8 @@ function applyState(state: StatePayload): void {
 
   ui.phase = state.phase
   if (state.serverName) ui.serverName = state.serverName
+  ui.mapPoolSize = Number(state.mapPoolSize) || 0
+  ui.mapPoolEmpty = state.mapPoolEmpty === true || ui.mapPoolSize === 0
   if (state.me) {
     ui.playerName = state.me.name || ui.playerName
     ui.guest = state.me.guest === true

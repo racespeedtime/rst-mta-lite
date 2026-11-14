@@ -9,7 +9,7 @@
 - [x] 仓库工程化：只提交源码，二进制 / 运行时 / 构建产物全部忽略
 - [x] CEF + Vue 基础：全屏 local 浏览器、输入注入、Lua ↔ JS 桥
 - [x] 注册 / 登录 / 游客模式（昵称即账号名，bcrypt + SQLite）
-- [x] 双舞台（DeathMatch 竞速主舞台 / 副舞台）、30 分钟回合、观战 / 出生规则
+- [x] 真实 mtavault 地图舞台（单地图资源实例）、30 分钟回合、观战 / 出生规则
 - [x] 竞速出生：直接给赛车、带氮气，移除武器和玩家血条 / 护甲
 - [x] 换图投票：随机图池、票数/热度/随机决胜、手动投票冷却
 - [x] 地图投票面板：名称升 / 降序、模糊搜索、热度排序
@@ -39,7 +39,7 @@
 ## 玩法流程
 
 1. 进入服务器，CEF 显示登录界面：登录 / 注册分两个模式；注册需要输入两遍密码，也可以「Play as Guest」直接游客进入。
-2. 登录后进入舞台选择：`DeathMatch · 主舞台` / `DeathMatch · 副舞台`，两个舞台互相独立（不同 dimension），各自跑地图。
+2. 登录后进入舞台选择：当前使用 `DeathMatch · 主舞台`，真实地图以 dimension 0 加载；加入后直接出生在所选真实地图。
 3. 进入舞台：
    - 舞台里有正在玩的玩家 → 默认**观战**，相机跟随场内玩家；下一回合自动转为玩家出生。
    - 观战时鼠标左键 / 右键循环切换下一位 / 上一位存活玩家，顶部显示当前跟随对象。
@@ -104,11 +104,17 @@
 当前是“本地时间回放”的简化版，不是《地平线》的完整世界回退：
 
 - 采样间隔 50ms，保留最近 8 秒
-- 记录：位置、朝向、速度、**氮气 level / count**
+- 记录：位置、朝向、速度、**氮气 level / count / 是否正在喷射**
 - 长按 Y 冻结本地载具，按 1x 速度倒放位置和朝向
+- 回放期间强制关闭氮气喷射，避免当前喷射覆盖历史 level；松开时恢复该时间点的 level / count / 喷射状态
 - 随回放进度恢复历史氮气：氮气条会跟着回到之前的充能 / 瓶数
-- 松开 Y 后从当前回放点继续，恢复速度、朝向和氮气
 - 回放期间显示蓝色屏幕 tint + 底部 REWIND 进度条
+
+## 相机
+
+- 状态每秒推送一次；之前每次 state 都 `setCameraTarget(localPlayer)`，会把玩家自由视角每隔约 1 秒强行拉回车后
+- 现在只在 **phase/mode 真正切换**（进入游戏、观战返回、重生）时重置相机，普通 state 更新不再动相机
+- 重生仍由 `onClientPlayerSpawn` 恢复相机
 
 和《地平线》的差距：
 
@@ -121,7 +127,7 @@
 
 ## 构建信息
 
-右下角常驻 `BUILD 2026.11.15 · bf823d9` 小水印（所有界面可见，鼠标悬停显示 ISO 构建时间）：
+右下角常驻 `BUILD YYYY.MM.DD · <git hash>` 小水印（所有界面可见，鼠标悬停显示 ISO 构建时间）：
 
 - `__RST_BUILD_DATE__`：本地构建日期 `YYYY.MM.DD`
 - `__RST_BUILD_TIME__`：ISO 构建时间，用于 tooltip
@@ -165,19 +171,19 @@
 - `respawnDelay = 4000`：死亡重生间隔
 - `spawnCountdown = 3`：训练模式出生倒计时
 - `competitiveCountdown = 5`：竞技模式全员准备后的倒计时
-- `maps`：地图名称、作者、流行度、赛车模型、出生点坐标 / 朝向、终点 `finish`（当前是占位坐标，接真实赛道后替换）
-- `mapPool`：随机换图池
-- `rooms`：两个舞台的 id / 名称 / dimension
+- `maps`：真实地图名称、作者、流行度、赛车模型、出生点坐标 / 朝向、Hunter 终点 `finish`、地图 resource 名
+- `mapPool`：随机换图池；当前为 3 张真实 mtavault 地图
+- `rooms`：当前单舞台 `main`，dimension 0，与地图 `.map` 的维度对齐
 
 规则实现见 `server/rooms.lua`：
 
-- 两个舞台使用独立 dimension，玩家互相不可见
+- 当前只有一个真实地图舞台，玩家 dimension 0；MTA map resource 是全局单实例，双舞台同时跑不同地图需要地图资源复制/维度实例化，尚未实现
 - 回合开始把所有观战者提升为玩家，直接出生在赛车里
 - 每名玩家一辆赛车（`config.maps.*.vehicle`，默认 Infernus），带氮气升级
 - 倒计时期间同时冻结玩家和赛车，GO 后解冻
 - 不发放武器；玩家血条 / 护甲 / 武器 HUD 都隐藏
 - 房间空掉时回合结束；下一次有人进入重新开回合
-- 投票随机图池会尽量避免和另一舞台当前地图重复
+- 投票随机图池会从 3 张真实地图中抽取，排除当前图和最近玩过的图
 - 换图后重置 30 分钟计时
 - 进入舞台后，右下角显示「当前赛道」面板：地图名称 + 作者
 
@@ -192,7 +198,7 @@
   - 名称升序 / 降序
   - 地图名、作者模糊搜索
   - 按流行度排序
-- `popularity` 目前是配置里的占位数据，后续可以从外部站点抓取后写入（UI / 排序 / 结算已按这个字段工作）
+- `popularity` 是源站下载量基础值，加上服务器内实际游玩次数权重（`playPopularityWeight`）
 
 ## 模式与竞技
 
@@ -275,7 +281,7 @@
 - 默认只写 `tools/mtavault/output/`（已忽略），**不会自动执行**
 - 封面可 `--cover-dir` 下载为本地 JPEG；CEF 不能直接加载外网图片，接入前需要放进资源并在 `meta.xml` 登记
 - 受限网络可用 `--proxy http://127.0.0.1:7890` 或 `HTTPS_PROXY` 下载封面
-- 这是元数据，不是可玩地图：真正跑赛道还需要出生点 / 检查点 / 圈数数据
+- 元数据本身不是可玩地图；下载并安装到资源目录后，由 `server/mapmanager.lua` 加载
 
 ## 本地地图安装验证
 
@@ -303,12 +309,23 @@
 - settings 是 `vehicleweapons=true`、`ghostmode=true`、`duration=1800`、`respawn=none`
 - 这些实际是车辆 DM / 技巧图，不是带 checkpoint 的竞速图
 
-当前 `rst_ui` 还没有地图资源生命周期：不会 start / stop 这些 map resource，`config.maps` 仍是手写出生点，top 3 也还没进 `mapPool`。因此它们目前只是**已安装、可被扫描**，还不能直接走通现有竞速流程。要接入需要补：
+这些图现在已经是实际 mapPool：
 
-1. 选图时 start 新 map resource、stop 旧图
-2. 从 `map-catalog.json` 读取 spawnpoint / 车型
-3. 为没有 checkpoint 的 DM 图提供终点/目标数据，或改用击杀/生存排名
-4. 处理地图自带 vehicle、racepickup 和 client 脚本与 `rst_ui` 的重复逻辑
+- 选图时 `server/mapmanager.lua` start 新地图资源、stop 旧地图
+- 出生点 / 车型 / Hunter 终点写入 `shared/config.lua`
+- 地图 dimension 0，房间也是 dimension 0
+- 地图自带 `vehicle` 会在加载后移除，避免和 `rst:raceVehicle` 重复
+- 地图关闭了双舞台同时加载；当前只运行一个地图实例
+
+**ACL 设置**：`startResource` 需要 `function.startResource` 权限。服务器停止时运行：
+
+```bash
+node tools/setup-map-acl.mjs
+```
+
+脚本会把 `resource.rst_ui` 加进现有 `raceACLGroup`。如果使用 MTA 管理面板，也可以批准 `meta.xml` 里的 `aclrequest`。改完再启动服务器，日志中不应再出现 `Access denied @ startResource`。
+
+地图资源目录仍然全部被 `.gitignore` 忽略，源码里只保留地图 ID、spawn、Hunter finish 和资源名。
 
 ## 赛道排行
 
@@ -401,7 +418,7 @@ __rstMockState({
   serverName: 'dev',
   me: { name: 'DevPlayer', guest: false },
   rooms: [
-    { id: 'main', name: 'DeathMatch · 主舞台', mapName: 'Grove Street', author: 'RST Team', players: 2, spectators: 1, active: true, timeLeft: 900 },
+    { id: 'main', name: 'DeathMatch · 主舞台', mapName: '[DM] BaSzTy v1 - Silent Hill', author: 'BaSzTy', players: 2, spectators: 1, active: true, timeLeft: 900 },
   ],
 })
 ```
@@ -448,6 +465,7 @@ __rstMockState({
 - 真实 MTA 客户端：2560×1440、DPI 缩放下的鼠标点击坐标正确；CEF 状态切换到 `stage / playing`
 - 账号链路：bcrypt 创建 / 正确密码校验 / 错误密码拒绝；注册确认密码在 UI + 服务端双重校验
 - 关键修复：MTA `toJSON` 单元素数组包装导致 UI 卡 auth 的问题已修复并实机验证
+- 真实地图：Silent Hill 已在客户端加载，地图物件 / 雾效 / 自绘 HUD / 赛车 / 计时均正常
 - Headless Chrome 渲染登录、选舞台、HUD（含赛道作者面板）、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
 - 聊天：原生消息 / 玩家消息渲染、T 输入框、Enter 发送动作（`chat:send` + `chat:close`）在 Headless Chrome 中验证通过
 - 载具仪表：速度 / 血量 / 氮气 / 档位在 Headless Chrome 中验证渲染
@@ -475,14 +493,18 @@ __rstMockState({
 - 登录密码经 MTA 客户端事件发到服务端后再 bcrypt 存储；资源层能看到明文密码。正式运营建议独立 Web 登录或至少网络层保护
 - 当前是自定义 SQLite 账号，不是 MTA `addAccount / logIn` 官方 Account；不会自动获得 ACL 权限
 - 最小密码长度 8，最大 128；没有登录失败锁定 / 密码重置
+- 地图资源加载依赖 ACL：`node tools/setup-map-acl.mjs` 或批准 `meta.xml` 的 aclrequest；否则会 `Access denied @ startResource`
+- 当前只有一个地图实例/舞台；双舞台同时跑不同地图尚未实现
 - 登录错误目前区分“账号不存在 / 密码错误”，可被用来枚举账号
-- 地图目前只是出生点配置，没有加载赛道资源和检查点
-- 圈数 / 检查点 / 名次结算还没做，当前是出生给赛车 + 换图 / 投票的竞速基础框架
+- 当前 true 地图是车辆 DM / 技巧图，不是带 checkpoint 的竞速图；排行使用 Hunter 终点直线距离或远离起点估算
+- 单舞台单地图实例；双舞台同时跑不同地图需要地图资源复制/维度实例化
+- 地图自带 `racepickup` 和 client 脚本仍会运行，可能输出聊天提示或与 `rst_ui` 有交互
+- 地图资源加载 / 维度映射 / map resource ACL 已接入；更多地图需要补 spawn、Hunter finish 和 ACL 配置
+- `mapPool` 为空时服务端拒绝开始回合，舞台 / F2 菜单会显示警告
 - Ghost 的透明与车辆间碰撞关闭都在客户端完成；服务端不额外校验
 - 竞技命数由服务端在收到 rewind 事件时扣减；rewind 本身仍是客户端本地回放，没有独立反作弊
-- 竞技排行按到终点距离（终点坐标目前是占位），不是按圈速 / 完成时间；终点数据接入真实赛道后替换
+- 竞技排行按到 Hunter 终点距离或远离起点估算，不是按圈速 / 完成时间
 - 距离是直线距离，不是沿赛道距离；后续有检查点后可以改成沿赛道的剩余进度
-- top 3 mtavault 地图没有 checkpoint，但可用 Hunter pickup 作为终点；没有 Hunter 时仅能按远离起点距离估算，绕圈/回转赛道会不准
 - 地图资源加载 / 维度映射 / 地图自带 vehicle、pickup 与脚本接管仍未接入
 - mtavault 脚本默认不抓、不自动更新配置；全量抓取需要手动运行并自行确认源站条款
 - 服务器内游玩次数在资源重启后保留，但必须先重启 `rst_ui` 才会加载 `mapstats.lua`

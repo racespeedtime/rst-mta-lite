@@ -17,6 +17,8 @@ import type {
 export const ui = reactive({
   phase: 'auth' as Phase,
   serverName: 'rst-mta-lite',
+  mapPoolSize: 0,
+  mapPoolEmpty: false,
   playerName: 'player',
   guest: false,
   mode: 'playing' as PlayMode,

@@ -20,6 +20,7 @@ import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
 const voteHint = computed(() => {
+  if (ui.mapPoolEmpty) return '地图池为空'
   if (ui.vote?.active) return '投票进行中'
   if (ui.canStartVote) return '30 秒后结算'
   if (ui.voteCooldown > 0) return `冷却中 ${formatTime(ui.voteCooldown)}`
@@ -130,6 +131,10 @@ function leaveStage(): void {
       <div v-if="ui.room" class="menu-round">
         <span>本图剩余 <strong>{{ formatTime(ui.room.timeLeft) }}</strong></span>
         <span>{{ ui.room.players }} 玩家 / {{ ui.room.spectators }} 观战</span>
+      </div>
+
+      <div v-if="ui.mapPoolEmpty" class="menu-warning">
+        地图池为空，无法发起换图投票。请联系管理员在 config.mapPool 添加地图。
       </div>
 
       <div class="menu-cursor">
@@ -398,6 +403,16 @@ function leaveStage(): void {
   margin-left: auto;
   font-size: 9px;
   color: var(--rst-muted);
+}
+
+.menu-warning {
+  padding: 9px 12px;
+  border: 1px solid rgba(255, 190, 92, 0.28);
+  border-radius: 9px;
+  background: rgba(255, 190, 92, 0.08);
+  color: #ffd18a;
+  font-size: 11px;
+  line-height: 1.45;
 }
 
 .menu-actions {

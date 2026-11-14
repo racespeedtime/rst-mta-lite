@@ -85,6 +85,8 @@ export interface CompetitionState {
 export interface StatePayload {
   phase: Phase
   serverName: string
+  mapPoolSize?: number
+  mapPoolEmpty?: boolean
   me: {
     name: string
     guest: boolean

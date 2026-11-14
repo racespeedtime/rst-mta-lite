@@ -65,6 +65,10 @@ function actionLabel(room: RoomSummary): string {
       </button>
     </header>
 
+    <div v-if="ui.mapPoolEmpty" class="stage__warning">
+      地图池为空，当前无法加入比赛。请联系管理员在 config.mapPool 添加地图。
+    </div>
+
     <div class="stage__list">
       <button
         v-for="room in ui.rooms"
@@ -72,7 +76,7 @@ function actionLabel(room: RoomSummary): string {
         type="button"
         class="stage-card"
         :class="{ 'stage-card--live': room.active, 'stage-card--vote': room.voteActive }"
-        :disabled="ui.busy"
+        :disabled="ui.busy || ui.mapPoolEmpty"
         @click="select(room)"
       >
         <span class="stage-card__accent" />
@@ -167,7 +171,8 @@ function actionLabel(room: RoomSummary): string {
 
 .stage__head,
 .stage__list,
-.stage__hint {
+.stage__hint,
+.stage__warning {
   position: relative;
   width: 100%;
   max-width: 980px;
@@ -236,8 +241,18 @@ function actionLabel(room: RoomSummary): string {
 
 .stage__list {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(380px, 1fr));
   gap: 18px;
+}
+
+.stage__warning {
+  margin-top: 20px;
+  padding: 10px 13px;
+  border: 1px solid rgba(255, 190, 92, 0.28);
+  border-radius: 10px;
+  background: rgba(255, 190, 92, 0.08);
+  color: #ffd18a;
+  font-size: 12px;
 }
 
 .stage-card {
