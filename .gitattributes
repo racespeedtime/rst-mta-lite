@@ -1,0 +1,57 @@
+# 仓库内文本统一 LF（即使 Windows 上开启了 core.autocrlf 也保持一致）
+* text=auto eol=lf
+
+*.lua    text eol=lf
+*.js     text eol=lf
+*.mjs    text eol=lf
+*.ts     text eol=lf
+*.vue    text eol=lf
+*.json   text eol=lf
+*.md     text eol=lf
+*.xml    text eol=lf
+*.yml    text eol=lf
+*.yaml   text eol=lf
+*.css    text eol=lf
+*.scss   text eol=lf
+*.html   text eol=lf
+
+# Windows 脚本保留 CRLF
+*.bat    text eol=crlf
+*.cmd    text eol=crlf
+*.ps1    text eol=crlf
+
+# 图片 / 音频 / 字体
+*.png    binary
+*.jpg    binary
+*.jpeg   binary
+*.gif    binary
+*.webp   binary
+*.ico    binary
+*.bmp    binary
+*.tga    binary
+*.dds    binary
+*.ogg    binary
+*.mp3    binary
+*.wav    binary
+*.webm   binary
+*.mp4    binary
+*.woff   binary
+*.woff2  binary
+*.ttf    binary
+*.otf    binary
+
+# GTA / MTA 资源格式
+*.dff    binary
+*.txd    binary
+*.col    binary
+*.ifp    binary
+*.img    binary
+
+# 压缩包与二进制
+*.zip    binary
+*.7z     binary
+*.rar    binary
+*.exe    binary
+*.dll    binary
+*.pdb    binary
+*.db     binary
