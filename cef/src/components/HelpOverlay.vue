@@ -6,6 +6,7 @@ import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconEye from '~icons/lucide/eye'
 import IconInfo from '~icons/lucide/info'
 import IconKeyboard from '~icons/lucide/keyboard'
+import IconTrophy from '~icons/lucide/trophy'
 import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import { ui } from '@/stores/ui'
@@ -59,7 +60,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>F2</kbd></span>
-              <span>菜单：换图投票 / 离开舞台</span>
+              <span>菜单：换图投票 / 模式投票 / 离开舞台</span>
             </li>
             <li>
               <span class="help__keys"><kbd>T</kbd></span>
@@ -75,7 +76,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>GO</kbd></span>
-              <span>出生后 3-2-1-GO 倒计时结束才能移动</span>
+              <span>训练：出生后 3-2-1-GO；竞技：全员准备后倒计时</span>
             </li>
           </ul>
         </section>
@@ -121,13 +122,35 @@ onUnmounted(() => {
 
         <section class="help__section">
           <h2 class="help__section-title">
+            <IconTrophy class="icon icon--sm" />
+            竞技模式
+          </h2>
+          <ul class="help__list">
+            <li>
+              <span class="help__keys"><kbd>准备</kbd></span>
+              <span>所有玩家点准备后，才会开始 3-2-1-GO</span>
+            </li>
+            <li>
+              <span class="help__keys"><kbd>命数</kbd></span>
+              <span>每人 10 条命，每次 rewind 消耗 1 条，扣完淘汰</span>
+            </li>
+            <li>
+              <span class="help__keys"><kbd>Ghost</kbd></span>
+              <span>其他赛车半透明显示，车辆之间没有碰撞</span>
+            </li>
+          </ul>
+          <p class="help__note">当前模式显示在右上角房间面板；F2 菜单可发起模式投票。</p>
+        </section>
+
+        <section class="help__section">
+          <h2 class="help__section-title">
             <IconInfo class="icon icon--sm" />
             小提示
           </h2>
           <ul class="help__list">
             <li>
               <span class="help__keys"><kbd>F2</kbd></span>
-              <span>提前发起换图投票</span>
+              <span>提前发起换图投票或模式投票</span>
             </li>
             <li>
               <span class="help__keys"><kbd>计时</kbd></span>

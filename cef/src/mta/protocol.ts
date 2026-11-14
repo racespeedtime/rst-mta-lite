@@ -7,6 +7,7 @@
 
 export type Phase = 'auth' | 'stage' | 'playing'
 export type PlayMode = 'playing' | 'spectating'
+export type GameMode = 'training' | 'competitive'
 
 export interface RoomSummary {
   id: string
@@ -19,6 +20,8 @@ export interface RoomSummary {
   timeLeft: number
   voteActive?: boolean
   mode?: PlayMode
+  gameMode?: GameMode
+  waiting?: boolean
 }
 
 export interface VoteOption {
@@ -37,6 +40,45 @@ export interface VoteState {
   mine?: string
 }
 
+export interface ModeVoteOption {
+  id: GameMode
+  name: string
+  description: string
+  votes: number
+}
+
+export interface ModeVoteState {
+  active: boolean
+  timeLeft: number
+  currentMode: GameMode
+  options: ModeVoteOption[]
+  mine?: GameMode
+}
+
+export interface ReadyState {
+  waiting: boolean
+  ready?: number
+  total?: number
+  me?: boolean
+  canReady?: boolean
+}
+
+export interface CompetitionPlayer {
+  rank: number
+  name: string
+  lives: number
+  alive: boolean
+  me: boolean
+}
+
+export interface CompetitionState {
+  mode: 'competitive'
+  alive: number
+  total: number
+  waiting: boolean
+  players: CompetitionPlayer[]
+}
+
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -47,9 +89,16 @@ export interface StatePayload {
   }
   rooms?: RoomSummary[]
   room?: RoomSummary
+  mode?: GameMode
+  lives?: number
+  ready?: ReadyState
+  competition?: CompetitionState | null
   vote?: VoteState
+  modeVote?: ModeVoteState
   canStartVote?: boolean
   voteCooldown?: number
+  canStartModeVote?: boolean
+  modeVoteCooldown?: number
   mapTime?: number
 }
 

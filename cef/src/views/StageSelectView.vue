@@ -2,11 +2,12 @@
 import IconChevronRight from '~icons/lucide/chevron-right'
 import IconClock from '~icons/lucide/clock'
 import IconEye from '~icons/lucide/eye'
+import IconFlag from '~icons/lucide/flag'
 import IconInfo from '~icons/lucide/info'
 import IconMap from '~icons/lucide/map'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconRefreshCw from '~icons/lucide/refresh-cw'
-import IconSwords from '~icons/lucide/swords'
+import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
 import { emitAction } from '@/mta/bridge'
@@ -25,6 +26,7 @@ function refresh(): void {
 }
 
 function statusLabel(room: RoomSummary): string {
+  if (room.waiting) return '准备中'
   if (room.active) return '进行中'
   if (room.voteActive) return '投票中'
   return '空闲'
@@ -44,7 +46,7 @@ function actionLabel(room: RoomSummary): string {
     <header class="stage__head">
       <div>
         <p class="stage__eyebrow">
-          <IconSwords class="icon icon--sm" />
+          <IconFlag class="icon icon--sm" />
           <span>RST MTA LITE · DEATHMATCH</span>
         </p>
         <h1 class="stage__title">选择对战舞台</h1>
@@ -76,7 +78,7 @@ function actionLabel(room: RoomSummary): string {
         <span class="stage-card__accent" />
 
         <div class="stage-card__top">
-          <span class="stage-card__icon"><IconSwords class="icon icon--lg" /></span>
+          <span class="stage-card__icon"><IconFlag class="icon icon--lg" /></span>
           <span class="stage-card__name">{{ room.name }}</span>
           <span class="stage-card__badge">
             <span class="stage-card__badge-dot" />
@@ -98,8 +100,13 @@ function actionLabel(room: RoomSummary): string {
           <span><IconUsers class="icon icon--sm" />{{ room.players }} 玩家</span>
           <span><IconEye class="icon icon--sm" />{{ room.spectators }} 观战</span>
           <span>
+            <IconTrophy class="icon icon--sm" />
+            {{ room.gameMode === 'competitive' ? '竞技' : '训练' }}
+          </span>
+          <span>
             <IconClock class="icon icon--sm" />
-            <template v-if="room.active">剩余 {{ formatTime(room.timeLeft) }}</template>
+            <template v-if="room.waiting">等待准备</template>
+            <template v-else-if="room.active">剩余 {{ formatTime(room.timeLeft) }}</template>
             <template v-else-if="room.voteActive">换图投票中</template>
             <template v-else>等待开局</template>
           </span>

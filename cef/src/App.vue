@@ -6,6 +6,8 @@ import ChatPanel from '@/components/ChatPanel.vue'
 import MapTimer from '@/components/MapTimer.vue'
 import Speedometer from '@/components/Speedometer.vue'
 import SpawnCountdown from '@/components/SpawnCountdown.vue'
+import CompetitionPanel from '@/components/CompetitionPanel.vue'
+import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
@@ -14,6 +16,7 @@ import AuthView from '@/views/AuthView.vue'
 import MenuView from '@/views/MenuView.vue'
 import StageSelectView from '@/views/StageSelectView.vue'
 import VoteView from '@/views/VoteView.vue'
+import ModeVoteView from '@/views/ModeVoteView.vue'
 import { emitToLua, onBridge } from '@/mta/bridge'
 import type { StatePayload } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
@@ -44,9 +47,16 @@ function applyState(state: StatePayload): void {
 
   ui.rooms = state.rooms || []
   ui.room = state.room || null
+  ui.gameMode = state.mode === 'competitive' ? 'competitive' : 'training'
+  ui.lives = typeof state.lives === 'number' ? state.lives : null
+  ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
+  ui.competition = state.competition || null
   ui.vote = state.vote || null
+  ui.modeVote = state.modeVote || null
   ui.canStartVote = state.canStartVote === true
   ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
+  ui.canStartModeVote = state.canStartModeVote === true
+  ui.modeVoteCooldown = Math.max(0, Number(state.modeVoteCooldown) || 0)
   ui.mapTime = Math.max(0, Number(state.mapTime) || 0)
 
   if (previousPhase !== state.phase) {
@@ -55,7 +65,12 @@ function applyState(state: StatePayload): void {
   }
 
   if (state.phase !== 'playing') ui.menuOpen = false
-  if (state.phase !== 'playing' || state.vote?.active) {
+  if (
+    state.phase !== 'playing' ||
+    state.vote?.active ||
+    state.modeVote?.active ||
+    state.ready?.waiting
+  ) {
     ui.chatOpen = false
     ui.helpOpen = false
   }
@@ -145,8 +160,11 @@ onUnmounted(() => {
         <Speedometer v-if="ui.vehicle" />
       </Transition>
       <SpawnCountdown v-if="ui.countdown.active" />
+      <CompetitionPanel v-if="ui.competition" />
+      <ReadyOverlay v-if="ui.ready.waiting && ui.ready.canReady !== false" />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
+      <ModeVoteView v-if="ui.modeVote?.active" />
       <RewindOverlay v-if="ui.rewind.active" />
       <HelpOverlay v-if="ui.helpOpen" />
     </template>

@@ -19,6 +19,7 @@ import { formatTime } from '@/utils/format'
 
 const spectating = computed(() => ui.mode === 'spectating')
 const modeLabel = computed(() => (spectating.value ? '观战' : '比赛中'))
+const gameModeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技' : '训练'))
 const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:--'))
 </script>
 
@@ -43,6 +44,9 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
       <div class="room__head">
         <IconFlag class="icon room__flag" />
         <span class="room__name">{{ ui.room.name }}</span>
+        <span class="room__game-mode" :class="{ 'room__game-mode--competitive': ui.gameMode === 'competitive' }">
+          {{ gameModeLabel }}
+        </span>
         <span class="room__mode" :class="{ 'room__mode--spectate': spectating }">{{ modeLabel }}</span>
       </div>
 
@@ -69,6 +73,10 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
         <IconVote class="icon icon--sm" />
         换图投票 · {{ formatTime(ui.vote.timeLeft) }}
       </p>
+      <p v-else-if="ui.modeVote?.active" class="room__vote">
+        <IconVote class="icon icon--sm" />
+        模式投票 · {{ formatTime(ui.modeVote.timeLeft) }}
+      </p>
     </section>
 
     <div v-if="spectating" class="spectate">
@@ -80,7 +88,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
     <div class="hud__hints">
       <span><IconCircleQuestionMark class="icon icon--sm" />F1 帮助</span>
       <span><IconKeyboard class="icon icon--sm" />F2 菜单</span>
-      <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放</span>
+      <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放<span v-if="ui.lives !== null"> · {{ ui.lives }} 命</span></span>
     </div>
 
     <div v-if="ui.room" class="track">
@@ -196,7 +204,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   position: absolute;
   top: 20px;
   right: 24px;
-  width: 258px;
+  width: 286px;
   padding: 14px 16px;
   border: 1px solid var(--rst-border);
   border-radius: 14px;
@@ -216,8 +224,25 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 
 .room__name {
   flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
   font-size: 12px;
   font-weight: 600;
+}
+
+.room__game-mode {
+  padding: 2px 6px;
+  border-radius: 999px;
+  font-size: 9px;
+  color: var(--rst-muted);
+  background: rgba(147, 164, 189, 0.1);
+}
+
+.room__game-mode--competitive {
+  color: var(--rst-gold);
+  background: rgba(255, 212, 121, 0.12);
 }
 
 .room__mode {
@@ -322,7 +347,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   position: absolute;
   right: 24px;
   bottom: 52px;
-  width: 258px;
+  width: 286px;
   padding: 12px 15px 13px;
   border: 1px solid var(--rst-border);
   border-radius: 14px;

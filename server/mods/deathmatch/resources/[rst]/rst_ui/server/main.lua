@@ -87,9 +87,14 @@ local function buildState(player, session)
             local room = Rooms.get(session.roomId)
             if room then
                 state.phase = 'playing'
+                state.mode = room.mode
                 state.room = Rooms.summary(room)
                 state.room.mode = session.mode or 'playing'
                 state.vote = Rooms.voteState(room, player)
+                state.modeVote = Rooms.modeVoteState(room, player)
+                state.ready = Rooms.readyState(room, player)
+                state.competition = Rooms.competitionState(room, player)
+                state.lives = room.mode == 'competitive' and room.lives[player] or nil
 
                 local cooldownLeft = 0
                 if (room.lastVoteAt or 0) > 0 then
@@ -98,8 +103,26 @@ local function buildState(player, session)
                         (config.voteCooldown or 0) - (now() - room.lastVoteAt)
                     )
                 end
-                state.canStartVote = (room.vote == nil) and room.active and cooldownLeft <= 0
+                state.canStartVote = (room.vote == nil)
+                    and (room.modeVote == nil)
+                    and room.active
+                    and not room.waiting
+                    and cooldownLeft <= 0
                 state.voteCooldown = math.floor(cooldownLeft)
+
+                local modeCooldownLeft = 0
+                if (room.lastModeVoteAt or 0) > 0 then
+                    modeCooldownLeft = math.max(
+                        0,
+                        (config.modeVoteCooldown or 0) - (now() - room.lastModeVoteAt)
+                    )
+                end
+                state.canStartModeVote = (room.vote == nil)
+                    and (room.modeVote == nil)
+                    and room.active
+                    and not room.waiting
+                    and modeCooldownLeft <= 0
+                state.modeVoteCooldown = math.floor(modeCooldownLeft)
             end
         end
 
@@ -311,6 +334,54 @@ actions['vote:cast'] = function(player, session, data)
     broadcastState()
 end
 
+actions['modevote:start'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return
+    end
+
+    local ok, err = Rooms.startModeVote(room)
+    if not ok then
+        notify(player, err)
+    else
+        notify(player, '已发起模式投票')
+    end
+    broadcastState()
+end
+
+actions['modevote:cast'] = function(player, session, data)
+    if not session.roomId then
+        return
+    end
+
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return
+    end
+
+    local ok, err = Rooms.castModeVote(room, player, tostring(data.mode or ''))
+    if not ok then
+        notify(player, err)
+    end
+    broadcastState()
+end
+
+actions['ready'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local ok, err = Rooms.setReady(player)
+    if not ok then
+        notify(player, err)
+    end
+    broadcastState()
+end
+
 actions['chat:send'] = function(player, session, data)
     if not session.authed then
         return
@@ -372,6 +443,34 @@ addEventHandler('rst:ui:requestState', root, function()
         initSession(player)
     end
     pushState(player)
+end)
+
+-- 客户端完成一次 rewind 后扣命
+addEvent('rst:rewind:use', true)
+addEventHandler('rst:rewind:use', root, function()
+    local player = client or source
+    if not isElement(player) then
+        return
+    end
+
+    local room = Rooms.playerRoom(player)
+    if not room then
+        return
+    end
+
+    local ok, lives, eliminated = Rooms.consumeLife(player)
+    if not ok then
+        return
+    end
+
+    triggerClientEvent(player, 'rst:ui:lives', player, toJSON({
+        lives = lives,
+        eliminated = eliminated == true,
+    }))
+    if eliminated then
+        notify(player, '命数耗尽，已进入观战')
+    end
+    broadcastState()
 end)
 
 -- ---------------------------------------------------------------------------

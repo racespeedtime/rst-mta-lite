@@ -8,9 +8,13 @@ RST = RST or {}
 
 RST.config = {
     roundSeconds = 30 * 60, -- 每张地图最长 30 分钟
-    voteSeconds = 30,       -- 投票持续时间
+    defaultMode = 'training', -- training | competitive
+    competitiveLives = 10,  -- 竞技模式每人 rewind 命数
+    voteSeconds = 30,       -- 换图投票持续时间
+    modeVoteSeconds = 20,   -- 模式投票持续时间
     votePoolSize = 5,       -- 每次投票随机从地图池抽取的候选数量
-    voteCooldown = 180,     -- 手动发起投票的冷却（秒）
+    voteCooldown = 180,     -- 手动发起换图投票的冷却（秒）
+    modeVoteCooldown = 120, -- 手动发起模式投票的冷却（秒）
     recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
     playPopularityWeight = 5, -- 服务器内每玩一场给热度加分
     respawnDelay = 4000,    -- 死亡后重生间隔

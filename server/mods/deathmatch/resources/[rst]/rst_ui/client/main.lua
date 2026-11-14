@@ -20,6 +20,7 @@ local menuOpen = false
 local chatOpen = false
 local helpOpen = false
 local voteActive = false
+local readyWaiting = false
 local interactive = false
 local cachedState = nil
 local spectateTarget = nil
@@ -36,6 +37,8 @@ RST = {
     helpOpen = false,
     voteActive = false,
     countdownActive = false,
+    readyWaiting = false,
+    rewindLives = nil,
 }
 
 function RST.isGameplayActive()
@@ -44,11 +47,13 @@ function RST.isGameplayActive()
         and not RST.interactive
         and not RST.voteActive
         and not RST.countdownActive
+        and not RST.readyWaiting
 end
 
 function RST.canRewind()
     return RST.isGameplayActive()
         and getElementHealth(localPlayer) > 0
+        and (RST.rewindLives == nil or RST.rewindLives > 0)
         and not isChatBoxInputActive()
         and not isConsoleActive()
         and not isMTAWindowActive()
@@ -173,7 +178,14 @@ local function setInteractive(enabled)
 end
 
 local function applyInteractive()
-    setInteractive(phase ~= 'playing' or menuOpen or chatOpen or helpOpen or voteActive)
+    setInteractive(
+        phase ~= 'playing'
+            or menuOpen
+            or chatOpen
+            or helpOpen
+            or voteActive
+            or readyWaiting
+    )
 end
 
 -- ---------------------------------------------------------------------------
@@ -317,11 +329,17 @@ local function applyState(state)
 
     phase = state.phase or 'auth'
     mode = (state.me and state.me.mode) or 'playing'
-    voteActive = type(state.vote) == 'table' and state.vote.active == true
+    voteActive = (type(state.vote) == 'table' and state.vote.active == true)
+        or (type(state.modeVote) == 'table' and state.modeVote.active == true)
+    readyWaiting = type(state.ready) == 'table'
+        and state.ready.waiting == true
+        and state.ready.canReady ~= false
 
     RST.phase = phase
     RST.mode = mode
     RST.voteActive = voteActive
+    RST.readyWaiting = readyWaiting
+    RST.rewindLives = tonumber(state.lives)
 
     if phase ~= 'playing' and menuOpen then
         menuOpen = false
@@ -329,7 +347,7 @@ local function applyState(state)
         dispatch('menu', { open = false })
     end
 
-    if chatOpen and (phase ~= 'playing' or voteActive) then
+    if chatOpen and (phase ~= 'playing' or voteActive or readyWaiting) then
         chatOpen = false
         RST.chatOpen = false
         dispatch('chat', { open = false })
@@ -350,6 +368,10 @@ local function applyState(state)
         dispatch('countdown', { active = false })
     end
 
+    if (phase ~= 'playing' or mode == 'spectating') and RST.stopRewind then
+        RST.stopRewind()
+    end
+
     if phase == 'playing' and mode == 'spectating' then
         startSpectate()
     else
@@ -363,6 +385,10 @@ local function applyState(state)
         fadeCamera(true)
     end
 
+    if phase == 'playing' and RST.refreshGhosts then
+        RST.refreshGhosts()
+    end
+
     if previousPhase ~= phase or (not previousVote and voteActive) then
         playUiSound('confirm')
     end
@@ -373,7 +399,7 @@ local function setChatOpen(open)
     if open == chatOpen then
         return
     end
-    if open and (phase ~= 'playing' or menuOpen or voteActive) then
+    if open and (phase ~= 'playing' or menuOpen or voteActive or readyWaiting) then
         return
     end
 
@@ -525,6 +551,7 @@ addEvent('rst:ui:state', true)
 addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
 addEvent('rst:ui:countdown', true)
+addEvent('rst:ui:lives', true)
 
 addEventHandler('rst:ui:ready', root, function()
     if cachedState then
@@ -609,6 +636,13 @@ addEventHandler('rst:ui:countdown', root, function(json)
     end, math.floor(seconds * 1000) + 50, 1)
 end)
 
+addEventHandler('rst:ui:lives', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' and data.lives ~= nil then
+        RST.rewindLives = tonumber(data.lives)
+    end
+end)
+
 -- 拦截所有原生聊天输出，改由 CEF 渲染
 addEventHandler('onClientChatMessage', root, function(text, r, g, b, messageType)
     if type(text) ~= 'string' then
@@ -674,6 +708,51 @@ addEventHandler('onClientPlayerVehicleEnter', localPlayer, function(vehicle)
     if getElementData(vehicle, 'rst:testVehicle') or getElementData(vehicle, 'rst:raceVehicle') then
         setVehicleNitroCount(vehicle, 101)
         setVehicleNitroLevel(vehicle, 1)
+    end
+    if RST.refreshGhosts then
+        RST.refreshGhosts()
+    end
+end)
+
+addEventHandler('onClientPlayerVehicleExit', localPlayer, function()
+    if RST.refreshGhosts then
+        RST.refreshGhosts()
+    end
+end)
+
+-- 其他竞速车辆半透明，配合服务端关闭碰撞做 ghost
+local GHOST_ALPHA = 120
+
+function RST.refreshGhosts()
+    local own = getPedOccupiedVehicle(localPlayer)
+    local racers = {}
+    for _, vehicle in ipairs(getElementsByType('vehicle', root, true)) do
+        if getElementData(vehicle, 'rst:raceVehicle') then
+            racers[#racers + 1] = vehicle
+            setElementAlpha(vehicle, vehicle == own and 255 or GHOST_ALPHA)
+        end
+    end
+
+    -- 本地关闭竞速车之间的碰撞
+    for i = 1, #racers do
+        for j = i + 1, #racers do
+            setElementCollidableWith(racers[i], racers[j], false)
+            setElementCollidableWith(racers[j], racers[i], false)
+        end
+    end
+end
+
+addEventHandler('onClientElementStreamIn', root, function()
+    if getElementType(source) == 'vehicle' and getElementData(source, 'rst:raceVehicle') then
+        if RST.refreshGhosts then
+            RST.refreshGhosts()
+        end
+    end
+end)
+
+addEventHandler('onClientElementStreamOut', root, function()
+    if getElementType(source) == 'vehicle' then
+        setElementAlpha(source, 255)
     end
 end)
 
@@ -771,7 +850,7 @@ bindKey('T', 'down', function()
     if chatOpen then
         return
     end
-    if phase ~= 'playing' or menuOpen or voteActive or helpOpen then
+    if phase ~= 'playing' or menuOpen or voteActive or helpOpen or readyWaiting then
         return
     end
     setChatOpen(true)

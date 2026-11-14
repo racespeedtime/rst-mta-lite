@@ -2,12 +2,14 @@
 import { computed } from 'vue'
 
 import IconChevronRight from '~icons/lucide/chevron-right'
+import IconCar from '~icons/lucide/car'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
 import IconDoorOpen from '~icons/lucide/door-open'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
 import IconSettings from '~icons/lucide/settings'
+import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
 import IconVote from '~icons/lucide/vote'
 import IconX from '~icons/lucide/x'
@@ -22,6 +24,15 @@ const voteHint = computed(() => {
   return '当前不可发起'
 })
 
+const modeLabel = computed(() => (ui.gameMode === 'competitive' ? '竞技模式' : '训练模式'))
+
+const modeVoteHint = computed(() => {
+  if (ui.modeVote?.active) return '模式投票进行中'
+  if (ui.canStartModeVote) return `${modeLabel.value} · 20 秒后结算`
+  if (ui.modeVoteCooldown > 0) return `冷却中 ${formatTime(ui.modeVoteCooldown)}`
+  return `当前：${modeLabel.value}`
+})
+
 function close(): void {
   emitAction('menu:close')
 }
@@ -29,6 +40,12 @@ function close(): void {
 function startVote(): void {
   if (!ui.canStartVote) return
   emitAction('vote:start')
+  emitAction('menu:close')
+}
+
+function startModeVote(): void {
+  if (!ui.canStartModeVote) return
+  emitAction('modevote:start')
   emitAction('menu:close')
 }
 
@@ -76,6 +93,10 @@ function leaveStage(): void {
           <dt><IconMap class="icon icon--sm" />赛道</dt>
           <dd>{{ ui.room?.mapName || '-' }}</dd>
         </div>
+        <div>
+          <dt><IconCar class="icon icon--sm" />模式</dt>
+          <dd>{{ modeLabel }}</dd>
+        </div>
       </dl>
 
       <div v-if="ui.room" class="menu-round">
@@ -89,6 +110,23 @@ function leaveStage(): void {
           <span class="menu-action__text">
             <strong>发起换图投票</strong>
             <small>{{ voteHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action"
+          :disabled="!ui.canStartModeVote"
+          @click="startModeVote"
+        >
+          <span class="menu-action__icon">
+            <IconTrophy v-if="ui.gameMode === 'competitive'" class="icon" />
+            <IconCar v-else class="icon" />
+          </span>
+          <span class="menu-action__text">
+            <strong>切换比赛模式</strong>
+            <small>{{ modeVoteHint }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

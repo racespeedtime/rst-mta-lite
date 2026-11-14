@@ -115,6 +115,14 @@ local function startRewind()
         return
     end
 
+    if RST.rewindLives ~= nil then
+        if RST.rewindLives <= 0 then
+            return
+        end
+        RST.rewindLives = RST.rewindLives - 1
+        triggerServerEvent('rst:rewind:use')
+    end
+
     active = true
     activatedAt = now()
     lastDispatchAt = 0
