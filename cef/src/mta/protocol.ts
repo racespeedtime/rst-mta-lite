@@ -88,6 +88,20 @@ export interface ChatOpenPayload {
   open: boolean
 }
 
+export interface VehiclePayload {
+  active: boolean
+  name?: string
+  speed?: number
+  gear?: number
+  healthPercent?: number
+  nitroPercent?: number
+  nitroCount?: number
+  nitroInfinite?: boolean
+  nitroActive?: boolean
+  nitroRecharging?: boolean
+  hasNitro?: boolean
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -96,4 +110,5 @@ export type BridgeEventMap = {
   stats: StatsPayload
   chat: ChatOpenPayload
   chatMessage: ChatMessagePayload
+  vehicle: VehiclePayload
 }

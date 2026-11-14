@@ -9,6 +9,8 @@
 
 Sessions = {}
 
+local testVehicles = {}
+
 local config = RST.config
 local thisResource = getThisResource()
 
@@ -390,6 +392,11 @@ end)
 addEventHandler('onPlayerQuit', root, function()
     local name = getPlayerName(source)
 
+    if isElement(testVehicles[source]) then
+        destroyElement(testVehicles[source])
+        testVehicles[source] = nil
+    end
+
     Rooms.leave(source)
     Sessions[source] = nil
 
@@ -406,5 +413,40 @@ end)
 
 addEventHandler('onPlayerWasted', root, function()
     Rooms.handleDeath(source)
+end)
+
+-- 测试用：生成一辆带氮气的 Infernus
+addCommandHandler('car', function(player, _, modelArg)
+    local session = Sessions[player]
+    if not session or not session.authed then
+        notify(player, '请先登录')
+        return
+    end
+    if not session.roomId then
+        notify(player, '进入舞台后才能生成测试车辆')
+        return
+    end
+
+    if isElement(testVehicles[player]) then
+        destroyElement(testVehicles[player])
+        testVehicles[player] = nil
+    end
+
+    local model = tonumber(modelArg) or 411
+    local x, y, z = getElementPosition(player)
+    local _, _, rz = getElementRotation(player)
+
+    local vehicle = createVehicle(model, x + 2.5, y + 2.5, z + 0.5, 0, 0, rz)
+    if not vehicle then
+        notify(player, '测试车辆生成失败：' .. tostring(model))
+        return
+    end
+
+    setElementDimension(vehicle, getElementDimension(player))
+    addVehicleUpgrade(vehicle, 1010)
+    setElementData(vehicle, 'rst:testVehicle', true)
+    testVehicles[player] = vehicle
+
+    notify(player, '已生成测试车辆（带氮气），按 F 上车')
 end)
 

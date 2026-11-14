@@ -1,6 +1,14 @@
 import { reactive } from 'vue'
 
-import type { ChatEntry, Phase, PlayMode, RewindPayload, RoomSummary, VoteState } from '@/mta/protocol'
+import type {
+  ChatEntry,
+  Phase,
+  PlayMode,
+  RewindPayload,
+  RoomSummary,
+  VehiclePayload,
+  VoteState,
+} from '@/mta/protocol'
 
 export const ui = reactive({
   phase: 'auth' as Phase,
@@ -19,5 +27,6 @@ export const ui = reactive({
   authError: '',
   health: 100,
   armor: 0,
+  vehicle: null as VehiclePayload | null,
   rewind: { active: false, progress: 0, seconds: 0 } as RewindPayload,
 })

@@ -3,6 +3,7 @@ import { onMounted, onUnmounted, ref } from 'vue'
 
 import GameHud from '@/components/GameHud.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
+import Speedometer from '@/components/Speedometer.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
@@ -92,6 +93,9 @@ onMounted(() => {
         ui.messages.splice(0, ui.messages.length - 100)
       }
     }),
+    onBridge('vehicle', (payload) => {
+      ui.vehicle = payload.active ? payload : null
+    }),
   )
 
   document.addEventListener('click', onAnyClick, true)
@@ -112,6 +116,9 @@ onUnmounted(() => {
     <template v-else>
       <GameHud />
       <ChatPanel />
+      <Transition name="speedo">
+        <Speedometer v-if="ui.vehicle" />
+      </Transition>
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <RewindOverlay v-if="ui.rewind.active" />

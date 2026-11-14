@@ -79,3 +79,14 @@ button:disabled {
   width: 26px;
   height: 26px;
 }
+
+.speedo-enter-active,
+.speedo-leave-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.speedo-enter-from,
+.speedo-leave-to {
+  opacity: 0;
+  transform: translate(-50%, 10px);
+}

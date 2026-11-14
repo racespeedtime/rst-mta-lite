@@ -495,6 +495,14 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     setChatOpen(false)
 end)
 
+-- 测试车辆：上车后补满并设置无限氮气
+addEventHandler('onClientPlayerVehicleEnter', localPlayer, function(vehicle)
+    if getElementData(vehicle, 'rst:testVehicle') then
+        setVehicleNitroCount(vehicle, 101)
+        setVehicleNitroLevel(vehicle, 1)
+    end
+end)
+
 setTimer(function()
     if not browserReady or phase ~= 'playing' then
         return
@@ -505,6 +513,85 @@ setTimer(function()
         armor = math.floor(tonumber(getPedArmor(localPlayer)) or 0),
     })
 end, 500, 0)
+
+-- ---------------------------------------------------------------------------
+-- 载具仪表盘数据（10Hz）
+-- ---------------------------------------------------------------------------
+
+local vehicleShown = false
+
+setTimer(function()
+    if not browserReady then
+        return
+    end
+
+    local vehicle = getPedOccupiedVehicle(localPlayer)
+    if not vehicle or not isElement(vehicle) then
+        if vehicleShown then
+            vehicleShown = false
+            dispatch('vehicle', { active = false })
+        end
+        return
+    end
+
+    local vx, vy, vz = getElementVelocity(vehicle)
+    local speed = math.floor(math.sqrt(vx * vx + vy * vy + vz * vz) * 180 + 0.5)
+
+    local health = tonumber(getElementHealth(vehicle)) or 0
+    local healthPercent = math.floor(math.max(0, math.min(100, health / 10)))
+
+    local gear = 0
+    if getVehicleCurrentGear then
+        local ok, value = pcall(getVehicleCurrentGear, vehicle)
+        if ok and tonumber(value) then
+            gear = math.floor(tonumber(value))
+        end
+    end
+
+    local hasNitro = false
+    local nitroPercent = 0
+    local nitroLevel = getVehicleNitroLevel(vehicle)
+    if type(nitroLevel) == 'number' then
+        hasNitro = true
+        nitroPercent = math.floor(math.max(0, math.min(1, nitroLevel)) * 100)
+    end
+
+    local nitroCount = 0
+    local nitroInfinite = false
+    local count = getVehicleNitroCount(vehicle)
+    if type(count) == 'number' and count > 0 then
+        if count >= 101 then
+            nitroInfinite = true
+        else
+            nitroCount = count
+        end
+    end
+
+    local nitroActive = false
+    if isVehicleNitroActivated then
+        nitroActive = isVehicleNitroActivated(vehicle) == true
+    end
+
+    local nitroRecharging = false
+    if isVehicleNitroRecharging then
+        nitroRecharging = isVehicleNitroRecharging(vehicle) == true
+    end
+
+    vehicleShown = true
+    dispatch('vehicle', {
+        active = true,
+        name = getVehicleNameFromModel(getElementModel(vehicle)) or '车辆',
+        speed = speed,
+        gear = gear,
+        healthPercent = healthPercent,
+        nitroPercent = nitroPercent,
+        nitroCount = nitroCount,
+        nitroInfinite = nitroInfinite,
+        nitroActive = nitroActive,
+        nitroRecharging = nitroRecharging,
+        hasNitro = hasNitro,
+    })
+end, 100, 0)
 
 -- ---------------------------------------------------------------------------
 -- 入口 / 退出

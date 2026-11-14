@@ -13,6 +13,7 @@
 - [x] 按钮点击 / 确认音效（`playSound`）
 - [x] 界面视觉升级：Iconify 本地图标、毛玻璃面板、赛道作者信息
 - [x] CEF 聊天替代原生聊天：常驻聊天记录 + T 呼出输入 + Enter 发送 / Esc 取消
+- [x] 载具仪表：速度、车辆血量、氮气余量 / 触发状态
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -33,6 +34,7 @@
 | 密码输入 + 登录 / 注册 / 游客 | 登录界面 |
 | `T` | 打开 CEF 聊天输入框（再按 Enter 发送、Esc 取消） |
 | `F2` / F8 控制台 `ui` | 打开菜单：发起换图投票、打开 DevTools、离开舞台 |
+| F8 控制台 / 聊天 `/car` | 生成一辆带氮气的测试 Infernus（进入舞台后可用） |
 | 长按 `Y` | rewind 回放最近 8 秒，松开继续（菜单 / 聊天 / 投票 / 死亡时不可用） |
 | 鼠标 | 登录、选舞台、菜单、投票时自动显示并注入 CEF |
 
@@ -46,6 +48,17 @@
 - 按 `T` 呼出输入框，`Enter` 发送并关闭，`Esc` 取消；打开时显示鼠标、禁用游戏控制，关闭后恢复之前的游戏状态
 - 玩家消息走 `chat:send` action → 服务端校验长度 / 频率（1 秒）→ 广播给已登录玩家；同时写入服务端日志
 - 加入 / 离开服务器的系统消息也会以聊天形式推送
+
+## 载具仪表
+
+上车后底部居中显示速度表（下车自动隐藏）：
+
+- 速度：`getElementVelocity` 合成后 `* 180` 得到 km/h，数字 + 渐变速度条
+- 车辆血量：`getElementHealth(vehicle) / 10` 百分比，颜色随血量变黄 / 变红
+- 氮气：`getVehicleNitroLevel`（当前瓶充能）、`getVehicleNitroCount`（剩余次数，101 显示 `∞`）、`isVehicleNitroActivated` 触发时高亮
+- 数据由客户端 10Hz 通过 `vehicle` 事件推给 CEF
+
+目前地图还没有载具，调试用 `/car` 生成一辆带氮气的 Infernus；上车后会补满并设为无限氮气。
 
 ## 房间与回合
 
@@ -89,6 +102,7 @@ rst-mta-lite/
 │  │  ├─ views/VoteView.vue                  # 换图投票
 │  │  ├─ components/GameHud.vue              # 游戏内 HUD
 │  │  ├─ components/ChatPanel.vue            # 左上角常驻 CEF 聊天
+│  │  ├─ components/Speedometer.vue          # 载具速度 / 血量 / 氮气
 │  │  └─ components/RewindOverlay.vue        # rewind 覆盖层
 │  └─ vite.config.ts                         # 构建输出到 rst_ui/ui/
 └─ server/mods/deathmatch/resources/
@@ -172,6 +186,7 @@ __rstMockState({
 - 账号链路自检：bcrypt 创建 / 正确密码校验 / 错误密码拒绝
 - Headless Chrome 渲染登录、选舞台、HUD（含赛道作者面板）、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
 - 聊天：原生消息 / 玩家消息渲染、T 输入框、Enter 发送动作（`chat:send` + `chat:close`）在 Headless Chrome 中验证通过
+- 载具仪表：速度 / 血量 / 氮气 / 档位在 Headless Chrome 中验证渲染
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：
