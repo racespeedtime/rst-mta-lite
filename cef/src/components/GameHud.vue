@@ -76,7 +76,8 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
 
     <div v-if="spectating" class="spectate">
       <IconEye class="icon icon--sm" />
-      观战中 · 下一回合自动加入战斗
+      <span>观战中<span v-if="ui.spectateName"> · {{ ui.spectateName }}</span></span>
+      <span class="spectate__hint">左键下一位 · 右键上一位</span>
     </div>
 
     <div class="hud__vitals">
@@ -301,6 +302,16 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   color: var(--rst-gold);
   font-size: 11px;
   letter-spacing: 0.04em;
+  white-space: nowrap;
+}
+
+.spectate__hint {
+  margin-left: 4px;
+  padding-left: 9px;
+  border-left: 1px solid rgba(255, 212, 121, 0.25);
+  color: var(--rst-muted);
+  font-size: 10px;
+  letter-spacing: 0.03em;
 }
 
 .hud__vitals {

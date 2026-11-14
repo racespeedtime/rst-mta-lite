@@ -98,6 +98,9 @@ onMounted(() => {
     onBridge('vehicle', (payload) => {
       ui.vehicle = payload.active ? payload : null
     }),
+    onBridge('spectate', (payload) => {
+      ui.spectateName = payload.name || ''
+    }),
   )
 
   document.addEventListener('click', onAnyClick, true)

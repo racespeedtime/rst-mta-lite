@@ -22,6 +22,7 @@ local voteActive = false
 local interactive = false
 local cachedState = nil
 local spectateTarget = nil
+local spectateName = ''
 local spectateTimer = nil
 
 RST = {
@@ -150,25 +151,54 @@ end
 -- 观战相机
 -- ---------------------------------------------------------------------------
 
+local function setSpectateName(name)
+    name = name or ''
+    if spectateName == name then
+        return
+    end
+    spectateName = name
+    dispatch('spectate', { name = name })
+end
+
 local function stopSpectate()
     if spectateTimer then
         killTimer(spectateTimer)
         spectateTimer = nil
     end
     spectateTarget = nil
+    setSpectateName('')
 end
 
-local function findSpectateTarget()
+local function getSpectatePlayers()
+    local dimension = getElementDimension(localPlayer)
+    local players = {}
+
     for _, player in ipairs(getElementsByType('player')) do
         if
             player ~= localPlayer
-            and getElementDimension(player) == getElementDimension(localPlayer)
+            and getElementDimension(player) == dimension
             and getElementHealth(player) > 0
         then
-            return player
+            players[#players + 1] = player
         end
     end
-    return nil
+
+    -- 固定排序，保证左右键循环顺序稳定
+    table.sort(players, function(a, b)
+        return (getPlayerName(a) or '') < (getPlayerName(b) or '')
+    end)
+
+    return players
+end
+
+local function setSpectateTarget(target)
+    spectateTarget = target
+    if isElement(target) then
+        setCameraTarget(target)
+        setSpectateName(getPlayerName(target) or '')
+    else
+        setSpectateName('')
+    end
 end
 
 local function updateSpectateTarget()
@@ -176,19 +206,29 @@ local function updateSpectateTarget()
         return
     end
 
-    if
-        not (
-            spectateTarget
-            and isElement(spectateTarget)
-            and getElementHealth(spectateTarget) > 0
-        )
-    then
-        spectateTarget = findSpectateTarget()
+    local players = getSpectatePlayers()
+    if #players == 0 then
+        spectateTarget = nil
+        setSpectateName('')
+        return
     end
 
-    if spectateTarget then
-        setCameraTarget(spectateTarget)
+    local valid = false
+    if spectateTarget and isElement(spectateTarget) then
+        for _, player in ipairs(players) do
+            if player == spectateTarget then
+                valid = true
+                break
+            end
+        end
     end
+
+    if not valid then
+        spectateTarget = players[1]
+    end
+
+    setCameraTarget(spectateTarget)
+    setSpectateName(getPlayerName(spectateTarget) or '')
 end
 
 local function startSpectate()
@@ -203,6 +243,39 @@ local function startSpectate()
             updateSpectateTarget()
         end, 2000, 0)
     end
+end
+
+local function switchSpectate(direction)
+    if mode ~= 'spectating' or phase ~= 'playing' then
+        return
+    end
+
+    local players = getSpectatePlayers()
+    if #players == 0 then
+        return
+    end
+
+    local current = 0
+    for index, player in ipairs(players) do
+        if player == spectateTarget then
+            current = index
+            break
+        end
+    end
+
+    local targetIndex
+    if current == 0 then
+        targetIndex = direction > 0 and 1 or #players
+    else
+        targetIndex = current + direction
+        if targetIndex > #players then
+            targetIndex = 1
+        elseif targetIndex < 1 then
+            targetIndex = #players
+        end
+    end
+
+    setSpectateTarget(players[targetIndex])
 end
 
 -- ---------------------------------------------------------------------------
@@ -612,6 +685,21 @@ bindKey('T', 'down', function()
         return
     end
     setChatOpen(true)
+end)
+
+-- 观战：左键下一位、右键上一位
+bindKey('mouse1', 'down', function()
+    if phase ~= 'playing' or mode ~= 'spectating' or interactive then
+        return
+    end
+    switchSpectate(1)
+end)
+
+bindKey('mouse2', 'down', function()
+    if phase ~= 'playing' or mode ~= 'spectating' or interactive then
+        return
+    end
+    switchSpectate(-1)
 end)
 
 addCommandHandler('ui', function()

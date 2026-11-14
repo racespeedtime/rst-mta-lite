@@ -16,6 +16,7 @@ export const ui = reactive({
   playerName: 'player',
   guest: false,
   mode: 'playing' as PlayMode,
+  spectateName: '',
   rooms: [] as RoomSummary[],
   room: null as RoomSummary | null,
   vote: null as VoteState | null,

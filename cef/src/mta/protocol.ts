@@ -103,6 +103,10 @@ export interface VehiclePayload {
   hasNitro?: boolean
 }
 
+export interface SpectatePayload {
+  name?: string
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -112,4 +116,5 @@ export type BridgeEventMap = {
   chat: ChatOpenPayload
   chatMessage: ChatMessagePayload
   vehicle: VehiclePayload
+  spectate: SpectatePayload
 }
