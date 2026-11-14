@@ -17,7 +17,7 @@ import MenuView from '@/views/MenuView.vue'
 import StageSelectView from '@/views/StageSelectView.vue'
 import VoteView from '@/views/VoteView.vue'
 import ModeVoteView from '@/views/ModeVoteView.vue'
-import { emitToLua, onBridge } from '@/mta/bridge'
+import { emitAction, emitToLua, onBridge } from '@/mta/bridge'
 import type { StatePayload } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 
@@ -91,6 +91,14 @@ function onAnyClick(event: MouseEvent): void {
   }
 }
 
+function onCursorKeydown(event: KeyboardEvent): void {
+  if (event.key !== 'F3' || ui.phase !== 'playing') return
+  const target = event.target as HTMLElement | null
+  if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
+  event.preventDefault()
+  emitAction('cursor:toggle')
+}
+
 onMounted(() => {
   offs.push(
     onBridge('state', applyState),
@@ -142,15 +150,23 @@ onMounted(() => {
         duration: Math.max(1, Number(payload.duration) || 3),
       }
     }),
+    onBridge('cursor', (payload) => {
+      ui.cursorMode = payload.mode === 'always' ? 'always' : 'auto'
+      ui.cursorVisible = payload.visible === true
+      ui.cursorForced = payload.forced === true
+      ui.cursorFree = payload.free === true
+    }),
   )
 
   document.addEventListener('click', onAnyClick, true)
+  document.addEventListener('keydown', onCursorKeydown)
   emitToLua('ready')
 })
 
 onUnmounted(() => {
   offs.forEach((off) => off())
   document.removeEventListener('click', onAnyClick, true)
+  document.removeEventListener('keydown', onCursorKeydown)
   window.clearTimeout(toastTimer)
 })
 </script>

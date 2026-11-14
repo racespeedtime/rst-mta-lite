@@ -166,6 +166,13 @@ export interface CountdownPayload {
   duration?: number
 }
 
+export interface CursorPayload {
+  mode: 'auto' | 'always'
+  visible: boolean
+  forced: boolean
+  free: boolean
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -177,4 +184,5 @@ export type BridgeEventMap = {
   spectate: SpectatePayload
   help: HelpPayload
   countdown: CountdownPayload
+  cursor: CursorPayload
 }

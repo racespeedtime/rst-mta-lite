@@ -9,6 +9,7 @@ import IconDoorOpen from '~icons/lucide/door-open'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
+import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconSettings from '~icons/lucide/settings'
 import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
@@ -76,6 +77,10 @@ function devtools(): void {
   emitAction('devtools')
 }
 
+function setCursor(mode: 'auto' | 'always'): void {
+  emitAction('cursor:set', { mode })
+}
+
 function openHelp(): void {
   emitAction('help:open')
   emitAction('menu:close')
@@ -125,6 +130,32 @@ function leaveStage(): void {
       <div v-if="ui.room" class="menu-round">
         <span>本图剩余 <strong>{{ formatTime(ui.room.timeLeft) }}</strong></span>
         <span>{{ ui.room.players }} 玩家 / {{ ui.room.spectators }} 观战</span>
+      </div>
+
+      <div class="menu-cursor">
+        <span class="menu-cursor__label">
+          <IconMousePointer2 class="icon icon--sm" />
+          光标显示
+        </span>
+        <div class="menu-cursor__modes">
+          <button
+            type="button"
+            :class="{ 'is-active': ui.cursorMode === 'auto' }"
+            @click="setCursor('auto')"
+          >
+            自动
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': ui.cursorMode === 'always' }"
+            @click="setCursor('always')"
+          >
+            始终显示
+          </button>
+        </div>
+        <small>
+          {{ ui.cursorForced ? '当前界面强制显示光标' : '游戏内按 F3 临时切换' }}
+        </small>
       </div>
 
       <div class="menu-actions">
@@ -322,6 +353,51 @@ function leaveStage(): void {
 .menu-round strong {
   color: var(--rst-text);
   font-variant-numeric: tabular-nums;
+}
+
+.menu-cursor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 12px;
+  border: 1px solid var(--rst-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.menu-cursor__label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--rst-muted);
+}
+
+.menu-cursor__modes {
+  display: flex;
+  gap: 4px;
+}
+
+.menu-cursor__modes button {
+  padding: 5px 8px;
+  border: 1px solid var(--rst-border);
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--rst-muted);
+  font-size: 10px;
+}
+
+.menu-cursor__modes button.is-active {
+  border-color: rgba(88, 200, 255, 0.4);
+  background: rgba(88, 200, 255, 0.1);
+  color: var(--rst-text);
+}
+
+.menu-cursor small {
+  margin-left: auto;
+  font-size: 9px;
+  color: var(--rst-muted);
 }
 
 .menu-actions {

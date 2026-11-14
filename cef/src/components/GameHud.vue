@@ -8,6 +8,7 @@ import IconFlag from '~icons/lucide/flag'
 import IconGhost from '~icons/lucide/ghost'
 import IconKeyboard from '~icons/lucide/keyboard'
 import IconMap from '~icons/lucide/map'
+import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconRewind from '~icons/lucide/rewind'
 import IconUser from '~icons/lucide/user'
@@ -94,6 +95,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
     <div class="hud__hints">
       <span><IconCircleQuestionMark class="icon icon--sm" />F1 帮助</span>
       <span><IconKeyboard class="icon icon--sm" />F2 菜单</span>
+      <span><IconMousePointer2 class="icon icon--sm" />F3 光标</span>
       <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放<span v-if="ui.lives !== null"> · {{ ui.lives }} 命</span></span>
     </div>
 

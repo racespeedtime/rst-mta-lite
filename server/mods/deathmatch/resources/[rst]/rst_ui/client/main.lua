@@ -27,6 +27,9 @@ local spectateTarget = nil
 local spectateName = ''
 local spectateTimer = nil
 local countdownTimer = nil
+local cursorAlways = false
+local freeCursor = false
+local lastCursorToggleAt = 0
 
 RST = {
     phase = phase,
@@ -177,15 +180,51 @@ local function setInteractive(enabled)
     end
 end
 
+local function isForcedCursor()
+    return phase ~= 'playing'
+        or menuOpen
+        or chatOpen
+        or helpOpen
+        or voteActive
+        or readyWaiting
+end
+
+local function updateCursor()
+    local forced = isForcedCursor()
+    if forced or RST.countdownActive then
+        freeCursor = false
+    end
+
+    local optional = phase == 'playing' and not RST.countdownActive and not forced
+    local visible = forced or (optional and (cursorAlways or freeCursor))
+
+    setInteractive(visible)
+    dispatch('cursor', {
+        mode = cursorAlways and 'always' or 'auto',
+        visible = visible,
+        forced = forced,
+        free = freeCursor,
+    })
+end
+
+local function toggleCursorVisibility()
+    local nowTick = getTickCount()
+    if nowTick - lastCursorToggleAt < 200 then
+        return
+    end
+    lastCursorToggleAt = nowTick
+
+    if cursorAlways then
+        cursorAlways = false
+        freeCursor = false
+    else
+        freeCursor = not freeCursor
+    end
+    updateCursor()
+end
+
 local function applyInteractive()
-    setInteractive(
-        phase ~= 'playing'
-            or menuOpen
-            or chatOpen
-            or helpOpen
-            or voteActive
-            or readyWaiting
-    )
+    updateCursor()
 end
 
 -- ---------------------------------------------------------------------------
@@ -598,6 +637,14 @@ addEventHandler('rst:ui:action', root, function(json)
         setHelpOpen(true)
     elseif data.action == 'help:close' then
         setHelpOpen(false)
+    elseif data.action == 'cursor:set' then
+        cursorAlways = data.mode == 'always'
+        freeCursor = false
+        updateCursor()
+    elseif data.action == 'cursor:toggle' then
+        if phase == 'playing' and not isForcedCursor() and not RST.countdownActive then
+            toggleCursorVisibility()
+        end
     elseif data.action == 'devtools' then
         if browser then
             toggleBrowserDevTools(browser)
@@ -652,10 +699,12 @@ addEventHandler('rst:ui:countdown', root, function(json)
 
     RST.countdownActive = true
     dispatch('countdown', { active = true, duration = seconds })
+    applyInteractive()
 
     countdownTimer = setTimer(function()
         countdownTimer = nil
         RST.countdownActive = false
+        applyInteractive()
     end, math.floor(seconds * 1000) + 50, 1)
 end)
 
@@ -917,6 +966,13 @@ bindUiKey('F1', function()
     setHelpOpen(true)
 end)
 
+bindUiKey('F3', function()
+    if phase ~= 'playing' or isForcedCursor() or RST.countdownActive then
+        return
+    end
+    toggleCursorVisibility()
+end)
+
 addCommandHandler('ui', function()
     if phase ~= 'playing' then
         outputChatBox('rst: 选择舞台之后才能打开菜单')
@@ -938,7 +994,7 @@ addCommandHandler('uidiag', function()
         return ok and type(handlers) == 'table' and #handlers or -1
     end
 
-    local line = ('[rst_ui] phase=%s mode=%s interactive=%s browserReady=%s focused=%s menu=%s chat=%s help=%s vote=%s ready=%s rewindLives=%s f1=%d f2=%d t=%d')
+    local line = ('[rst_ui] phase=%s mode=%s interactive=%s browserReady=%s focused=%s menu=%s chat=%s help=%s vote=%s ready=%s rewindLives=%s cursor=%s free=%s f1=%d f2=%d t=%d')
         :format(
             tostring(phase),
             tostring(mode),
@@ -951,6 +1007,8 @@ addCommandHandler('uidiag', function()
             tostring(voteActive),
             tostring(RST.readyWaiting),
             tostring(RST.rewindLives),
+            tostring(cursorAlways and 'always' or 'auto'),
+            tostring(freeCursor),
             boundCount('f1'),
             boundCount('f2'),
             boundCount('t')

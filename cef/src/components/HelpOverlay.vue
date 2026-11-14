@@ -71,6 +71,10 @@ onUnmounted(() => {
               <span>发送 / 取消聊天</span>
             </li>
             <li>
+              <span class="help__keys"><kbd>F3</kbd></span>
+              <span>游戏内临时显示 / 隐藏自由光标</span>
+            </li>
+            <li>
               <span class="help__keys"><kbd>Y</kbd></span>
               <span>长按回放最近 8 秒</span>
             </li>
