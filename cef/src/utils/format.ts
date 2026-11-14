@@ -9,6 +9,13 @@ export function formatSeconds(seconds: number): string {
   return `${(Math.max(0, Number(seconds) || 0)).toFixed(1)}s`
 }
 
+export function formatClock(timestamp?: number): string {
+  const date = timestamp ? new Date(timestamp * 1000) : new Date()
+  const hours = String(date.getHours()).padStart(2, '0')
+  const minutes = String(date.getMinutes()).padStart(2, '0')
+  return `${hours}:${minutes}`
+}
+
 export function clampPercent(value: number): number {
   return Math.min(100, Math.max(0, Number(value) || 0))
 }

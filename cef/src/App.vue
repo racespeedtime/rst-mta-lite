@@ -2,6 +2,7 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
 import GameHud from '@/components/GameHud.vue'
+import ChatPanel from '@/components/ChatPanel.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
@@ -14,6 +15,7 @@ import { ui } from '@/stores/ui'
 
 const toast = ref('')
 let toastTimer: number | undefined
+let nextMessageId = 1
 const offs: Array<() => void> = []
 
 function showToast(text: string): void {
@@ -46,6 +48,7 @@ function applyState(state: StatePayload): void {
   }
 
   if (state.phase !== 'playing') ui.menuOpen = false
+  if (state.phase !== 'playing' || state.vote?.active) ui.chatOpen = false
 }
 
 function onAnyClick(event: MouseEvent): void {
@@ -76,6 +79,19 @@ onMounted(() => {
         ui.busy = false
       }
     }),
+    onBridge('chat', (payload) => {
+      ui.chatOpen = payload.open === true
+    }),
+    onBridge('chatMessage', (payload) => {
+      ui.messages.push({
+        ...payload,
+        id: nextMessageId++,
+        time: payload.time ?? Math.floor(Date.now() / 1000),
+      })
+      if (ui.messages.length > 100) {
+        ui.messages.splice(0, ui.messages.length - 100)
+      }
+    }),
   )
 
   document.addEventListener('click', onAnyClick, true)
@@ -95,6 +111,7 @@ onUnmounted(() => {
     <StageSelectView v-else-if="ui.phase === 'stage'" />
     <template v-else>
       <GameHud />
+      <ChatPanel />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <RewindOverlay v-if="ui.rewind.active" />

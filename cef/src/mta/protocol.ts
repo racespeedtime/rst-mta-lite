@@ -68,10 +68,32 @@ export interface StatsPayload {
   armor: number
 }
 
+export type ChatKind = 'player' | 'system' | 'native'
+
+export interface ChatMessagePayload {
+  kind: ChatKind
+  name?: string
+  text: string
+  time?: number
+  color?: { r: number; g: number; b: number }
+  nativeType?: number
+}
+
+export interface ChatEntry extends ChatMessagePayload {
+  id: number
+  time: number
+}
+
+export interface ChatOpenPayload {
+  open: boolean
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
   menu: MenuPayload
   toast: ToastPayload
   stats: StatsPayload
+  chat: ChatOpenPayload
+  chatMessage: ChatMessagePayload
 }

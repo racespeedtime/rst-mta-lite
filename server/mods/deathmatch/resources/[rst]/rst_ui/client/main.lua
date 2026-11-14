@@ -17,6 +17,7 @@ local screenW, screenH = guiGetScreenSize()
 local phase = 'auth'
 local mode = 'playing'
 local menuOpen = false
+local chatOpen = false
 local voteActive = false
 local interactive = false
 local cachedState = nil
@@ -28,6 +29,7 @@ RST = {
     mode = mode,
     interactive = false,
     menuOpen = false,
+    chatOpen = false,
     voteActive = false,
 }
 
@@ -141,7 +143,7 @@ local function setInteractive(enabled)
 end
 
 local function applyInteractive()
-    setInteractive(phase ~= 'playing' or menuOpen or voteActive)
+    setInteractive(phase ~= 'playing' or menuOpen or chatOpen or voteActive)
 end
 
 -- ---------------------------------------------------------------------------
@@ -225,6 +227,12 @@ local function applyState(state)
         dispatch('menu', { open = false })
     end
 
+    if chatOpen and (phase ~= 'playing' or voteActive) then
+        chatOpen = false
+        RST.chatOpen = false
+        dispatch('chat', { open = false })
+    end
+
     if phase == 'playing' and mode == 'spectating' then
         startSpectate()
     else
@@ -243,6 +251,22 @@ local function applyState(state)
     end
 end
 
+local function setChatOpen(open)
+    open = open == true
+    if open == chatOpen then
+        return
+    end
+    if open and (phase ~= 'playing' or menuOpen or voteActive) then
+        return
+    end
+
+    chatOpen = open
+    RST.chatOpen = open
+    dispatch('chat', { open = open })
+    applyInteractive()
+    playUiSound('click')
+end
+
 local function setMenuOpen(open)
     open = open == true
     if open == menuOpen then
@@ -250,6 +274,9 @@ local function setMenuOpen(open)
     end
     if open and phase ~= 'playing' then
         return
+    end
+    if open and chatOpen then
+        setChatOpen(false)
     end
 
     menuOpen = open
@@ -360,6 +387,7 @@ addEvent('rst:ui:ready', false)
 addEvent('rst:ui:action', false)
 addEvent('rst:ui:state', true)
 addEvent('rst:ui:notice', true)
+addEvent('rst:ui:chat', true)
 
 addEventHandler('rst:ui:ready', root, function()
     if cachedState then
@@ -382,6 +410,8 @@ addEventHandler('rst:ui:action', root, function(json)
         playUiSound(tostring(data.name or 'click'))
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
+    elseif data.action == 'chat:close' then
+        setChatOpen(false)
     elseif data.action == 'devtools' then
         if browser then
             toggleBrowserDevTools(browser)
@@ -410,6 +440,39 @@ addEventHandler('rst:ui:notice', root, function(text)
     end
 end)
 
+addEventHandler('rst:ui:chat', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' then
+        dispatch('chatMessage', data)
+    end
+end)
+
+-- 拦截所有原生聊天输出，改由 CEF 渲染
+addEventHandler('onClientChatMessage', root, function(text, r, g, b, messageType)
+    if type(text) ~= 'string' then
+        return
+    end
+
+    cancelEvent()
+
+    local cleaned = text:gsub('#%x%x%x%x%x%x', '')
+    if #cleaned == 0 then
+        return
+    end
+
+    dispatch('chatMessage', {
+        kind = 'native',
+        text = cleaned,
+        time = getRealTime().timestamp,
+        color = {
+            r = math.floor(tonumber(r) or 255),
+            g = math.floor(tonumber(g) or 255),
+            b = math.floor(tonumber(b) or 255),
+        },
+        nativeType = tonumber(messageType) or 0,
+    })
+end)
+
 -- ---------------------------------------------------------------------------
 -- 本地玩家状态
 -- ---------------------------------------------------------------------------
@@ -429,6 +492,7 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     if RST.stopRewind then
         RST.stopRewind()
     end
+    setChatOpen(false)
 end)
 
 setTimer(function()
@@ -453,6 +517,16 @@ bindKey('F2', 'down', function()
     setMenuOpen(not menuOpen)
 end)
 
+bindKey('T', 'down', function()
+    if chatOpen then
+        return
+    end
+    if phase ~= 'playing' or menuOpen or voteActive then
+        return
+    end
+    setChatOpen(true)
+end)
+
 addCommandHandler('ui', function()
     if phase ~= 'playing' then
         outputChatBox('rst: 选择舞台之后才能打开菜单')
@@ -466,15 +540,24 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
         RST.stopRewind()
     end
 
+    if chatOpen then
+        chatOpen = false
+        dispatch('chat', { open = false })
+    end
+
     stopSpectate()
     showCursor(false)
     guiSetInputEnabled(false)
     toggleAllControls(true, true, false)
+    showChat(true, false)
 
     if browser and isElement(browser) then
         destroyElement(browser)
     end
     removeEventHandler('onClientRender', root, render)
 end)
+
+-- 用 CEF 聊天替代原生聊天：隐藏原生聊天并屏蔽原生输入
+showChat(false, true)
 
 createUiBrowser()

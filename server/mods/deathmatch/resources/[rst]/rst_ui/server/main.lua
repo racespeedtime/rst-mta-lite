@@ -22,6 +22,16 @@ local function notify(player, text)
     end
 end
 
+local function broadcastChat(payload)
+    local json = toJSON(payload)
+    for _, target in ipairs(getElementsByType('player')) do
+        local session = Sessions[target]
+        if session and session.authed then
+            triggerClientEvent(target, 'rst:ui:chat', target, json)
+        end
+    end
+end
+
 local function initSession(player)
     Sessions[player] = {
         authed = false,
@@ -29,6 +39,7 @@ local function initSession(player)
         roomId = nil,
         mode = nil,
         lastAuthAt = 0,
+        lastChatAt = 0,
     }
 end
 
@@ -277,6 +288,37 @@ actions['vote:cast'] = function(player, session, data)
     broadcastState()
 end
 
+actions['chat:send'] = function(player, session, data)
+    if not session.authed then
+        return
+    end
+
+    local text = tostring(data.text or '')
+    text = text:gsub('[\r\n\t]', ' ')
+    text = text:gsub('^%s+', ''):gsub('%s+$', '')
+    if #text == 0 then
+        return
+    end
+    if #text > 160 then
+        text = text:sub(1, 160)
+    end
+
+    local time = now()
+    if time - (session.lastChatAt or 0) < 1 then
+        return
+    end
+    session.lastChatAt = time
+
+    local name = getPlayerName(player) or 'player'
+    outputServerLog('[CHAT] ' .. name .. ': ' .. text)
+    broadcastChat({
+        kind = 'player',
+        name = name,
+        text = text,
+        time = time,
+    })
+end
+
 addEvent('rst:ui:action', true)
 addEventHandler('rst:ui:action', root, function(json)
     local player = client or source
@@ -334,9 +376,31 @@ addEventHandler('onPlayerResourceStart', root, function(startedResource)
     pushState(source)
 end)
 
+addEventHandler('onPlayerJoin', root, function()
+    local name = getPlayerName(source)
+    if name then
+        broadcastChat({
+            kind = 'system',
+            text = name .. ' 加入了服务器',
+            time = now(),
+        })
+    end
+end)
+
 addEventHandler('onPlayerQuit', root, function()
+    local name = getPlayerName(source)
+
     Rooms.leave(source)
     Sessions[source] = nil
+
+    if name then
+        broadcastChat({
+            kind = 'system',
+            text = name .. ' 离开了服务器',
+            time = now(),
+        })
+    end
+
     broadcastState()
 end)
 

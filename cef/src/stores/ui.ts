@@ -1,6 +1,6 @@
 import { reactive } from 'vue'
 
-import type { Phase, PlayMode, RewindPayload, RoomSummary, VoteState } from '@/mta/protocol'
+import type { ChatEntry, Phase, PlayMode, RewindPayload, RoomSummary, VoteState } from '@/mta/protocol'
 
 export const ui = reactive({
   phase: 'auth' as Phase,
@@ -13,6 +13,8 @@ export const ui = reactive({
   vote: null as VoteState | null,
   canStartVote: false,
   menuOpen: false,
+  chatOpen: false,
+  messages: [] as ChatEntry[],
   busy: false,
   authError: '',
   health: 100,
