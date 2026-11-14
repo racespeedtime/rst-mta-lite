@@ -11,6 +11,7 @@ import IconMap from '~icons/lucide/map'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconRewind from '~icons/lucide/rewind'
+import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
@@ -111,6 +112,10 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
       <p class="track__author">
         <IconPenLine class="icon icon--sm" />
         <span>作者 · {{ ui.room.author }}</span>
+      </p>
+      <p class="track__best">
+        <IconTrophy class="icon icon--sm" />
+        <span>最佳 · {{ ui.personalBest !== null ? formatTime(ui.personalBest) : '暂无' }}</span>
       </p>
     </div>
   </div>
@@ -395,5 +400,14 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
   margin: 0;
   font-size: 10px;
   color: var(--rst-muted);
+}
+
+.track__best {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 0;
+  font-size: 10px;
+  color: #ffd167;
 }
 </style>

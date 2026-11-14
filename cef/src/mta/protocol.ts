@@ -140,6 +140,7 @@ export interface StatePayload {
   ready?: ReadyState
   competition?: CompetitionState | null
   raceResult?: RaceResultState | null
+  personalBest?: number | null
   vote?: VoteState
   modeVote?: ModeVoteState
   canStartVote?: boolean

@@ -30,6 +30,7 @@ export const ui = reactive({
   ready: { waiting: false, ready: 0, total: 0, me: false, canReady: false } as ReadyState,
   competition: null as CompetitionState | null,
   raceResult: null as RaceResultState | null,
+  personalBest: null as number | null,
   spectateName: '',
   rooms: [] as RoomSummary[],
   room: null as RoomSummary | null,

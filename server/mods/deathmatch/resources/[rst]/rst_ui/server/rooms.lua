@@ -359,6 +359,7 @@ local function finishPlayer(room, player, time)
     }
     room.finished[player] = entry
     room.finishOrder[rank] = entry
+    Records.record(player, room.mapId, elapsed)
 
     if room.mode == 'training' then
         room.trainingResults[player] = entry
@@ -850,6 +851,13 @@ function Rooms.join(player, roomId)
     local room = rooms[roomId]
     if not room then
         return nil, nil
+    end
+
+    -- 两个舞台共用同一个 map resource，不能同时开局
+    for id, other in pairs(rooms) do
+        if id ~= room.id and (#other.players > 0 or other.active or #other.spectators > 0) then
+            return nil, nil, '另一个舞台正在使用地图，请先加入该舞台'
+        end
     end
 
     Rooms.leave(player)

@@ -4,6 +4,7 @@ import { computed } from 'vue'
 import IconClock from '~icons/lucide/clock'
 import IconMap from '~icons/lucide/map'
 import IconTimer from '~icons/lucide/timer'
+import IconTrophy from '~icons/lucide/trophy'
 import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
@@ -41,6 +42,12 @@ const personalTime = computed(() => formatTime(ui.mapTime))
       <IconClock class="icon icon--sm" />
       <span class="maptimer__label">本图</span>
       <strong>{{ personalTime }}</strong>
+    </span>
+
+    <span class="maptimer__item maptimer__item--best">
+      <IconTrophy class="icon icon--sm" />
+      <span class="maptimer__label">最佳</span>
+      <strong>{{ ui.personalBest !== null ? formatTime(ui.personalBest) : '--:--' }}</strong>
     </span>
   </div>
 </template>

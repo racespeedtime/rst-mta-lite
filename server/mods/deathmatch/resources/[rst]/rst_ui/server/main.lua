@@ -97,6 +97,7 @@ local function buildState(player, session)
                 state.ready = Rooms.readyState(room, player)
                 state.competition = Rooms.competitionState(room, player)
                 state.raceResult = Rooms.raceResultState(room, player)
+                state.personalBest = Records.getBest(player, room.mapId)
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
                 state.ob = room.ob[player] == true
 
@@ -283,9 +284,9 @@ actions['stage:select'] = function(player, session, data)
         return
     end
 
-    local mode = Rooms.join(player, room.id)
+    local mode, _, err = Rooms.join(player, room.id)
     if not mode then
-        notify(player, '加入舞台失败')
+        notify(player, err or '加入舞台失败')
         return
     end
 
@@ -548,6 +549,7 @@ end)
 addEventHandler('onResourceStart', resourceRoot, function()
     Accounts.init()
     MapStats.init()
+    Records.init()
     MapRegistry.init()
     Rooms.init(broadcastState)
 

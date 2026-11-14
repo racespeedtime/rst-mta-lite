@@ -63,6 +63,7 @@ function applyState(state: StatePayload): void {
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
   ui.raceResult = state.raceResult || null
+  ui.personalBest = typeof state.personalBest === 'number' ? state.personalBest : null
   ui.vote = state.vote || null
   ui.modeVote = state.modeVote || null
   ui.canStartVote = state.canStartVote === true

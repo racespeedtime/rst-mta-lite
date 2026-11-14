@@ -85,6 +85,9 @@ const remaining = computed(() => {
         你的成绩：第 {{ result.me.rank }} 名 · {{ formatTime(result.me.elapsed) }}
       </p>
       <p v-else-if="!isTraining" class="race-result__mine">你还没有完成比赛</p>
+      <p v-if="ui.personalBest !== null" class="race-result__best">
+        当前地图个人最佳 · {{ formatTime(ui.personalBest) }}
+      </p>
     </section>
   </div>
 </template>
@@ -255,5 +258,11 @@ const remaining = computed(() => {
 .race-result__mine {
   padding-top: 11px;
   border-top: 1px solid var(--rst-border);
+}
+
+.race-result__best {
+  margin: 9px 0 0;
+  color: #ffd167;
+  font-size: 10px;
 }
 </style>
