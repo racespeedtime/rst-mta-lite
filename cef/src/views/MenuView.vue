@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed } from 'vue'
+
 import IconChevronRight from '~icons/lucide/chevron-right'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
@@ -12,6 +14,13 @@ import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
+
+const voteHint = computed(() => {
+  if (ui.vote?.active) return '投票进行中'
+  if (ui.canStartVote) return '30 秒后结算'
+  if (ui.voteCooldown > 0) return `冷却中 ${formatTime(ui.voteCooldown)}`
+  return '当前不可发起'
+})
 
 function close(): void {
   emitAction('menu:close')
@@ -79,7 +88,7 @@ function leaveStage(): void {
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">
             <strong>发起换图投票</strong>
-            <small>{{ ui.canStartVote ? '30 秒后结算' : '当前不可发起' }}</small>
+            <small>{{ voteHint }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

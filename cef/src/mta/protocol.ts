@@ -25,6 +25,7 @@ export interface VoteOption {
   id: string
   name: string
   author: string
+  popularity: number
   votes: number
 }
 
@@ -47,6 +48,7 @@ export interface StatePayload {
   room?: RoomSummary
   vote?: VoteState
   canStartVote?: boolean
+  voteCooldown?: number
   mapTime?: number
 }
 

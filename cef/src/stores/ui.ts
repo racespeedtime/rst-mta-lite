@@ -21,6 +21,7 @@ export const ui = reactive({
   room: null as RoomSummary | null,
   vote: null as VoteState | null,
   canStartVote: false,
+  voteCooldown: 0,
   mapTime: 0,
   menuOpen: false,
   chatOpen: false,

@@ -46,6 +46,7 @@ function applyState(state: StatePayload): void {
   ui.room = state.room || null
   ui.vote = state.vote || null
   ui.canStartVote = state.canStartVote === true
+  ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
   ui.mapTime = Math.max(0, Number(state.mapTime) || 0)
 
   if (previousPhase !== state.phase) {

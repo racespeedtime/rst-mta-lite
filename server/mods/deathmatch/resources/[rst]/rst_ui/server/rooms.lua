@@ -72,6 +72,67 @@ local function pickMap(room)
     return candidates[math.random(#candidates)]
 end
 
+local function shuffle(list)
+    for i = #list, 2, -1 do
+        local j = math.random(i)
+        list[i], list[j] = list[j], list[i]
+    end
+end
+
+-- 随机图池：优先不包含最近玩过和当前地图
+local function pickVoteOptions(room)
+    local poolSize = math.max(1, config.votePoolSize or 3)
+    local recent = {}
+    for _, mapId in ipairs(room.recentMaps or {}) do
+        recent[mapId] = true
+    end
+
+    local fresh, old = {}, {}
+    for _, mapId in ipairs(config.mapPool) do
+        if
+            mapId ~= room.mapId
+            and config.maps[mapId]
+            and not mapUsedByOtherRoom(room, mapId)
+        then
+            if recent[mapId] then
+                old[#old + 1] = mapId
+            else
+                fresh[#fresh + 1] = mapId
+            end
+        end
+    end
+
+    shuffle(fresh)
+    shuffle(old)
+
+    local selected = {}
+    for _, list in ipairs({ fresh, old }) do
+        for _, mapId in ipairs(list) do
+            if #selected < poolSize then
+                selected[#selected + 1] = mapId
+            end
+        end
+    end
+
+    -- 只有一张图时允许投票保留当前图
+    if #selected == 0 and room.mapId and config.maps[room.mapId] then
+        selected[1] = room.mapId
+    end
+
+    local options = {}
+    for _, mapId in ipairs(selected) do
+        local map = config.maps[mapId]
+        options[#options + 1] = {
+            id = mapId,
+            name = map.name,
+            author = map.author,
+            popularity = map.popularity or 0,
+        }
+    end
+
+    return options
+end
+
 local function spawnPlayerInRoom(player, room, countdown)
     local map = config.maps[room.mapId]
     if not map or not isElement(player) then
@@ -148,6 +209,13 @@ local function spawnPlayerInRoom(player, room, countdown)
 end
 
 local function startRound(room, forcedMapId)
+    if room.mapId then
+        table.insert(room.recentMaps, 1, room.mapId)
+        while #room.recentMaps > (config.recentMapLimit or 2) do
+            table.remove(room.recentMaps)
+        end
+    end
+
     room.mapId = forcedMapId or pickMap(room)
     room.active = true
     room.roundEnds = now() + config.roundSeconds
@@ -184,6 +252,8 @@ function Rooms.init(onChanged)
             players = {},
             spectators = {},
             vote = nil,
+            recentMaps = {},
+            lastVoteAt = 0,
         }
     end
 
@@ -272,14 +342,16 @@ function Rooms.tick()
                 Rooms.finishVote(room)
             end
         elseif room.active and #room.players > 0 and time >= room.roundEnds then
-            Rooms.startVote(room)
+            Rooms.startVote(room, 'auto')
         end
     end
 
     stateChanged()
 end
 
-function Rooms.startVote(room)
+function Rooms.startVote(room, reason)
+    reason = reason or 'manual'
+
     if not room then
         return false, '舞台不存在'
     end
@@ -287,31 +359,28 @@ function Rooms.startVote(room)
         return false, '当前已经有投票了'
     end
     if not room.active then
-        return false, '当前没有进行中的回合'
+        return false, '当前没有进行中的比赛'
     end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
     end
 
-    local pool = {}
-    for _, mapId in ipairs(config.mapPool) do
-        if mapId ~= room.mapId then
-            pool[#pool + 1] = mapId
-        end
-    end
-    if #pool == 0 then
-        for _, mapId in ipairs(config.mapPool) do
-            pool[#pool + 1] = mapId
+    if reason ~= 'auto' and (config.voteCooldown or 0) > 0 then
+        local last = room.lastVoteAt or 0
+        if last > 0 then
+            local remaining = (config.voteCooldown or 0) - (now() - last)
+            if remaining > 0 then
+                return false, ('投票冷却中，还需 %d 秒'):format(math.ceil(remaining))
+            end
         end
     end
 
-    local options = {}
-    while #options < 3 and #pool > 0 do
-        local index = math.random(#pool)
-        local mapId = table.remove(pool, index)
-        options[#options + 1] = { id = mapId, name = config.maps[mapId].name }
+    local options = pickVoteOptions(room)
+    if #options == 0 then
+        return false, '没有可投票的地图'
     end
 
+    room.lastVoteAt = now()
     room.active = false
     room.roundEnds = 0
     room.vote = {
@@ -386,19 +455,25 @@ function Rooms.finishVote(room)
         counts[mapId] = (counts[mapId] or 0) + 1
     end
 
-    local winner
-    local best = -1
+    -- 规则：票数最多 → 流行度更高 → 随机
+    local bestCount = -1
+    local bestPopularity = -1
+    local tied = {}
+
     for _, option in ipairs(vote.options) do
         local count = counts[option.id] or 0
-        if count > best then
-            best = count
-            winner = option.id
+        local popularity = option.popularity or 0
+
+        if count > bestCount or (count == bestCount and popularity > bestPopularity) then
+            bestCount = count
+            bestPopularity = popularity
+            tied = { option.id }
+        elseif count == bestCount and popularity == bestPopularity then
+            tied[#tied + 1] = option.id
         end
     end
 
-    if not winner then
-        winner = vote.options[math.random(#vote.options)].id
-    end
+    local winner = tied[math.random(#tied)] or vote.options[1].id
 
     room.vote = nil
     startRound(room, winner)
@@ -437,6 +512,7 @@ function Rooms.voteState(room, player)
             id = option.id,
             name = option.name,
             author = map and map.author or '未知作者',
+            popularity = option.popularity or (map and map.popularity) or 0,
             votes = counts[option.id] or 0,
         }
     end

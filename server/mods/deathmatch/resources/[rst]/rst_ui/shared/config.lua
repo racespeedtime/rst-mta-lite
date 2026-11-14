@@ -9,6 +9,9 @@ RST = RST or {}
 RST.config = {
     roundSeconds = 30 * 60, -- 每张地图最长 30 分钟
     voteSeconds = 30,       -- 投票持续时间
+    votePoolSize = 5,       -- 每次投票随机从地图池抽取的候选数量
+    voteCooldown = 180,     -- 手动发起投票的冷却（秒）
+    recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
     respawnDelay = 4000,    -- 死亡后重生间隔
     spawnCountdown = 3,     -- 进入回合出生后的 3-2-1-GO 倒计时（秒）
     minPasswordLength = 4,
@@ -18,12 +21,12 @@ RST.config = {
     vehicle = 411,
     vehicleNitro = true,
 
-    -- 地图作者是占位信息，换成实际赛道作者即可
+    -- 地图作者与流行度是占位信息；流行度后续可从外部站点抓取后写入
     maps = {
-        airport = { name = 'Los Santos 机场', author = 'RST Team', vehicle = 411, x = 1678.0, y = -2286.0, z = 14.0, rot = 90 },
-        grove = { name = 'Grove Street', author = 'RST Team', vehicle = 411, x = 2495.0, y = -1687.0, z = 13.6, rot = 180 },
-        beach = { name = 'Santa Maria 海滩', author = 'RST Team', vehicle = 411, x = 374.0, y = -2074.0, z = 8.0, rot = 0 },
-        pershing = { name = 'Pershing Square', author = 'RST Team', vehicle = 411, x = 1481.0, y = -1772.0, z = 19.0, rot = 90 },
+        airport = { name = 'Los Santos 机场', author = 'RST Team', popularity = 78, vehicle = 411, x = 1678.0, y = -2286.0, z = 14.0, rot = 90 },
+        grove = { name = 'Grove Street', author = 'RST Team', popularity = 95, vehicle = 411, x = 2495.0, y = -1687.0, z = 13.6, rot = 180 },
+        beach = { name = 'Santa Maria 海滩', author = 'RST Team', popularity = 62, vehicle = 411, x = 374.0, y = -2074.0, z = 8.0, rot = 0 },
+        pershing = { name = 'Pershing Square', author = 'RST Team', popularity = 84, vehicle = 411, x = 1481.0, y = -1772.0, z = 19.0, rot = 90 },
     },
 
     mapPool = { 'airport', 'grove', 'beach', 'pershing' },

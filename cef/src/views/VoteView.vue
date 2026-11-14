@@ -1,16 +1,44 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
+import IconArrowDownAZ from '~icons/lucide/arrow-down-a-z'
+import IconArrowUpAZ from '~icons/lucide/arrow-up-a-z'
 import IconCheck from '~icons/lucide/check'
 import IconClock from '~icons/lucide/clock'
+import IconFlame from '~icons/lucide/flame'
 import IconPenLine from '~icons/lucide/pen-line'
+import IconSearch from '~icons/lucide/search'
 import IconVote from '~icons/lucide/vote'
 import { emitAction } from '@/mta/bridge'
 import { ui } from '@/stores/ui'
 import { formatTime } from '@/utils/format'
 
+type SortMode = 'name-asc' | 'name-desc' | 'popularity'
+
+const query = ref('')
+const sortMode = ref<SortMode>('popularity')
+
 const options = computed(() => ui.vote?.options ?? [])
 const totalVotes = computed(() => options.value.reduce((sum, option) => sum + option.votes, 0))
+
+const visibleOptions = computed(() => {
+  const keyword = query.value.trim().toLowerCase()
+  const filtered = keyword
+    ? options.value.filter(
+        (option) =>
+          option.name.toLowerCase().includes(keyword) ||
+          option.author.toLowerCase().includes(keyword),
+      )
+    : [...options.value]
+
+  return filtered.sort((a, b) => {
+    if (sortMode.value === 'popularity') {
+      return b.popularity - a.popularity || a.name.localeCompare(b.name, 'zh-CN')
+    }
+    const result = a.name.localeCompare(b.name, 'zh-CN')
+    return sortMode.value === 'name-asc' ? result : -result
+  })
+})
 
 const votedName = computed(() => {
   const mine = ui.vote?.mine
@@ -46,11 +74,54 @@ function vote(mapId: string): void {
         </span>
       </header>
 
-      <p class="vote__hint">选择下一张赛道，时间结束或所有人投完后切换。</p>
+      <p class="vote__hint">从随机图池中选择下一张赛道，票数最多者胜出；平票按热度、再随机决定。</p>
+
+      <div class="vote__toolbar">
+        <label class="vote__search">
+          <IconSearch class="icon icon--sm" />
+          <input
+            v-model="query"
+            type="search"
+            placeholder="搜索地图 / 作者"
+            autocomplete="off"
+          />
+        </label>
+
+        <div class="vote__sorts">
+          <button
+            type="button"
+            :class="{ 'is-active': sortMode === 'name-asc' }"
+            @click="sortMode = 'name-asc'"
+          >
+            <IconArrowUpAZ class="icon icon--sm" />
+            名称 ↑
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': sortMode === 'name-desc' }"
+            @click="sortMode = 'name-desc'"
+          >
+            <IconArrowDownAZ class="icon icon--sm" />
+            名称 ↓
+          </button>
+          <button
+            type="button"
+            :class="{ 'is-active': sortMode === 'popularity' }"
+            @click="sortMode = 'popularity'"
+          >
+            <IconFlame class="icon icon--sm" />
+            热度
+          </button>
+        </div>
+
+        <span class="vote__count">{{ visibleOptions.length }} 张</span>
+      </div>
 
       <div class="vote__options">
+        <p v-if="visibleOptions.length === 0" class="vote__empty">没有匹配的地图</p>
+
         <button
-          v-for="option in options"
+          v-for="option in visibleOptions"
           :key="option.id"
           type="button"
           class="vote__option"
@@ -61,9 +132,15 @@ function vote(mapId: string): void {
           <span class="vote__fill" :style="{ width: `${percent(option.votes)}%` }" />
           <span class="vote__option-main">
             <span class="vote__option-name">{{ option.name }}</span>
-            <span class="vote__option-author">
-              <IconPenLine class="icon icon--sm" />
-              作者 · {{ option.author }}
+            <span class="vote__option-meta">
+              <span class="vote__option-author">
+                <IconPenLine class="icon icon--sm" />
+                作者 · {{ option.author }}
+              </span>
+              <span class="vote__option-popularity">
+                <IconFlame class="icon icon--sm" />
+                热度 {{ option.popularity }}
+              </span>
             </span>
           </span>
           <span class="vote__option-right">
@@ -94,7 +171,7 @@ function vote(mapId: string): void {
 }
 
 .vote__panel {
-  width: min(500px, calc(100vw - 96px));
+  width: min(560px, calc(100vw - 96px));
   padding: 24px 26px 20px;
   border: 1px solid var(--rst-border);
   border-radius: 18px;
@@ -152,8 +229,77 @@ function vote(mapId: string): void {
 }
 
 .vote__hint {
-  margin: 14px 0 14px;
+  margin: 14px 0 10px;
   font-size: 11px;
+  color: var(--rst-muted);
+}
+
+.vote__toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.vote__search {
+  flex: 1 1 180px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  padding: 7px 10px;
+  border: 1px solid var(--rst-border);
+  border-radius: 9px;
+  background: rgba(4, 8, 14, 0.6);
+  color: var(--rst-muted);
+}
+
+.vote__search input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: var(--rst-text);
+  font: inherit;
+  font-size: 11px;
+  outline: none;
+}
+
+.vote__search input::placeholder {
+  color: rgba(147, 164, 189, 0.6);
+}
+
+.vote__sorts {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.vote__sorts button {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 8px;
+  border: 1px solid var(--rst-border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--rst-muted);
+  font-size: 10px;
+  transition: color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+}
+
+.vote__sorts button:hover,
+.vote__sorts button.is-active {
+  color: var(--rst-text);
+  border-color: rgba(88, 200, 255, 0.38);
+  background: rgba(88, 200, 255, 0.1);
+}
+
+.vote__count {
+  margin-left: auto;
+  font-size: 9px;
+  letter-spacing: 0.08em;
   color: var(--rst-muted);
 }
 
@@ -161,6 +307,25 @@ function vote(mapId: string): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+  max-height: 300px;
+  overflow-y: auto;
+  padding-right: 2px;
+}
+
+.vote__options::-webkit-scrollbar {
+  width: 4px;
+}
+
+.vote__options::-webkit-scrollbar-thumb {
+  border-radius: 2px;
+  background: rgba(140, 180, 255, 0.22);
+}
+
+.vote__empty {
+  margin: 6px 0;
+  font-size: 11px;
+  color: var(--rst-muted);
+  text-align: center;
 }
 
 .vote__option {
@@ -216,12 +381,24 @@ function vote(mapId: string): void {
   font-size: 13px;
 }
 
-.vote__option-author {
+.vote__option-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 10px;
+}
+
+.vote__option-author,
+.vote__option-popularity {
   display: inline-flex;
   align-items: center;
   gap: 4px;
   font-size: 10px;
   color: var(--rst-muted);
+}
+
+.vote__option-popularity {
+  color: rgba(255, 212, 121, 0.8);
 }
 
 .vote__option-right {

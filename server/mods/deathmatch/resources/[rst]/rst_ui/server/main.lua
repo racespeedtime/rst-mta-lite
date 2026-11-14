@@ -90,7 +90,16 @@ local function buildState(player, session)
                 state.room = Rooms.summary(room)
                 state.room.mode = session.mode or 'playing'
                 state.vote = Rooms.voteState(room, player)
-                state.canStartVote = (room.vote == nil) and room.active
+
+                local cooldownLeft = 0
+                if (room.lastVoteAt or 0) > 0 then
+                    cooldownLeft = math.max(
+                        0,
+                        (config.voteCooldown or 0) - (now() - room.lastVoteAt)
+                    )
+                end
+                state.canStartVote = (room.vote == nil) and room.active and cooldownLeft <= 0
+                state.voteCooldown = math.floor(cooldownLeft)
             end
         end
 
