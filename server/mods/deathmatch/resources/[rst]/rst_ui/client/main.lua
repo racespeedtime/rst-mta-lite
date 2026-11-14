@@ -105,10 +105,8 @@ local function callJs(name, ...)
         end
     end
 
-    return executeBrowserJavascript(
-        browser,
-        ('window.rst && window.rst.%s(%s)'):format(name, table.concat(args, ','))
-    )
+    local code = ('window.rst && window.rst.%s(%s)'):format(name, table.concat(args, ','))
+    return executeBrowserJavascript(browser, code)
 end
 
 local function dispatch(name, payload)
@@ -441,7 +439,6 @@ local function applyState(state)
         playUiSound('confirm')
     end
 end
-
 local function setChatOpen(open)
     open = open == true
     if open == chatOpen then

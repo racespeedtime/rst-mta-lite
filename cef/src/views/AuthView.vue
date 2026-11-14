@@ -11,18 +11,35 @@ import IconUserPlus from '~icons/lucide/user-plus'
 import { emitAction } from '@/mta/bridge'
 import { ui } from '@/stores/ui'
 
-const password = ref('')
+type AuthMode = 'login' | 'register'
 
-function submit(action: 'auth:login' | 'auth:register'): void {
+const mode = ref<AuthMode>('login')
+const password = ref('')
+const confirmPassword = ref('')
+
+function switchMode(next: AuthMode): void {
+  if (ui.busy) return
+  mode.value = next
+  ui.authError = ''
+}
+
+function submit(): void {
   if (ui.busy) return
   if (!password.value) {
     ui.authError = '请输入密码'
     return
   }
+  if (mode.value === 'register' && password.value !== confirmPassword.value) {
+    ui.authError = '两次密码不一致'
+    return
+  }
 
   ui.authError = ''
   ui.busy = true
-  emitAction(action, { password: password.value })
+  emitAction(mode.value === 'login' ? 'auth:login' : 'auth:register', {
+    password: password.value,
+    confirmPassword: confirmPassword.value,
+  })
 }
 
 function playAsGuest(): void {
@@ -33,7 +50,7 @@ function playAsGuest(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Enter') submit('auth:login')
+  if (event.key === 'Enter') submit()
 }
 </script>
 
@@ -66,7 +83,26 @@ function onKeydown(event: KeyboardEvent): void {
         <small class="auth__identity-hint">账号名使用当前游戏昵称</small>
       </div>
 
-      <label class="auth__label" for="rst-password">密码</label>
+      <div class="auth__tabs">
+        <button
+          type="button"
+          :class="{ 'is-active': mode === 'login' }"
+          :disabled="ui.busy"
+          @click="switchMode('login')"
+        >
+          登录
+        </button>
+        <button
+          type="button"
+          :class="{ 'is-active': mode === 'register' }"
+          :disabled="ui.busy"
+          @click="switchMode('register')"
+        >
+          注册
+        </button>
+      </div>
+
+      <label class="auth__label" for="rst-password">{{ mode === 'login' ? '密码' : '设置密码' }}</label>
       <div class="auth__field">
         <IconLock class="icon auth__field-icon" />
         <input
@@ -75,25 +111,37 @@ function onKeydown(event: KeyboardEvent): void {
           class="auth__input"
           type="password"
           maxlength="128"
-          placeholder="输入密码（注册 / 登录共用）"
+          :placeholder="mode === 'login' ? '输入登录密码' : '设置注册密码'"
           autocomplete="off"
           autofocus
           @keydown="onKeydown"
         />
       </div>
 
+      <template v-if="mode === 'register'">
+        <label class="auth__label" for="rst-confirm-password">确认密码</label>
+        <div class="auth__field">
+          <IconLock class="icon auth__field-icon" />
+          <input
+            id="rst-confirm-password"
+            v-model="confirmPassword"
+            class="auth__input"
+            type="password"
+            maxlength="128"
+            placeholder="再输入一次密码"
+            autocomplete="off"
+            @keydown="onKeydown"
+          />
+        </div>
+      </template>
+
       <p v-if="ui.authError" class="auth__error">{{ ui.authError }}</p>
 
-      <div class="auth__actions">
-        <button type="button" class="btn btn--primary" :disabled="ui.busy" @click="submit('auth:login')">
-          <IconLogIn class="icon" />
-          <span>登录</span>
-        </button>
-        <button type="button" class="btn" :disabled="ui.busy" @click="submit('auth:register')">
-          <IconUserPlus class="icon" />
-          <span>注册</span>
-        </button>
-      </div>
+      <button type="button" class="btn btn--primary auth__submit" :disabled="ui.busy" @click="submit">
+        <IconLogIn v-if="mode === 'login'" class="icon" />
+        <IconUserPlus v-else class="icon" />
+        <span>{{ mode === 'login' ? '登录' : '注册并进入' }}</span>
+      </button>
 
       <div class="auth__divider"><span>或</span></div>
 
@@ -102,7 +150,9 @@ function onKeydown(event: KeyboardEvent): void {
         <span>Play as Guest · 游客进入</span>
       </button>
 
-      <p class="auth__foot">密码只用于本服务器，注册成功后会自动登录。</p>
+      <p class="auth__foot">
+        {{ mode === 'login' ? '登录后进入舞台选择。' : '两次密码一致后创建账号并自动登录。' }}
+      </p>
     </section>
   </div>
 </template>
@@ -309,10 +359,35 @@ function onKeydown(event: KeyboardEvent): void {
   font-size: 12px;
 }
 
-.auth__actions {
+.auth__tabs {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px;
+  gap: 4px;
+  padding: 4px;
+  border: 1px solid var(--rst-border);
+  border-radius: 10px;
+  background: rgba(0, 0, 0, 0.18);
+}
+
+.auth__tabs button {
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: var(--rst-muted);
+  font-size: 12px;
+  transition: color 0.15s ease, background 0.15s ease;
+}
+
+.auth__tabs button:hover:not(:disabled) {
+  color: var(--rst-text);
+}
+
+.auth__tabs button.is-active {
+  color: var(--rst-text);
+  background: rgba(88, 200, 255, 0.13);
+}
+
+.auth__submit {
+  width: 100%;
   margin-top: 2px;
 }
 

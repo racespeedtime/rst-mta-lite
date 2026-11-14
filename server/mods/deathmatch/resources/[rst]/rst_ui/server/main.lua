@@ -150,7 +150,8 @@ local function pushState(player)
         return
     end
 
-    triggerClientEvent(player, 'rst:ui:state', player, toJSON(buildState(player, session)))
+    local json = toJSON(buildState(player, session))
+    triggerClientEvent(player, 'rst:ui:state', player, json)
 end
 
 local function broadcastState()
@@ -177,6 +178,7 @@ actions['auth:guest'] = function(player, session)
 
     session.authed = true
     session.guest = true
+    outputServerLog('[AUTH] guest ' .. tostring(getPlayerName(player)))
     notify(player, '游客模式进入成功')
     pushState(player)
 end
@@ -193,6 +195,10 @@ actions['auth:register'] = function(player, session, data)
     end
     if #password > config.maxPasswordLength then
         notify(player, '密码太长')
+        return
+    end
+    if tostring(data.confirmPassword or '') ~= password then
+        notify(player, '两次密码不一致')
         return
     end
     if now() - (session.lastAuthAt or 0) < 1 then
@@ -221,6 +227,7 @@ actions['auth:register'] = function(player, session, data)
 
             session.authed = true
             session.guest = false
+            outputServerLog('[AUTH] register ' .. tostring(username))
             notify(player, '注册成功，已自动登录')
             pushState(player)
         end)
@@ -248,12 +255,14 @@ actions['auth:login'] = function(player, session, data)
             return
         end
         if not ok then
+            outputServerLog(('[AUTH] login_failed %s'):format(tostring(username)))
             notify(player, err or '登录失败')
             return
         end
 
         session.authed = true
         session.guest = false
+        outputServerLog(('[AUTH] login %s'):format(tostring(username)))
         notify(player, '登录成功')
         pushState(player)
     end)

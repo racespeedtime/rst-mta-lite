@@ -26,7 +26,13 @@ export function isMtaClient(): boolean {
 function dispatchLocal(event: string, payload: unknown): void {
   const set = handlers.get(event)
   if (!set) return
-  for (const handler of set) handler(payload)
+  for (const handler of set) {
+    try {
+      handler(payload)
+    } catch (error) {
+      console.error(`[rst-ui] 处理事件 ${event} 失败`, error)
+    }
+  }
 }
 
 /** 挂载 window.rst，供 Lua 通过 executeBrowserJavascript 调用 */
@@ -42,6 +48,12 @@ export function installBridge(): void {
           return
         }
       }
+
+      // MTA 的 toJSON 会把顶层对象包成单元素数组：[ { ... } ]
+      if (Array.isArray(payload) && payload.length === 1) {
+        payload = payload[0]
+      }
+
       dispatchLocal(event, payload)
     },
   }

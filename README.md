@@ -38,7 +38,7 @@
 
 ## 玩法流程
 
-1. 进入服务器，CEF 显示登录界面：输入密码后点「登录」或「注册」，也可以「Play as Guest」直接游客进入。
+1. 进入服务器，CEF 显示登录界面：登录 / 注册分两个模式；注册需要输入两遍密码，也可以「Play as Guest」直接游客进入。
 2. 登录后进入舞台选择：`DeathMatch · 主舞台` / `DeathMatch · 副舞台`，两个舞台互相独立（不同 dimension），各自跑地图。
 3. 进入舞台：
    - 舞台里有正在玩的玩家 → 默认**观战**，相机跟随场内玩家；下一回合自动转为玩家出生。
@@ -56,7 +56,7 @@
 
 | 操作 | 说明 |
 | --- | --- |
-| 密码输入 + 登录 / 注册 / 游客 | 登录界面 |
+| 密码输入 + 登录 / 注册 / 游客 | 登录界面；注册需确认密码 |
 | `T` | 打开 CEF 聊天输入框（再按 Enter 发送、Esc 取消） |
 | `F1` | 打开 / 关闭操作帮助（F2 菜单里也有入口） |
 | `F2` / F8 控制台 `ui` | 打开菜单：换图投票、模式投票、纯观战、DevTools、离开舞台 |
@@ -320,10 +320,12 @@
 
 ## 账号与数据
 
-- 账号名 = 玩家进入服务器时的昵称；密码用 `passwordHash(..., 'bcrypt')` 哈希后存入 SQLite
+- 账号名 = 玩家进入服务器时的昵称；注册时密码输入两遍，服务端也会校验一致
+- 密码用 MTA 官方 `passwordHash(..., 'bcrypt')` 哈希后存入 SQLite，登录用 `passwordVerify`
 - 数据库：`server/mods/deathmatch/databases/global/rst_ui_accounts.db`（运行时生成，已被忽略）
 - 游客不写数据库，重进服务器需要重新认证
 - 登录 / 注册失败会通过 CEF toast 提示
+- 当前是自定义账号表，不是 MTA `addAccount / logIn` 官方 Account；因此不会自动获得 MTA ACL 权限
 
 ## 目录结构
 
@@ -421,6 +423,7 @@ __rstMockState({
 - **输入**：`showCursor` + `guiSetInputEnabled` + `toggleAllControls`；鼠标经 `onClientCursorMove` / `onClientClick` / `onClientMouseWheel` → `injectBrowserMouse*`，键盘用 `focusBrowser`
 - **JS → Lua**：`emitAction(action, payload)` → `mta.triggerEvent('rst:ui:action', json)`
 - **Lua → JS**：`executeBrowserJavascript(browser, 'window.rst.dispatch("state", json)')`
+  - MTA 的 `toJSON` 会把顶层对象包成单元素数组 `[ { ... } ]`，bridge 在 `dispatch` 入口统一解包，否则 Vue 会把 state 当数组，`state.phase` 为 `undefined`
 - **服务端 → 客户端**：`triggerClientEvent(player, 'rst:ui:state', ...)`，客户端缓存后转发给页面
 - **聊天**：原生 `onClientChatMessage` 被拦截后转成 `chatMessage`；玩家发送走 `chat:send` action，服务端再广播 `rst:ui:chat`
 - **调试**：菜单「打开 DevTools」或 `toggleBrowserDevTools(browser)`
@@ -428,7 +431,7 @@ __rstMockState({
 ## 调试
 
 - 游戏内快捷键无响应时，在 F8 控制台执行 `uidiag`，会输出：
-  `phase / mode / interactive / browserReady / CEF focus / menu / chat / help / vote / ready / rewindLives / F1/F2/T 绑定数量`
+  `phase / mode / interactive / browserReady / CEF focus / menu / chat / help / vote / ready / rewindLives / cursor / F1/F2/T 绑定数量`
 - 客户端收到状态时会 `pcall` 保护状态处理；即使 Lua 状态处理报错，也会先把状态送进 CEF
 - 非交互状态每帧检查并释放 CEF 键盘焦点，避免浏览器抢焦点导致 `bindKey` 失效
 - MTA 客户端不要用管理员权限启动；控制台出现 `Running as Administrator - browser features may be limited` 时，CEF 可能被限制
@@ -441,7 +444,10 @@ __rstMockState({
 - `pnpm type-check`、`pnpm build` 通过
 - 全部 Lua 脚本用 luaparse（5.1 语法）解析通过
 - 服务端启动：资源加载 0 失败；SQLite 建库成功
-- 账号链路自检：bcrypt 创建 / 正确密码校验 / 错误密码拒绝
+- 真实 MTA 客户端：注册 / 登录 / 游客 → 舞台选择 → 加入比赛 → HUD / 倒计时 / 速度表 / 氮气条
+- 真实 MTA 客户端：2560×1440、DPI 缩放下的鼠标点击坐标正确；CEF 状态切换到 `stage / playing`
+- 账号链路：bcrypt 创建 / 正确密码校验 / 错误密码拒绝；注册确认密码在 UI + 服务端双重校验
+- 关键修复：MTA `toJSON` 单元素数组包装导致 UI 卡 auth 的问题已修复并实机验证
 - Headless Chrome 渲染登录、选舞台、HUD（含赛道作者面板）、菜单、投票、rewind 覆盖层，以及点击事件与 `rst:ui:action` 参数
 - 聊天：原生消息 / 玩家消息渲染、T 输入框、Enter 发送动作（`chat:send` + `chat:close`）在 Headless Chrome 中验证通过
 - 载具仪表：速度 / 血量 / 氮气 / 档位在 Headless Chrome 中验证渲染
@@ -460,13 +466,16 @@ __rstMockState({
 
 未验证（需要真实 MTA 客户端）：
 
-- 游戏内 CEF 的鼠标 / 键盘注入手感
-- 观战相机、rewind 冻结与速度恢复效果
+- F1 / F2 / F3 游戏内键盘注入手感（鼠标点击已验证）
+- 观战相机、rewind 冻结与速度恢复的实机手感
 
 ## 说明与限制
 
 - 当前 rewind 是客户端本地记录 / 回放（50ms 采样，最近 8 秒），服务端没有反作弊校验
-- 登录密码经 MTA 客户端事件发到服务端后再 bcrypt 存储；正式运营建议后续换用独立 Web 登录或额外加密
+- 登录密码经 MTA 客户端事件发到服务端后再 bcrypt 存储；资源层能看到明文密码。正式运营建议独立 Web 登录或至少网络层保护
+- 当前是自定义 SQLite 账号，不是 MTA `addAccount / logIn` 官方 Account；不会自动获得 ACL 权限
+- 最小密码长度当前是 4，正式环境建议 8+；没有登录失败锁定 / 密码重置
+- 登录错误目前区分“账号不存在 / 密码错误”，可被用来枚举账号
 - 地图目前只是出生点配置，没有加载赛道资源和检查点
 - 圈数 / 检查点 / 名次结算还没做，当前是出生给赛车 + 换图 / 投票的竞速基础框架
 - Ghost 的透明与车辆间碰撞关闭都在客户端完成；服务端不额外校验
@@ -474,6 +483,7 @@ __rstMockState({
 - 竞技排行按到终点距离（终点坐标目前是占位），不是按圈速 / 完成时间；终点数据接入真实赛道后替换
 - 距离是直线距离，不是沿赛道距离；后续有检查点后可以改成沿赛道的剩余进度
 - top 3 mtavault 地图没有 checkpoint，但可用 Hunter pickup 作为终点；没有 Hunter 时仅能按远离起点距离估算，绕圈/回转赛道会不准
+- 地图资源加载 / 维度映射 / 地图自带 vehicle、pickup 与脚本接管仍未接入
 - mtavault 脚本默认不抓、不自动更新配置；全量抓取需要手动运行并自行确认源站条款
 - 服务器内游玩次数在资源重启后保留，但必须先重启 `rst_ui` 才会加载 `mapstats.lua`
 
