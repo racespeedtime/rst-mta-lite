@@ -2,6 +2,7 @@
 import { computed } from 'vue'
 
 import IconClock from '~icons/lucide/clock'
+import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconGhost from '~icons/lucide/ghost'
@@ -98,6 +99,7 @@ const roundTime = computed(() => (ui.room ? formatTime(ui.room.timeLeft) : '--:-
     </div>
 
     <div class="hud__hints">
+      <span><IconCircleQuestionMark class="icon icon--sm" />F1 帮助</span>
       <span><IconKeyboard class="icon icon--sm" />F2 菜单</span>
       <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放</span>
     </div>

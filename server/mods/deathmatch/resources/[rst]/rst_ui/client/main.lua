@@ -18,6 +18,7 @@ local phase = 'auth'
 local mode = 'playing'
 local menuOpen = false
 local chatOpen = false
+local helpOpen = false
 local voteActive = false
 local interactive = false
 local cachedState = nil
@@ -31,6 +32,7 @@ RST = {
     interactive = false,
     menuOpen = false,
     chatOpen = false,
+    helpOpen = false,
     voteActive = false,
 }
 
@@ -144,7 +146,7 @@ local function setInteractive(enabled)
 end
 
 local function applyInteractive()
-    setInteractive(phase ~= 'playing' or menuOpen or chatOpen or voteActive)
+    setInteractive(phase ~= 'playing' or menuOpen or chatOpen or helpOpen or voteActive)
 end
 
 -- ---------------------------------------------------------------------------
@@ -306,6 +308,12 @@ local function applyState(state)
         dispatch('chat', { open = false })
     end
 
+    if helpOpen and (phase ~= 'playing' or voteActive) then
+        helpOpen = false
+        RST.helpOpen = false
+        dispatch('help', { open = false })
+    end
+
     if phase == 'playing' and mode == 'spectating' then
         startSpectate()
     else
@@ -340,6 +348,22 @@ local function setChatOpen(open)
     playUiSound('click')
 end
 
+local function setHelpOpen(open)
+    open = open == true
+    if open == helpOpen then
+        return
+    end
+    if open and (phase ~= 'playing' or voteActive) then
+        return
+    end
+
+    helpOpen = open
+    RST.helpOpen = open
+    dispatch('help', { open = open })
+    applyInteractive()
+    playUiSound('click')
+end
+
 local function setMenuOpen(open)
     open = open == true
     if open == menuOpen then
@@ -350,6 +374,9 @@ local function setMenuOpen(open)
     end
     if open and chatOpen then
         setChatOpen(false)
+    end
+    if open and helpOpen then
+        setHelpOpen(false)
     end
 
     menuOpen = open
@@ -485,6 +512,10 @@ addEventHandler('rst:ui:action', root, function(json)
         setMenuOpen(false)
     elseif data.action == 'chat:close' then
         setChatOpen(false)
+    elseif data.action == 'help:open' then
+        setHelpOpen(true)
+    elseif data.action == 'help:close' then
+        setHelpOpen(false)
     elseif data.action == 'devtools' then
         if browser then
             toggleBrowserDevTools(browser)
@@ -566,6 +597,7 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
         RST.stopRewind()
     end
     setChatOpen(false)
+    setHelpOpen(false)
 end)
 
 -- 测试车辆：上车后补满并设置无限氮气
@@ -681,7 +713,7 @@ bindKey('T', 'down', function()
     if chatOpen then
         return
     end
-    if phase ~= 'playing' or menuOpen or voteActive then
+    if phase ~= 'playing' or menuOpen or voteActive or helpOpen then
         return
     end
     setChatOpen(true)
@@ -702,6 +734,23 @@ bindKey('mouse2', 'down', function()
     switchSpectate(-1)
 end)
 
+bindKey('F1', 'down', function()
+    if phase ~= 'playing' then
+        return
+    end
+    if helpOpen then
+        setHelpOpen(false)
+        return
+    end
+    if menuOpen then
+        setMenuOpen(false)
+    end
+    if chatOpen then
+        setChatOpen(false)
+    end
+    setHelpOpen(true)
+end)
+
 addCommandHandler('ui', function()
     if phase ~= 'playing' then
         outputChatBox('rst: 选择舞台之后才能打开菜单')
@@ -718,6 +767,11 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     if chatOpen then
         chatOpen = false
         dispatch('chat', { open = false })
+    end
+
+    if helpOpen then
+        helpOpen = false
+        dispatch('help', { open = false })
     end
 
     stopSpectate()

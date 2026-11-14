@@ -16,6 +16,7 @@
 - [x] 载具仪表：速度、车辆血量、氮气余量 / 触发状态
 - [x] 顶部地图计时：地图名、本图剩余倒计时、个人本图已玩时长
 - [x] 观战模式：鼠标左键 / 右键切换下一位 / 上一位玩家
+- [x] 操作帮助面板：F1 呼出，F2 菜单也可进入
 - [ ] 计分板、击杀统计、更多地图（当前是出生点地图）
 - [ ] 部署脚本 / 更多管理功能
 
@@ -36,6 +37,7 @@
 | --- | --- |
 | 密码输入 + 登录 / 注册 / 游客 | 登录界面 |
 | `T` | 打开 CEF 聊天输入框（再按 Enter 发送、Esc 取消） |
+| `F1` | 打开 / 关闭操作帮助（F2 菜单里也有入口） |
 | `F2` / F8 控制台 `ui` | 打开菜单：发起换图投票、打开 DevTools、离开舞台 |
 | F8 控制台 / 聊天 `/car` | 生成一辆带氮气的测试 Infernus（进入舞台后可用） |
 | 观战模式左键 / 右键 | 切换下一位 / 上一位玩家 |
@@ -118,6 +120,7 @@ rst-mta-lite/
 │  │  ├─ components/MapTimer.vue             # 顶部地图剩余 / 个人计时
 │  │  ├─ components/ChatPanel.vue            # 左上角常驻 CEF 聊天
 │  │  ├─ components/Speedometer.vue          # 载具速度 / 血量 / 氮气
+│  │  ├─ components/HelpOverlay.vue          # F1 操作帮助
 │  │  └─ components/RewindOverlay.vue        # rewind 覆盖层
 │  └─ vite.config.ts                         # 构建输出到 rst_ui/ui/
 └─ server/mods/deathmatch/resources/
@@ -204,6 +207,7 @@ __rstMockState({
 - 载具仪表：速度 / 血量 / 氮气 / 档位在 Headless Chrome 中验证渲染
 - 顶部计时：地图名 / 剩余倒计时 / 个人本图时长在 Headless Chrome 中验证渲染
 - 观战切换：跟随对象与左右键提示在 Headless Chrome 中验证渲染
+- 操作帮助：快捷键分组、F1/Esc 关闭在 Headless Chrome 中验证渲染
 - 图标全部内联到构建产物，构建后的 JS 中没有外部图标请求
 
 未验证（需要真实 MTA 客户端）：

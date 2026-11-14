@@ -107,6 +107,10 @@ export interface SpectatePayload {
   name?: string
 }
 
+export interface HelpPayload {
+  open: boolean
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -117,4 +121,5 @@ export type BridgeEventMap = {
   chatMessage: ChatMessagePayload
   vehicle: VehiclePayload
   spectate: SpectatePayload
+  help: HelpPayload
 }

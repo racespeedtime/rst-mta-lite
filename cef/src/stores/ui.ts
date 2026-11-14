@@ -24,6 +24,7 @@ export const ui = reactive({
   mapTime: 0,
   menuOpen: false,
   chatOpen: false,
+  helpOpen: false,
   messages: [] as ChatEntry[],
   busy: false,
   authError: '',

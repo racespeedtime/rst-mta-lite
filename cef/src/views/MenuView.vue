@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import IconChevronRight from '~icons/lucide/chevron-right'
+import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
 import IconDoorOpen from '~icons/lucide/door-open'
 import IconFlag from '~icons/lucide/flag'
@@ -24,6 +25,11 @@ function startVote(): void {
 
 function devtools(): void {
   emitAction('devtools')
+}
+
+function openHelp(): void {
+  emitAction('help:open')
+  emitAction('menu:close')
 }
 
 function leaveStage(): void {
@@ -74,6 +80,15 @@ function leaveStage(): void {
           <span class="menu-action__text">
             <strong>发起换图投票</strong>
             <small>{{ ui.canStartVote ? '30 秒后结算' : '当前不可发起' }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="openHelp">
+          <span class="menu-action__icon"><IconCircleQuestionMark class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>操作帮助</strong>
+            <small>查看全部快捷键</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
