@@ -111,7 +111,7 @@ function onKeydown(event: KeyboardEvent): void {
           class="auth__input"
           type="password"
           maxlength="128"
-          :placeholder="mode === 'login' ? '输入登录密码' : '设置注册密码'"
+          :placeholder="mode === 'login' ? '输入登录密码' : '设置注册密码（至少 8 位）'"
           autocomplete="off"
           autofocus
           @keydown="onKeydown"

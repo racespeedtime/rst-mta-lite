@@ -20,7 +20,7 @@ RST.config = {
     respawnDelay = 4000,    -- 死亡后重生间隔
     spawnCountdown = 3,     -- 训练模式出生倒计时（秒）
     competitiveCountdown = 5, -- 竞技模式全员准备后的倒计时（秒）
-    minPasswordLength = 4,
+    minPasswordLength = 8,
     maxPasswordLength = 128,
 
     -- 竞速模式：每张赛道出生直接给一辆赛车
