@@ -45,6 +45,7 @@ export const ui = reactive({
   chatOpen: false,
   helpOpen: false,
   messages: [] as ChatEntry[],
+  chatLimit: 100,
   countdown: { active: false, startedAt: 0, duration: 3 },
   busy: false,
   authError: '',

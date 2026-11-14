@@ -438,8 +438,30 @@ actions['chat:send'] = function(player, session, data)
     if #text == 0 then
         return
     end
-    if #text > 160 then
-        text = text:sub(1, 160)
+
+    -- 按 UTF-8 字符数限制，避免中文被按字节截断
+    local charCount = 0
+    for i = 1, #text do
+        local byte = text:byte(i)
+        if byte < 0x80 or byte >= 0xC0 then
+            charCount = charCount + 1
+        end
+    end
+    if charCount > 160 then
+        local kept, count = 0, 0
+        for i = 1, #text do
+            local byte = text:byte(i)
+            if byte < 0x80 or byte >= 0xC0 then
+                count = count + 1
+                if count > 160 then
+                    kept = i - 1
+                    break
+                end
+            end
+        end
+        if kept > 0 then
+            text = text:sub(1, kept)
+        end
     end
 
     local time = now()

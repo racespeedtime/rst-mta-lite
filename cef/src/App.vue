@@ -127,8 +127,8 @@ onMounted(() => {
         id: nextMessageId++,
         time: payload.time ?? Math.floor(Date.now() / 1000),
       })
-      if (ui.messages.length > 100) {
-        ui.messages.splice(0, ui.messages.length - 100)
+      if (ui.messages.length > ui.chatLimit) {
+        ui.messages.splice(0, ui.messages.length - ui.chatLimit)
       }
     }),
     onBridge('vehicle', (payload) => {

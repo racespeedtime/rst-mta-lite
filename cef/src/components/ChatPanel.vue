@@ -12,6 +12,9 @@ import { formatClock } from '@/utils/format'
 const draft = ref('')
 const listRef = ref<HTMLElement | null>(null)
 const inputRef = ref<HTMLInputElement | null>(null)
+const stickToBottom = ref(true)
+const unread = ref(0)
+let lastMessageId = ui.messages.at(-1)?.id ?? 0
 
 function nameColor(name: string): string {
   let hash = 0
@@ -27,11 +30,25 @@ function nativeStyle(message: ChatEntry): Record<string, string> | undefined {
   return { color: `rgb(${r}, ${g}, ${b})` }
 }
 
-function scrollToBottom(): void {
+function scrollToBottom(force = false): void {
+  if (!force && !stickToBottom.value) return
   void nextTick(() => {
     const element = listRef.value
     if (element) element.scrollTop = element.scrollHeight
+    stickToBottom.value = true
+    unread.value = 0
   })
+}
+
+function isNearBottom(): boolean {
+  const element = listRef.value
+  if (!element) return true
+  return element.scrollHeight - element.scrollTop - element.clientHeight < 28
+}
+
+function onScroll(): void {
+  stickToBottom.value = isNearBottom()
+  if (stickToBottom.value) unread.value = 0
 }
 
 function send(): void {
@@ -51,9 +68,11 @@ watch(
   () => ui.chatOpen,
   (open) => {
     if (open) {
+      stickToBottom.value = true
+      unread.value = 0
       void nextTick(() => {
         inputRef.value?.focus()
-        scrollToBottom()
+        scrollToBottom(true)
       })
     } else {
       draft.value = ''
@@ -62,11 +81,23 @@ watch(
 )
 
 watch(
-  () => ui.messages.length,
-  () => scrollToBottom(),
+  () => ui.messages.at(-1)?.id ?? 0,
+  (id) => {
+    if (id === lastMessageId) return
+    lastMessageId = id
+    if (!ui.chatOpen) {
+      unread.value = 0
+      return
+    }
+    if (stickToBottom.value) {
+      scrollToBottom(true)
+    } else {
+      unread.value += 1
+    }
+  },
 )
 
-onMounted(scrollToBottom)
+onMounted(() => scrollToBottom(true))
 </script>
 
 <template>
@@ -76,10 +107,12 @@ onMounted(scrollToBottom)
         <IconMessageSquare class="icon icon--sm" />
         聊天
       </span>
-      <span class="chat__hint">{{ ui.chatOpen ? 'Enter 发送 · Esc 取消' : 'T 输入' }}</span>
+      <span class="chat__hint">
+        {{ ui.chatOpen ? 'Enter 发送 · Esc 取消' : 'T 输入' }} · {{ ui.messages.length }}/{{ ui.chatLimit }}
+      </span>
     </header>
 
-    <div ref="listRef" class="chat__list">
+    <div ref="listRef" class="chat__list" @scroll="onScroll">
       <p v-if="ui.messages.length === 0" class="chat__empty">按 T 发送第一条消息</p>
 
       <div v-for="message in ui.messages" :key="message.id" class="chat__line">
@@ -103,6 +136,15 @@ onMounted(scrollToBottom)
         </template>
       </div>
     </div>
+
+    <button
+      v-if="ui.chatOpen && unread > 0"
+      type="button"
+      class="chat__new"
+      @click="scrollToBottom(true)"
+    >
+      {{ unread }} 条新消息 ↓
+    </button>
 
     <form v-if="ui.chatOpen" class="chat__input" @submit.prevent="send">
       <IconMessageSquare class="icon icon--sm chat__input-icon" />
@@ -197,6 +239,21 @@ onMounted(scrollToBottom)
 .chat__list::-webkit-scrollbar-thumb {
   border-radius: 2px;
   background: rgba(140, 180, 255, 0.22);
+}
+
+.chat__new {
+  margin: 0 10px 7px;
+  padding: 5px 9px;
+  border: 1px solid rgba(88, 200, 255, 0.28);
+  border-radius: 7px;
+  background: rgba(88, 200, 255, 0.12);
+  color: var(--rst-accent);
+  font-size: 10px;
+  text-align: center;
+}
+
+.chat__new:hover {
+  background: rgba(88, 200, 255, 0.2);
 }
 
 .chat__empty {
