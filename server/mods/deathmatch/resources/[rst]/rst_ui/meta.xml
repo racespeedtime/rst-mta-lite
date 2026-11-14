@@ -1,0 +1,19 @@
+<meta>
+    <info
+        author="rst"
+        name="rst_ui"
+        version="0.1.0"
+        type="script"
+        description="rst-mta-lite 的 CEF + Vue 客户端界面"
+    />
+
+    <script src="client/main.lua" type="client" />
+    <script src="server/main.lua" type="server" />
+
+    <!-- Vue 构建产物（cef/vite.config.ts 输出到这里，ui/ 不入库） -->
+    <file src="ui/index.html" />
+    <file src="ui/assets/app.js" />
+    <file src="ui/assets/style.css" />
+
+    <min_mta_version client="1.6.0" server="1.6.0" />
+</meta>

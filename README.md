@@ -1,17 +1,24 @@
 # rst-mta-lite
 
-轻量的 MTA:SA 服务器工程。服务端用 MTA:SA 原生 Lua 资源；客户端界面统一走 MTA 内嵌 CEF，用 Vue 3 + Vite 编写。
+基于 MTA:SA 1.6 的轻量服务器工程。服务端用 MTA 原生 Lua 资源；客户端界面统一由 MTA 内嵌 CEF 承载，前端用 Vue 3 + TypeScript + Vite。
+
+## 当前进度
+
+- [x] 仓库工程化：只提交源码，二进制 / 运行时 / 构建产物全部忽略
+- [x] CEF + Vue 最小闭环：全屏 local 浏览器 → Vue HUD → CEF 菜单 → Lua ↔ JS 双向通信
+- [ ] 业务资源 `rst_core`、更多页面、资源构建 / 部署脚本
 
 ## 仓库原则
 
-**只提交源代码、文档、配置模板。** 二进制、运行时状态、构建产物、密钥一律不入库，规则见 [`.gitignore`](.gitignore)。
+**只提交源代码、文档、配置模板。** 规则见 [`.gitignore`](.gitignore)。
 
-| 类型 | 典型文件 / 目录 | 处理 |
+| 类型 | 路径 | 处理 |
 | --- | --- | --- |
-| MTA 服务端本体 | `server/*.exe`、`server/*.dll`、`server/mods/deathmatch/*.dll` | 本地安装，忽略 |
-| 服务端运行时状态 | `logs/`、`dumps/`、`databases/`、`resource-cache/`、`backups/`、`*.db`、`server-id.keys`、`acl.xml`、`mtaserver.conf` | 运行时生成 / 本机配置，忽略 |
-| CEF / 第三方二进制 | `cef/` | 本地运行时与工具，忽略 |
-| 前端依赖与产物 | `node_modules/`、`dist/`、`rst_ui/ui/` | `pnpm install` / 构建生成，忽略 |
+| 客户端 UI 源码 | `cef/` | 入库（Vue + Vite） |
+| Vue 构建产物 | `server/.../rst_ui/ui/` | `pnpm build` 生成，忽略 |
+| MTA 服务端本体 | `server/` 除 `resources/[rst]/` 外 | 本地安装，忽略 |
+| 服务端运行时状态 | `logs/`、`dumps/`、`databases/`、`resource-cache/`、`backups/`、`*.db`、`server-id.keys`、`acl.xml`、`mtaserver.conf` | 生成 / 本机配置，忽略 |
+| 前端依赖 | `node_modules/`、`dist/` | 依赖安装 / 构建生成，忽略 |
 | 密钥与环境变量 | `.env*`、`*.pem`、`*.key` | 只提交 `.env.example` |
 | 日志与临时文件 | `*.log`、`*.tmp`、`.DS_Store` 等 | 忽略 |
 
@@ -23,57 +30,73 @@ server/mods/deathmatch/resources/[rst]/**
 
 ## 目录结构
 
-当前：
-
 ```
 rst-mta-lite/
-├─ .editorconfig
-├─ .gitattributes
-├─ .gitignore
-├─ README.md
-├─ cef/                                  # 本地 CEF 运行时 / 工具（不入库）
-└─ server/                               # 本地 MTA 服务端安装（只有 resources/[rst] 入库）
-   └─ mods/deathmatch/resources/[rst]/   # 项目资源源码
+├─ cef/                                    # 客户端 UI 源码（Vue 3 + Vite + TS）
+│  ├─ src/
+│  │  ├─ mta/bridge.ts                     # window.rst / mta.triggerEvent 双向桥
+│  │  ├─ mta/protocol.ts                   # 事件与数据类型
+│  │  ├─ components/HudBar.vue             # 常驻 HUD
+│  │  ├─ views/MenuView.vue                # F2 菜单
+│  │  ├─ router/index.ts                   # hash 路由
+│  │  └─ stores/session.ts
+│  └─ vite.config.ts                       # 构建输出到 rst_ui/ui/
+└─ server/mods/deathmatch/resources/
+   └─ [rst]/rst_ui/                        # CEF UI 宿主资源
+      ├─ meta.xml                          # 声明 ui/index.html + app.js + style.css
+      ├─ client/main.lua                   # 浏览器、渲染、输入、桥
+      ├─ server/main.lua                   # 服务器信息推送
+      └─ ui/                               # 构建产物（不入库）
 ```
 
-规划：
+## 快速开始
 
+```powershell
+# 1. 构建 UI（产物直接写进资源目录）
+cd cef
+pnpm install
+pnpm build
+
+# 2. 启动服务器
+cd ..\server
+.\"MTA Server.exe"
 ```
-[项目资源]  server/mods/deathmatch/resources/[rst]/
-├─ rst_core/     # 服务端基础：账号登录、数据存档、事件总线、日志……
-└─ rst_ui/       # CEF UI 宿主：加载 web 构建产物 + Lua ↔ JS 桥
 
-web/             # Vue 3 + Vite 前端源码
-tools/           # 构建、同步、启动脚本
-docs/            # 设计文档（按需）
+客户端浏览器打开 `mtasa://127.0.0.1:22003`。
+
+进服后：
+
+- 左上角 / 左下角 HUD（服务器名、玩家名、在线数、HP、AR）由 Vue 渲染，数据来自 Lua
+- 按 **F2** 打开 CEF 菜单；菜单打开时显示鼠标、接管键盘并禁用游戏控制
+- 也可以按 F8 打开控制台输入 `ui` 切换菜单
+- 菜单里的「测试 Lua 回调」走完整链路 JS → Lua → JS；「打开 DevTools」调 `toggleBrowserDevTools`
+
+## 前端开发
+
+```powershell
+cd cef
+pnpm dev          # http://127.0.0.1:5173，直接在浏览器里调 UI
+pnpm type-check   # vue-tsc
+pnpm build        # 固定文件名输出到 rst_ui/ui/
 ```
 
-## 本地运行
+纯浏览器模式下没有 `window.mta`，bridge 会打印 `[rst-ui:mock]` 并模拟 bootstrap 数据；也可以直接访问 `http://127.0.0.1:5173/#/menu` 预览菜单。
 
-1. MTA:SA 1.6 服务端已解压到 `server/`（当前即如此）。
-2. 运行 `server\MTA Server.exe`。首次启动会生成日志、数据库、ACL 等运行时文件（均已被忽略）。
-3. 客户端浏览器打开 `mtasa://127.0.0.1:22003` 进入服务器。
+> `meta.xml` 依赖固定产物名 `ui/assets/app.js`、`ui/assets/style.css`。改 `vite.config.ts` 的输出文件名时，必须同步 `meta.xml` 的 `<file>` 列表，否则客户端下载不到页面资源。
 
-> `server/mods/deathmatch/resources/` 下目前只有自研资源。`mtaserver.conf` 默认列出的官方资源（admin、mapmanager 等）如果不存在，启动日志会报错，属预期状态；不需要的话直接删掉对应的 `<resource>` 行。
+## CEF 通信机制
 
-## 客户端 UI：CEF + Vue
-
-思路：**local 模式浏览器 + 单页 Vue 应用**，用路由或图层切换 HUD、菜单、登录等界面。
-
-- 创建浏览器：`createBrowser(w, h, true, true)`（第 3 个参数为 local 模式；只有 local 模式能执行 JS、加载资源内文件）。
-- 等 `onClientBrowserCreated` 后再 `loadBrowserURL(browser, "http://mta/local/index.html")`；`http://mta/local/` 指向当前资源根目录。
-- 资源内所有页面、JS、CSS、字体、图片都必须在 `meta.xml` 里用 `<file src="..."/>` 声明，否则不会下发到客户端。
-- Lua → JS：`executeBrowserJavascript(browser, "window.rst.xxx(...)")`。
-- JS → Lua：`mta.triggerEvent("rst:ui:event", payload)`；事件 source 即该浏览器元素，在 client Lua 里用 `addEventHandler` 接收，需要服务端处理时再 `triggerServerEvent`。
-- 约定 JS 侧只挂一个命名空间（如 `window.rst`），Lua 侧只调用这个前缀，避免任意代码注入。
-- 调试：`toggleBrowserDevTools(browser)` 打开 DevTools；开发期 `setDevelopmentMode(true, true)` 可在 F8 看 CEF 报错。
-- 参考：[CEF Tutorial](https://wiki.multitheftauto.com/wiki/CEF_Tutorial)、[Local Scheme Handler](https://wiki.multitheftauto.com/wiki/Local_Scheme_Handler)。
-
-前端待落地：`web/` 用 Vue 3 + Vite + TypeScript；构建产物通过 `tools/` 脚本同步到 `rst_ui/ui/`（构建生成，不入库）。
+- **加载**：`createBrowser(w, h, true, true)`（local 模式）→ `onClientBrowserCreated` → `loadBrowserURL(browser, "http://mta/local/ui/index.html")`
+- **渲染**：`onClientRender` 里 `dxDrawImage(0, 0, w, h, browser)`
+- **输入**：`showCursor` + `guiSetInputEnabled` + `toggleAllControls`；鼠标经 `onClientCursorMove` / `onClientClick` / `onClientMouseWheel` 转发给 `injectBrowserMouse*`，键盘焦点用 `focusBrowser`
+- **JS → Lua**：`mta.triggerEvent("rst:ui:*", jsonString)`，Lua 侧 `addEvent` + `addEventHandler` 接收
+- **Lua → JS**：`executeBrowserJavascript(browser, 'window.rst.dispatch("event", jsonString)')`
+- **类型定义**：`cef/src/mta/protocol.ts`；页面侧统一用 `onBridge` / `emitToLua`
+- **调试**：`toggleBrowserDevTools(browser)`，开发期可配合 `setDevelopmentMode(true, true)` 在 F8 查看 CEF 报错
 
 ## 约定
 
-- 资源命名：`rst_` 前缀；资源根目录放 `meta.xml`。
-- 换行统一 LF（`.gitattributes` 固定），编辑配置见 `.editorconfig`（Lua / XML 4 空格，前端 2 空格）。
-- 新建资源后，在本机 `mtaserver.conf` 里加 `<resource src="..." startup="1"/>` 才会启动；该文件不入库。
-- 若要把服务端配置版本化，另建 `config/mtaserver.conf.example` 之类的模板，不要把带密码的本机配置提交。
+- 资源命名 `rst_` 前缀；归类目录 `[rst]`（方括号目录不会作为资源加载）。
+- 换行统一 LF；`.editorconfig`：Lua / XML 4 空格，前端 2 空格。
+- 新建资源后在本机 `mtaserver.conf` 里加 `<resource src="..." startup="1"/>`（该文件不入库）。
+- 仓库不带官方默认资源，启动日志里的 `Couldn't find resource admin/...` 可忽略，或在 `mtaserver.conf` 里注释掉对应行。

@@ -1,0 +1,47 @@
+:root {
+  color-scheme: dark;
+
+  --rst-text: #e8eef8;
+  --rst-muted: #93a4bd;
+  --rst-accent: #4cc2ff;
+  --rst-panel: rgba(10, 16, 26, 0.88);
+  --rst-panel-soft: rgba(13, 21, 33, 0.72);
+  --rst-border: rgba(140, 180, 255, 0.16);
+  --rst-font: 'Segoe UI', 'Microsoft YaHei', 'PingFang SC', system-ui, sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#app {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  background: transparent;
+  overflow: hidden;
+}
+
+body {
+  font-family: var(--rst-font);
+  color: var(--rst-text);
+  -webkit-font-smoothing: antialiased;
+  user-select: none;
+}
+
+button {
+  padding: 0;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+}
+
+.app-root {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+}
