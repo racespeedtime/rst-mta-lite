@@ -37,6 +37,9 @@ local cursorAlways = false
 local freeCursor = false
 local hudHidden = false
 local chatSuppressed = false
+local chatVisible = true
+local radarVisible = true
+local crosshairVisible = true
 local nametagsVisible = true
 local devtoolsOpen = false
 local lastCursorToggleAt = 0
@@ -121,6 +124,14 @@ local function applyPlayerNametags()
     for _, player in ipairs(getElementsByType('player')) do
         pcall(setPlayerNametagShowing, player, nametagsVisible)
     end
+end
+
+local function applyVisibility()
+    local nativeChatVisible = not hudHidden and chatVisible and not chatSuppressed
+    pcall(showChat, nativeChatVisible, not nativeChatVisible)
+    pcall(setPlayerHudComponentVisible, 'radar', not hudHidden and radarVisible)
+    pcall(setPlayerHudComponentVisible, 'crosshair', not hudHidden and crosshairVisible)
+    applyPlayerNametags()
 end
 
 -- 关闭速度/加速度引起的原生动态模糊
@@ -696,7 +707,7 @@ local function setChatSuppressed(suppressed)
     end
 
     chatSuppressed = suppressed
-    pcall(showChat, not suppressed and not hudHidden, suppressed or hudHidden)
+    applyVisibility()
     if suppressed and chatOpen then
         chatOpen = false
         RST.chatOpen = false
@@ -1071,7 +1082,33 @@ addEventHandler('rst:ui:action', root, function(json)
         applyInteractive()
     elseif data.action == 'nametags:set' then
         nametagsVisible = data.visible == true
-        applyPlayerNametags()
+        applyVisibility()
+    elseif data.action == 'visibility:set' then
+        local key = tostring(data.key or '')
+        local visible = data.visible == true
+        if key == 'chat' then
+            chatVisible = visible
+        elseif key == 'radar' then
+            radarVisible = visible
+        elseif key == 'crosshair' then
+            crosshairVisible = visible
+        elseif key == 'nametags' then
+            nametagsVisible = visible
+        end
+        applyVisibility()
+    elseif data.action == 'visibility:load' then
+        hudHidden = false
+        chatVisible = data.chat ~= false
+        radarVisible = data.radar ~= false
+        crosshairVisible = data.crosshair ~= false
+        nametagsVisible = data.nametags ~= false
+        applyVisibility()
+    elseif data.action == 'visibility:master' then
+        hudHidden = data.visible ~= true
+        applyVisibility()
+    elseif data.action == 'hud:toggle' then
+        hudHidden = not hudHidden
+        applyVisibility()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
     elseif data.action == 'menu:open' then
@@ -1088,12 +1125,6 @@ addEventHandler('rst:ui:action', root, function(json)
         if phase == 'playing' and not isForcedCursor() and not RST.countdownActive then
             toggleCursorVisibility()
         end
-    elseif data.action == 'hud:toggle' then
-        hudHidden = not hudHidden
-        pcall(setPlayerHudComponentVisible, 'radar', not hudHidden)
-        pcall(setPlayerHudComponentVisible, 'crosshair', not hudHidden)
-        -- 隐藏全部 UI 时，原生 chatbox 也一起隐藏并禁止输入
-        pcall(showChat, not hudHidden and not chatSuppressed, hudHidden or chatSuppressed)
     elseif data.action == 'devtools' then
         if browser then
             if not devtoolsOpen then
@@ -1531,9 +1562,9 @@ end)
 -- 原生 chatbox 只负责 MTA 默认输入，聊天记录由 CEF 渲染
 showChat(true, false)
 
--- 进入服务器时恢复所有玩家头顶名字牌
-applyPlayerNametags()
-addEventHandler('onClientResourceStart', resourceRoot, applyPlayerNametags)
+-- 进入服务器时恢复所有玩家头顶名字牌和界面显示设置
+applyVisibility()
+addEventHandler('onClientResourceStart', resourceRoot, applyVisibility)
 
 -- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
 setNativeHudVisible(false)

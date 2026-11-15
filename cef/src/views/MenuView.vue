@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 
 import IconChevronRight from '~icons/lucide/chevron-right'
 import IconCar from '~icons/lucide/car'
@@ -23,6 +23,7 @@ import { ui } from '@/stores/ui'
 import { formatMs, formatTime } from '@/utils/format'
 
 const now = useTicker()
+const activeTab = ref<'play' | 'view' | 'system'>('play')
 const roomRemainingMs = computed(() => {
   const base = ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000
   const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
@@ -101,13 +102,33 @@ function devtools(): void {
 
 function toggleHud(): void {
   ui.hudHidden = !ui.hudHidden
-  emitAction('hud:toggle')
+  emitAction('visibility:master', { visible: !ui.hudHidden })
 }
 
-function toggleNametags(): void {
-  ui.nametagsVisible = !ui.nametagsVisible
-  window.localStorage.setItem('rst.nametags', ui.nametagsVisible ? '1' : '0')
-  emitAction('nametags:set', { visible: ui.nametagsVisible })
+type VisibilityKey = 'hud' | 'chat' | 'radar' | 'crosshair' | 'nametags'
+
+function saveVisibility(): void {
+  window.localStorage.setItem(
+    'rst.visibility',
+    JSON.stringify({
+      hud: ui.showHud,
+      chat: ui.showChat,
+      radar: ui.showRadar,
+      crosshair: ui.showCrosshair,
+      nametags: ui.nametagsVisible,
+    }),
+  )
+}
+
+function setVisibility(key: VisibilityKey, visible: boolean): void {
+  if (key === 'hud') ui.showHud = visible
+  else if (key === 'chat') ui.showChat = visible
+  else if (key === 'radar') ui.showRadar = visible
+  else if (key === 'crosshair') ui.showCrosshair = visible
+  else ui.nametagsVisible = visible
+
+  saveVisibility()
+  emitAction('visibility:set', { key, visible })
 }
 
 function setCursor(mode: 'auto' | 'always'): void {
@@ -186,33 +207,37 @@ function respawn(): void {
         地图池为空，无法发起换图投票。请联系管理员在 config.mapPool 添加地图。
       </div>
 
-      <div class="menu-cursor">
-        <span class="menu-cursor__label">
-          <IconMousePointer2 class="icon icon--sm" />
-          光标显示
-        </span>
-        <div class="menu-cursor__modes">
-          <button
-            type="button"
-            :class="{ 'is-active': ui.cursorMode === 'auto' }"
-            @click="setCursor('auto')"
-          >
-            自动
-          </button>
-          <button
-            type="button"
-            :class="{ 'is-active': ui.cursorMode === 'always' }"
-            @click="setCursor('always')"
-          >
-            始终显示
-          </button>
-        </div>
-        <small>
-          {{ ui.cursorForced ? '当前界面强制显示光标' : '游戏内按 F3 临时切换' }}
-        </small>
-      </div>
+      <nav class="menu-tabs" role="tablist" aria-label="菜单分类">
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'play'"
+          :class="{ 'is-active': activeTab === 'play' }"
+          @click="activeTab = 'play'"
+        >
+          玩法
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'view'"
+          :class="{ 'is-active': activeTab === 'view' }"
+          @click="activeTab = 'view'"
+        >
+          界面
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'system'"
+          :class="{ 'is-active': activeTab === 'system' }"
+          @click="activeTab = 'system'"
+        >
+          系统
+        </button>
+      </nav>
 
-      <div class="menu-actions">
+      <div v-if="activeTab === 'play'" class="menu-actions">
         <button type="button" class="menu-action" :disabled="!ui.canStartVote" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">
@@ -291,36 +316,122 @@ function respawn(): void {
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
+      </div>
 
-        <button type="button" class="menu-action" @click="openHelp">
-          <span class="menu-action__icon"><IconCircleQuestionMark class="icon" /></span>
-          <span class="menu-action__text">
-            <strong>操作帮助</strong>
-            <small>查看全部快捷键</small>
-          </span>
-          <IconChevronRight class="icon menu-action__arrow" />
-        </button>
-
-        <button type="button" class="menu-action" @click="toggleNametags">
-          <span class="menu-action__icon">
-            <IconEye v-if="ui.nametagsVisible" class="icon" />
-            <IconEyeOff v-else class="icon" />
-          </span>
-          <span class="menu-action__text">
-            <strong>{{ ui.nametagsVisible ? '隐藏玩家名字牌' : '显示玩家名字牌' }}</strong>
-            <small>仅影响自己看到的其他玩家</small>
-          </span>
-          <IconChevronRight class="icon menu-action__arrow" />
-        </button>
-
-        <button type="button" class="menu-action" @click="toggleHud">
+      <div v-else-if="activeTab === 'view'" class="menu-actions">
+        <button type="button" class="menu-action menu-action--switch" @click="toggleHud">
           <span class="menu-action__icon">
             <IconEyeOff v-if="!ui.hudHidden" class="icon" />
             <IconEye v-else class="icon" />
           </span>
           <span class="menu-action__text">
-            <strong>{{ ui.hudHidden ? '显示所有 GUI' : '隐藏所有 GUI' }}</strong>
-            <small>HUD / 小地图 / 准星</small>
+            <strong>全部 GUI</strong>
+            <small>{{ ui.hudHidden ? '当前已隐藏，点击恢复' : '一键显示 / 隐藏' }}</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': !ui.hudHidden }" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action menu-action--switch"
+          @click="setVisibility('hud', !ui.showHud)"
+        >
+          <span class="menu-action__icon"><IconSettings class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>HUD</strong>
+            <small>计时 / 速度表 / 排行</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': ui.showHud }" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action menu-action--switch"
+          @click="setVisibility('chat', !ui.showChat)"
+        >
+          <span class="menu-action__icon"><IconCircleQuestionMark class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>聊天记录</strong>
+            <small>CEF 聊天面板</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': ui.showChat }" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action menu-action--switch"
+          @click="setVisibility('radar', !ui.showRadar)"
+        >
+          <span class="menu-action__icon"><IconMap class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>小地图</strong>
+            <small>原生雷达</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': ui.showRadar }" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action menu-action--switch"
+          @click="setVisibility('crosshair', !ui.showCrosshair)"
+        >
+          <span class="menu-action__icon"><IconMousePointer2 class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>准星</strong>
+            <small>原生瞄准准星</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': ui.showCrosshair }" aria-hidden="true" />
+        </button>
+
+        <button
+          type="button"
+          class="menu-action menu-action--switch"
+          @click="setVisibility('nametags', !ui.nametagsVisible)"
+        >
+          <span class="menu-action__icon">
+            <IconEye v-if="ui.nametagsVisible" class="icon" />
+            <IconEyeOff v-else class="icon" />
+          </span>
+          <span class="menu-action__text">
+            <strong>玩家名字牌</strong>
+            <small>仅影响自己看到的</small>
+          </span>
+          <span class="menu-switch" :class="{ 'is-on': ui.nametagsVisible }" aria-hidden="true" />
+        </button>
+
+        <div class="menu-cursor">
+          <span class="menu-cursor__label">
+            <IconMousePointer2 class="icon icon--sm" />
+            光标显示
+          </span>
+          <div class="menu-cursor__modes">
+            <button
+              type="button"
+              :class="{ 'is-active': ui.cursorMode === 'auto' }"
+              @click="setCursor('auto')"
+            >
+              自动
+            </button>
+            <button
+              type="button"
+              :class="{ 'is-active': ui.cursorMode === 'always' }"
+              @click="setCursor('always')"
+            >
+              始终显示
+            </button>
+          </div>
+          <small>
+            {{ ui.cursorForced ? '当前界面强制显示光标' : '游戏内按 F3 临时切换' }}
+          </small>
+        </div>
+      </div>
+
+      <div v-else class="menu-actions">
+        <button type="button" class="menu-action" @click="openHelp">
+          <span class="menu-action__icon"><IconCircleQuestionMark class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>操作帮助</strong>
+            <small>查看全部快捷键</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
@@ -354,6 +465,7 @@ function respawn(): void {
 
 .menu-panel {
   width: min(520px, calc(100vw - 96px));
+  max-height: min(90vh, 780px);
   padding: 24px 26px 20px;
   border: 1px solid var(--rst-border);
   border-radius: 18px;
@@ -362,6 +474,7 @@ function respawn(): void {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  overflow-y: auto;
 }
 
 .menu-panel__head {
@@ -524,6 +637,71 @@ function respawn(): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.menu-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 3px;
+  border: 1px solid var(--rst-border);
+  border-radius: 9px;
+  background: rgba(0, 0, 0, 0.16);
+}
+
+.menu-tabs button {
+  flex: 1;
+  padding: 7px 8px;
+  border-radius: 6px;
+  color: var(--rst-muted);
+  font-size: 10px;
+}
+
+.menu-tabs button:hover {
+  color: var(--rst-text);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.menu-tabs button.is-active {
+  color: var(--rst-text);
+  background: rgba(88, 200, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(88, 200, 255, 0.16);
+}
+
+.menu-action--switch {
+  cursor: pointer;
+}
+
+.menu-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 18px;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+.menu-switch::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--rst-muted);
+  transition: transform 0.15s ease, background 0.15s ease;
+}
+
+.menu-switch.is-on {
+  border-color: rgba(88, 200, 255, 0.45);
+  background: rgba(88, 200, 255, 0.22);
+}
+
+.menu-switch.is-on::after {
+  transform: translateX(16px);
+  background: var(--rst-accent);
 }
 
 .menu-action {

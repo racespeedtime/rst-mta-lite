@@ -311,10 +311,29 @@ onMounted(() => {
   document.addEventListener('click', onAnyClick, true)
   document.addEventListener('keydown', onCursorKeydown)
 
-  // 名字牌显示偏好保存在本机 CEF，仅影响当前客户端
-  const savedNametags = window.localStorage.getItem('rst.nametags')
-  ui.nametagsVisible = savedNametags !== '0'
-  emitAction('nametags:set', { visible: ui.nametagsVisible })
+  // 界面显示偏好保存在本机 CEF，仅影响当前客户端
+  const savedVisibility = window.localStorage.getItem('rst.visibility')
+  let visibility = {
+    hud: true,
+    chat: true,
+    radar: true,
+    crosshair: true,
+    nametags: true,
+  }
+  if (savedVisibility) {
+    try {
+      const parsed = JSON.parse(savedVisibility) as Partial<typeof visibility>
+      visibility = { ...visibility, ...parsed }
+    } catch {
+      // 旧值损坏时保持默认
+    }
+  }
+  ui.showHud = visibility.hud !== false
+  ui.showChat = visibility.chat !== false
+  ui.showRadar = visibility.radar !== false
+  ui.showCrosshair = visibility.crosshair !== false
+  ui.nametagsVisible = visibility.nametags !== false
+  emitAction('visibility:load', visibility)
 
   emitToLua('ready')
 })
@@ -333,17 +352,17 @@ onUnmounted(() => {
     <StageView v-else-if="ui.phase === 'stage'" />
     <template v-else-if="ui.phase === 'playing'">
       <template v-if="!ui.hudHidden">
-        <GameHud />
-        <MapTimer v-if="ui.room" />
+        <GameHud v-if="ui.showHud" />
+        <MapTimer v-if="ui.showHud && ui.room" />
         <Transition name="speedo">
-          <Speedometer v-if="ui.vehicle" />
+          <Speedometer v-if="ui.showHud && ui.vehicle" />
         </Transition>
         <SpawnCountdown v-if="ui.countdown.active" />
-        <CompetitionPanel v-if="ui.competition" />
+        <CompetitionPanel v-if="ui.showHud && ui.competition" />
         <RaceResultOverlay v-if="ui.raceResult" />
         <ReadyOverlay v-if="ui.ready.waiting" />
         <RewindOverlay v-if="ui.rewind.active" />
-        <ChatPanel />
+        <ChatPanel v-if="ui.showChat" />
       </template>
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
@@ -354,7 +373,7 @@ onUnmounted(() => {
     <MapDetailsModal v-if="ui.mapDetailsOpen" />
     <MapPoolModal v-if="ui.mapPoolOpen" />
     <RecordsModal v-if="ui.recordsOpen" />
-    <BuildTag v-if="!ui.hudHidden" />
+    <BuildTag v-if="!ui.hudHidden && ui.showHud" />
     <ToastMessage :text="toast" />
   </div>
 </template>
