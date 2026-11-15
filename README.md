@@ -14,8 +14,8 @@ DeathMatch 是竞速模式：随机出生点、对应车辆、无默认氮气。
 | --- | --- | --- |
 | Windows | Windows 10/11 x64 | MTA 服务端 / 客户端 |
 | Git | 任意较新版本 | 克隆仓库 |
-| Node.js | 22 LTS 或兼容版本 | 构建 CEF UI |
-| pnpm | 10.x | 安装 / 构建前端 |
+| Node.js | 22 LTS 或更新 | 构建 CEF UI |
+| pnpm | 9+，实测 12.11.2 | 安装 / 构建前端 |
 | MTA:SA Server | 1.6 | 服务端运行时 |
 | MTA:SA Client | 1.6 | 玩家客户端 |
 | GTA: San Andreas | 1.0 | MTA 客户端依赖 |
@@ -43,26 +43,62 @@ git clone https://github.com/racespeedtime/rst-mta-lite.git
 https://multitheftauto.com/
 ```
 
-解压后把服务端文件合并到仓库的 `server/`：
+不要只复制 `MTA Server.exe`。MTA 服务端依赖根目录和 `mods/deathmatch` 下的一整套 DLL / 配置文件，必须完整保留同一版本的安装目录。
+
+当前这套服务端实际包含：
 
 ```text
-rst-mta-lite/
-  server/
-    MTA Server.exe          ← 手动补充
-    mods/
-      deathmatch/
-        mtaserver.conf      ← 手动补充/修改
-        acl.xml             ← 服务端生成或手动配置
-        resources/
-          [rst]/
-            rst_ui/         ← 仓库自带
+server/
+  MTA Server.exe
+  core.dll
+  net.dll
+  pthread.dll
+  xmll.dll
+  dumps/
+  mods/
+    deathmatch/
+      deathmatch.dll
+      dbconmy.dll
+      libcrypto-3.dll
+      libmysql.dll
+      libssl-3.dll
+      lua5.1.dll
+      pcre3.dll
+      mtaserver.conf
+      acl.xml
+      banlist.xml
+      editor_acl.xml
+      editor.conf
+      internal.db
+      registry.db
+      settings.xml
+      vehiclecolors.conf
+      local.conf
+      server-id.keys
+      resources/
+        [rst]/
+          rst_ui/         ← 仓库自带
 ```
+
+说明：
+
+- 根目录 DLL：`core.dll`、`net.dll`、`pthread.dll`、`xmll.dll`
+- `mods/deathmatch` DLL：`deathmatch.dll`、`dbconmy.dll`、`libcrypto-3.dll`、`libmysql.dll`、`libssl-3.dll`、`lua5.1.dll`、`pcre3.dll`
+- `mtaserver.conf`、`acl.xml`、`banlist.xml`、`settings.xml` 等是服务端配置
+- `internal.db`、`registry.db`、`server-id.keys` 是运行时文件
+- 所有文件必须来自同一版本 MTA 服务端，不能混用不同版本 DLL
+
+安装时最稳妥的做法：
+
+1. 先把官方 MTA 服务端完整解压到临时目录
+2. 把完整目录合并到仓库的 `server/`
+3. 确认仓库里的 `[rst]/rst_ui` 没有被覆盖
 
 注意：
 
 - `server/` 整体在 `.gitignore` 中，除了 `server/mods/deathmatch/resources/[rst]/`。
-- 不要把服务端压缩包直接覆盖掉仓库里的 `[rst]/rst_ui`。
-- `MTA Server.exe`、`mods/deathmatch` 核心文件、`mtaserver.conf`、`acl.xml` 都需要本地准备。
+- `MTA Server.exe`、DLL、`mods/deathmatch` 核心文件、`mtaserver.conf`、`acl.xml` 都需要本地准备。
+- `libmysql.dll` 只是 MTA 服务端自带的客户端库，正常开服不需要安装 MySQL Server。
 
 ### 3. 补地图资源
 
@@ -103,12 +139,14 @@ resources/
 ```bash
 # 第一次使用 pnpm 时
 corepack enable
-corepack prepare pnpm@10 --activate
+corepack prepare pnpm@12 --activate
 
 cd cef
 pnpm install --frozen-lockfile
 pnpm build
 ```
+
+`pnpm-lock.yaml` 是 lockfile v9；pnpm 9、10、11、12 均可，仓库当前实测 pnpm 12.11.2。不要使用过老的 pnpm 8。
 
 输出：
 
@@ -249,9 +287,10 @@ mtasa://127.0.0.1:22003
 | `rst_ui/` Lua / CEF 页面 | 是 | UI 构建产物 `ui/` 除外 |
 | `mapmeta-catalog.json` | 是 | 首次启动导入 SQLite |
 | `mapmeta` seed DB | 是 | 可选 |
-| `MTA Server.exe` | 否 | 手动安装 MTA 服务端 |
-| `mods/deathmatch` 核心 | 否 | 手动安装 MTA 服务端 |
-| `mtaserver.conf` / `acl.xml` | 否 | 本地配置 |
+| `MTA Server.exe` + `core.dll` / `net.dll` / `pthread.dll` / `xmll.dll` | 否 | 官方 MTA 服务端完整安装 |
+| `mods/deathmatch` 的 DLL / 配置文件 | 否 | `deathmatch.dll`、`lua5.1.dll`、`libssl-3.dll` 等 |
+| `mtaserver.conf` / `acl.xml` / `banlist.xml` | 否 | 本地配置 |
+| `internal.db` / `registry.db` / `server-id.keys` | 否 | 运行时文件 |
 | 地图 zip | 否 | 从网盘/备份补充 |
 | `map-cache` / `databases` / `logs` | 否 | 运行时生成 |
 | `rst_ui/ui/` | 否 | `pnpm build` 生成 |
