@@ -323,7 +323,8 @@ const gameModeLabel = computed(() => {
   align-items: center;
   gap: 5px;
   max-width: min(420px, calc(100vw - 360px));
-  padding: 3px 8px;
+  height: 22px;
+  padding: 0 8px;
   border: 1px solid rgba(140, 180, 255, 0.08);
   border-radius: 6px;
   background: rgba(6, 11, 19, 0.45);

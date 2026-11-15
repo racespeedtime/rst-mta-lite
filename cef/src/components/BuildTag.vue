@@ -23,7 +23,8 @@ const title = `构建时间：${buildInfo.time}`
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 3px 8px;
+  height: 22px;
+  padding: 0 8px;
   border: 1px solid rgba(140, 180, 255, 0.08);
   border-radius: 6px;
   background: rgba(6, 11, 19, 0.45);
@@ -45,7 +46,7 @@ const title = `构建时间：${buildInfo.time}`
 }
 
 .build__hash {
-  color: rgba(var(--rst-accent-rgb), 0.65);
+  color: var(--rst-muted);
 }
 
 .build__dot {
