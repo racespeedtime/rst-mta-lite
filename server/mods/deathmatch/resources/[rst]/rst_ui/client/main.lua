@@ -277,6 +277,8 @@ local freecamVehicle = nil
 local trackingTarget = nil
 local mouseRecentering = false
 local mouseLookReady = false
+local mouseResumeTimer = nil
+local mouseRecenterTimer = nil
 
 local function setSpectateName(name)
     name = name or ''
@@ -386,15 +388,21 @@ end
 
 local function armMouseLook()
     mouseLookReady = false
+    mouseRecentering = true
     if mouseResumeTimer then
         killTimer(mouseResumeTimer)
         mouseResumeTimer = nil
+    end
+    if mouseRecenterTimer then
+        killTimer(mouseRecenterTimer)
+        mouseRecenterTimer = nil
     end
 
     local width, height = guiGetScreenSize()
     setCursorPosition(width / 2, height / 2)
     mouseResumeTimer = setTimer(function()
         mouseResumeTimer = nil
+        mouseRecentering = false
         if freecamActive and not freecamPaused() then
             mouseLookReady = true
         end
@@ -405,9 +413,7 @@ local function onSpectateMouse(_, _, absoluteX, absoluteY)
     if not freecamActive or trackingTarget or freecamPaused() then
         return
     end
-    if not mouseLookReady then
-        local width, height = guiGetScreenSize()
-        setCursorPosition(width / 2, height / 2)
+    if not mouseLookReady or mouseRecentering then
         return
     end
 
@@ -418,14 +424,20 @@ local function onSpectateMouse(_, _, absoluteX, absoluteY)
         return
     end
 
-    freecamYaw = freecamYaw + dx * 0.12
+    -- 鼠标向右应向右转，纵向只影响 pitch
+    freecamYaw = freecamYaw - dx * 0.12
     freecamPitch = math.max(-85, math.min(85, freecamPitch - dy * 0.12))
 
-    if not mouseRecentering then
-        mouseRecentering = true
-        setCursorPosition(cx, cy)
-        mouseRecentering = false
+    -- 立即回中，但在 30ms 内忽略旧绝对坐标产生的后续事件，避免纵向移动带出横向漂移
+    mouseRecentering = true
+    setCursorPosition(cx, cy)
+    if mouseRecenterTimer then
+        killTimer(mouseRecenterTimer)
     end
+    mouseRecenterTimer = setTimer(function()
+        mouseRecenterTimer = nil
+        mouseRecentering = false
+    end, 30, 1)
 end
 
 local function freecamRender()
@@ -435,9 +447,14 @@ local function freecamRender()
 
     if interactive or chatOpen or menuOpen or isMTAWindowActive() or isMainMenuActive() or isConsoleActive() then
         mouseLookReady = false
+        mouseRecentering = false
         if mouseResumeTimer then
             killTimer(mouseResumeTimer)
             mouseResumeTimer = nil
+        end
+        if mouseRecenterTimer then
+            killTimer(mouseRecenterTimer)
+            mouseRecenterTimer = nil
         end
         -- 菜单期间保持当前镜头，避免原生相机被鼠标带着转
         if trackingTarget then
@@ -553,9 +570,14 @@ local function stopSpectate()
     freecamActive = false
     trackingTarget = nil
     mouseLookReady = false
+    mouseRecentering = false
     if mouseResumeTimer then
         killTimer(mouseResumeTimer)
         mouseResumeTimer = nil
+    end
+    if mouseRecenterTimer then
+        killTimer(mouseRecenterTimer)
+        mouseRecenterTimer = nil
     end
     removeEventHandler('onClientCursorMove', root, onSpectateMouse)
     removeEventHandler('onClientRender', root, freecamRender)
