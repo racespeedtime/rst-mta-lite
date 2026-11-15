@@ -255,6 +255,17 @@ local function startRewind()
     end
 end
 
+local function applyRewindRotation(rx, ry, rz)
+    if not isElement(frozenElement) then
+        return
+    end
+    setElementRotation(frozenElement, rx, ry, rz)
+    -- 车内玩家朝向不跟着载具走时，原生雷达箭头会一直指北
+    if getElementType(frozenElement) == 'vehicle' and isElement(localPlayer) then
+        pcall(setElementRotation, localPlayer, rx, ry, rz)
+    end
+end
+
 rewindRender = function()
     if not active then
         return
@@ -275,7 +286,7 @@ rewindRender = function()
     if elapsed >= span then
         local first = samples[1]
         setElementPosition(frozenElement, first.x, first.y, first.z)
-        setElementRotation(frozenElement, first.rx, first.ry, first.rz)
+        applyRewindRotation(first.rx, first.ry, first.rz)
         currentVX, currentVY, currentVZ = first.vx, first.vy, first.vz
         currentNitroLevel = first.nitroLevel
         currentNitroCount = first.nitroCount
@@ -307,8 +318,7 @@ rewindRender = function()
         lerp(a.y, b.y, alpha),
         lerp(a.z, b.z, alpha)
     )
-    setElementRotation(
-        frozenElement,
+    applyRewindRotation(
         lerpAngle(a.rx, b.rx, alpha),
         lerpAngle(a.ry, b.ry, alpha),
         lerpAngle(a.rz, b.rz, alpha)

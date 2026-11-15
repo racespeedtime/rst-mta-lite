@@ -572,6 +572,7 @@ local function startSpectate()
     end
 
     setSpectateName('自由视角')
+    setPlayerHudComponentVisible('radar', false)
     addEventHandler('onClientCursorMove', root, onSpectateMouse)
     addEventHandler('onClientRender', root, freecamRender)
     armMouseLook()
@@ -603,6 +604,7 @@ local function stopSpectate()
     end
 
     setSpectateName('')
+    setPlayerHudComponentVisible('radar', true)
     setCursorAlpha(255)
     showCursor(false)
 end
