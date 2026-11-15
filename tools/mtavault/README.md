@@ -147,22 +147,27 @@ tools/mtavault/output/mapmeta.json
 
 行为：
 
-- 顺序下载，不并行
+- 并发下载，默认 4 个 worker
 - 默认代理 `http://127.0.0.1:7890`
 - 先写 `.part`
+- 失败的 `.part` 会保留，下一次运行继续尝试
+- 支持 HTTP Range 时用 `curl -C -` 续传；源站不支持 Range 会自动从头下载
 - Python `zipfile` 校验完整性和 `meta.xml` / `.map`
 - 校验通过后才改名为正式 `.zip`
 - 记录 SHA-256 到 `manifest.json`
-- 已存在的有效 zip 自动跳过，可断点续传
+- 已存在的有效 zip 自动跳过
 
 环境变量：
 
 ```bash
 set MAP_BACKUP_DIR=D:\maps\mtavault-dm-hdm
 set MAP_PROXY=http://127.0.0.1:7890
+set MAP_CONCURRENCY=4
 set PYTHON=C:\Python312\python.exe
 node tools/mtavault/download-all-maps.mjs
 ```
+
+并发数范围 `1-16`。代理或源站不稳定时建议先用 3-4，确认速度后再提高。
 
 这些 zip 只下载到本机，**不随仓库提供，也不放进 Git**。下载和再分发前请确认作者授权与 mtavault 使用条款。
 
