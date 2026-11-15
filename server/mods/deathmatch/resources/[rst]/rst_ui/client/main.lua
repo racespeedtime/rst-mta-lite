@@ -266,7 +266,7 @@ setSpawnControlLock = function(locked)
 end
 
 -- ---------------------------------------------------------------------------
--- 观战自由视角
+-- 观战自由视角 / 玩家车辆跟踪
 -- ---------------------------------------------------------------------------
 
 local freecamActive = false
@@ -274,6 +274,9 @@ local freecamX, freecamY, freecamZ = 0, 0, 0
 local freecamYaw, freecamPitch = 0, 0
 local freecamLastTick = 0
 local freecamVehicle = nil
+local trackingTarget = nil
+local mouseRecentering = false
+local mouseLookReady = false
 
 local function setSpectateName(name)
     name = name or ''
@@ -284,32 +287,144 @@ local function setSpectateName(name)
     dispatch('spectate', { name = name })
 end
 
+local function spectatePlayers()
+    local dimension = getElementDimension(localPlayer)
+    local players = {}
+    for _, player in ipairs(getElementsByType('player')) do
+        if
+            player ~= localPlayer
+            and getElementDimension(player) == dimension
+            and getElementHealth(player) > 0
+        then
+            players[#players + 1] = player
+        end
+    end
+    table.sort(players, function(a, b)
+        return (getPlayerName(a) or '') < (getPlayerName(b) or '')
+    end)
+    return players
+end
+
+local function captureCamera()
+    local px, py, pz, tx, ty, tz = getCameraMatrix()
+    if not px or not tx then
+        px, py, pz = getElementPosition(localPlayer)
+        tx, ty, tz = px, py, pz + 1
+    end
+
+    freecamX, freecamY, freecamZ = px, py, pz + 2.5
+    local dx, dy, dz = tx - px, ty - py, tz - freecamZ
+    if math.abs(dx) + math.abs(dy) > 0.001 then
+        freecamYaw = math.deg(math.atan2(dy, dx))
+    else
+        freecamYaw = 0
+    end
+    freecamPitch = math.max(-85, math.min(85, math.deg(math.atan2(dz, math.sqrt(dx * dx + dy * dy)))))
+    freecamLastTick = getTickCount()
+end
+
+local function detachTracking()
+    if not trackingTarget then
+        return
+    end
+    trackingTarget = nil
+    captureCamera()
+    setSpectateName('自由视角')
+end
+
+local function cycleSpectate(direction)
+    if not freecamActive or interactive or chatOpen or menuOpen then
+        return
+    end
+
+    local players = spectatePlayers()
+    if #players == 0 then
+        setSpectateName('等待其他玩家')
+        return
+    end
+
+    local index = 0
+    if trackingTarget then
+        for i, player in ipairs(players) do
+            if player == trackingTarget then
+                index = i
+                break
+            end
+        end
+    end
+    index = index + direction
+    if index > #players then
+        index = 1
+    elseif index < 1 then
+        index = #players
+    end
+
+    trackingTarget = players[index]
+    local vehicle = getPedOccupiedVehicle(trackingTarget)
+    setCameraTarget(vehicle or trackingTarget)
+    setSpectateName((getPlayerName(trackingTarget) or '玩家') .. (vehicle and ' · 车辆' or ' · 角色'))
+end
+
+local function onSpectateMouse(_, _, absoluteX, absoluteY)
+    if not freecamActive or not mouseLookReady or trackingTarget or interactive or chatOpen or menuOpen then
+        return
+    end
+
+    local width, height = guiGetScreenSize()
+    local cx, cy = width / 2, height / 2
+    local dx, dy = absoluteX - cx, absoluteY - cy
+    if dx == 0 and dy == 0 then
+        return
+    end
+
+    freecamYaw = freecamYaw - dx * 0.12
+    freecamPitch = math.max(-85, math.min(85, freecamPitch - dy * 0.12))
+
+    if not mouseRecentering then
+        mouseRecentering = true
+        setCursorPosition(cx, cy)
+        mouseRecentering = false
+    end
+end
+
 local function freecamRender()
     if not freecamActive then
         return
     end
 
-    local now = getTickCount()
-    local dt = math.min(0.1, math.max(0, (now - freecamLastTick) / 1000))
-    freecamLastTick = now
-
     if interactive or chatOpen or menuOpen then
+        setCursorAlpha(255)
         return
     end
 
-    local turn = 90 * dt
-    if getKeyState('arrowleft') then
-        freecamYaw = freecamYaw - turn
+    showCursor(true)
+    setCursorAlpha(0)
+
+    if trackingTarget then
+        if not isElement(trackingTarget) or getElementHealth(trackingTarget) <= 0 then
+            detachTracking()
+            return
+        end
+
+        if
+            getKeyState('w')
+            or getKeyState('a')
+            or getKeyState('s')
+            or getKeyState('d')
+            or getKeyState('space')
+            or getKeyState('lctrl')
+        then
+            detachTracking()
+        else
+            local vehicle = getPedOccupiedVehicle(trackingTarget)
+            setCameraTarget(vehicle or trackingTarget)
+            return
+        end
     end
-    if getKeyState('arrowright') then
-        freecamYaw = freecamYaw + turn
-    end
-    if getKeyState('arrowup') then
-        freecamPitch = math.min(85, freecamPitch + turn)
-    end
-    if getKeyState('arrowdown') then
-        freecamPitch = math.max(-85, freecamPitch - turn)
-    end
+
+    local now = getTickCount()
+    local dt = math.min(0.1, math.max(0, (now - freecamLastTick) / 1000))
+    freecamLastTick = now
 
     local yaw = math.rad(freecamYaw)
     local pitch = math.rad(freecamPitch)
@@ -325,11 +440,12 @@ local function freecamRender()
     if getKeyState('s') then
         freecamX, freecamY, freecamZ = freecamX - fx * speed, freecamY - fy * speed, freecamZ - fz * speed
     end
+    -- 屏幕右方向：修正 A/D 反向
     if getKeyState('a') then
-        freecamX, freecamY = freecamX - rx * speed, freecamY - ry * speed
+        freecamX, freecamY = freecamX + rx * speed, freecamY + ry * speed
     end
     if getKeyState('d') then
-        freecamX, freecamY = freecamX + rx * speed, freecamY + ry * speed
+        freecamX, freecamY = freecamX - rx * speed, freecamY - ry * speed
     end
     if getKeyState('space') then
         freecamZ = freecamZ + speed
@@ -347,24 +463,15 @@ local function startSpectate()
     end
 
     freecamActive = true
+    trackingTarget = nil
+    mouseLookReady = false
     freecamVehicle = getPedOccupiedVehicle(localPlayer)
+    captureCamera()
 
-    local px, py, pz, tx, ty, tz = getCameraMatrix()
-    if not px or not tx then
-        px, py, pz = getElementPosition(localPlayer)
-        tx, ty, tz = px, py, pz + 1
-    end
-
-    freecamX, freecamY, freecamZ = px, py, pz + 2.5
-    local dx, dy, dz = tx - px, ty - py, tz - freecamZ
-    if math.abs(dx) + math.abs(dy) > 0.001 then
-        freecamYaw = math.deg(math.atan2(dy, dx))
-    else
-        freecamYaw = 0
-    end
-    freecamPitch = math.deg(math.atan2(dz, math.sqrt(dx * dx + dy * dy)))
-    freecamPitch = math.max(-85, math.min(85, freecamPitch))
-    freecamLastTick = getTickCount()
+    local width, height = guiGetScreenSize()
+    showCursor(true)
+    setCursorAlpha(0)
+    setCursorPosition(width / 2, height / 2)
 
     if isElement(localPlayer) then
         setElementAlpha(localPlayer, 0)
@@ -375,7 +482,13 @@ local function startSpectate()
     end
 
     setSpectateName('自由视角')
+    addEventHandler('onClientCursorMove', root, onSpectateMouse)
     addEventHandler('onClientRender', root, freecamRender)
+    setTimer(function()
+        if freecamActive then
+            mouseLookReady = true
+        end
+    end, 250, 1)
 end
 
 local function stopSpectate()
@@ -384,6 +497,8 @@ local function stopSpectate()
     end
 
     freecamActive = false
+    trackingTarget = nil
+    removeEventHandler('onClientCursorMove', root, onSpectateMouse)
     removeEventHandler('onClientRender', root, freecamRender)
 
     if isElement(freecamVehicle) then
@@ -394,7 +509,10 @@ local function stopSpectate()
         setElementAlpha(localPlayer, 255)
         setElementFrozen(localPlayer, false)
     end
+
     setSpectateName('')
+    setCursorAlpha(255)
+    showCursor(false)
 end
 -- ---------------------------------------------------------------------------
 -- 状态机
@@ -1012,7 +1130,13 @@ bindUiKey('T', function()
     setChatOpen(true)
 end)
 
--- 观战自由视角：WASD 平移，空格 / Ctrl 升降，方向键转向
+-- 观战自由视角：鼠标转向，WASD 平移，空格 / Ctrl 升降，↑/↓ 切换跟踪玩家
+bindUiKey('arrow_u', function()
+    cycleSpectate(1)
+end)
+bindUiKey('arrow_d', function()
+    cycleSpectate(-1)
+end)
 
 bindUiKey('F1', function()
     if phase ~= 'playing' then
