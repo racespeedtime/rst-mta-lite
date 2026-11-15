@@ -134,10 +134,10 @@ onMounted(() => scrollToBottom(true))
 <style scoped>
 .chat {
   position: absolute;
-  top: 50%;
+  top: 42%;
   left: 24px;
   width: 400px;
-  max-height: min(38vh, 380px);
+  height: min(48vh, 380px);
   display: flex;
   flex-direction: column;
   border: 1px solid var(--rst-border);
@@ -150,7 +150,6 @@ onMounted(() => scrollToBottom(true))
 }
 
 .chat--open {
-  height: min(38vh, 380px);
   pointer-events: auto;
   border-color: rgba(var(--rst-accent-rgb), 0.35);
   background: linear-gradient(180deg, rgba(8, 14, 23, 0.94), rgba(6, 11, 19, 0.9));
