@@ -118,7 +118,10 @@ node tools/setup-map-acl.mjs
 
 - `server/mapregistry.lua` 自动发现 `type="map"` resource
 - 直接读取 `meta.xml` 和 `.map`
-- 从 `.map` 读取全部 spawnpoint、vehicle、Hunter 终点 / checkpoint
+- 从 `.map` 读取全部 spawnpoint、vehicle、racepickup、Hunter 终点 / checkpoint
+- `racepickup` 由客户端按官方 race 资源方式创建自定义模型 object + colshape
+- 支持 nitro / repair / vehiclechange，命中后服务端同步、隐藏和重生
+- 官方 race pickup 模型放在 `pickups/`
 - 地图 ID 就是 resource 名
 - 地图池就是发现到的地图列表
 

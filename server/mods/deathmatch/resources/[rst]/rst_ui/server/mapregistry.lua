@@ -88,6 +88,7 @@ local function readMap(resource)
     end
 
     local spawns = {}
+    local pickups = {}
     local lastCheckpoint
     local hunterCount = 0
     local hunterX, hunterY, hunterZ = 0, 0, 0
@@ -111,15 +112,28 @@ local function readMap(resource)
             end
         elseif name == 'racepickup' then
             local pickupType = attr(node, 'type')
+            local x, y, z = num(node, 'posX'), num(node, 'posY'), num(node, 'posZ')
+            if pickupType and x and y and z then
+                pickups[#pickups + 1] = {
+                    id = attr(node, 'id') or ('pickup:' .. tostring(#pickups + 1)),
+                    type = pickupType,
+                    vehicle = tonumber(attr(node, 'vehicle')),
+                    x = x,
+                    y = y,
+                    z = z,
+                    rotZ = num(node, 'rotZ') or 0,
+                    respawn = tonumber(attr(node, 'respawn')) or 0,
+                    interior = tonumber(attr(node, 'interior')) or 0,
+                    alpha = tonumber(attr(node, 'alpha')) or 255,
+                }
+            end
+
             local vehicle = tonumber(attr(node, 'vehicle'))
-            if pickupType == 'vehiclechange' and vehicle == 425 then
-                local x, y, z = num(node, 'posX'), num(node, 'posY'), num(node, 'posZ')
-                if x and y and z then
-                    hunterCount = hunterCount + 1
-                    hunterX = hunterX + x
-                    hunterY = hunterY + y
-                    hunterZ = hunterZ + z
-                end
+            if pickupType == 'vehiclechange' and vehicle == 425 and x and y and z then
+                hunterCount = hunterCount + 1
+                hunterX = hunterX + x
+                hunterY = hunterY + y
+                hunterZ = hunterZ + z
             end
         end
     end
@@ -151,6 +165,7 @@ local function readMap(resource)
             rot = first.rot or 0,
             vehicle = first.vehicle,
             finish = finish,
+            pickups = pickups,
         }
     end
 
@@ -205,6 +220,9 @@ function MapRegistry.init()
             entry.z,
             tostring(entry.vehicle or 'default'),
             entry.finish and 'hunter/checkpoint' or 'none'
+        ))
+        outputServerLog(('[MAP] pickups %s count=%d'):format(
+            tostring(entry.name), #(entry.pickups or {})
         ))
     end
 

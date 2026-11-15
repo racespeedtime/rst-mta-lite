@@ -12,13 +12,167 @@ MapManager = {}
 local config = RST.config
 local currentResource
 local currentMapId
+local currentPickups = {}
+local pickupState = {}
+local pickupTimers = {}
+
+local function clearPickupTimers()
+    for _, timer in pairs(pickupTimers) do
+        if isTimer(timer) then
+            killTimer(timer)
+        end
+    end
+    pickupTimers = {}
+end
+
+local function pickupPayload(player)
+    if not currentMapId then
+        return nil
+    end
+    local map = MapRegistry.get(currentMapId)
+    if not map then
+        return nil
+    end
+
+    local list = {}
+    for _, pickup in ipairs(currentPickups) do
+        local state = pickupState[pickup.id]
+        list[#list + 1] = {
+            id = pickup.id,
+            type = pickup.type,
+            vehicle = pickup.vehicle,
+            x = pickup.x,
+            y = pickup.y,
+            z = pickup.z,
+            rotZ = pickup.rotZ,
+            respawn = pickup.respawn,
+            interior = pickup.interior,
+            alpha = pickup.alpha,
+            visible = state == nil or state.visible ~= false,
+        }
+    end
+
+    return {
+        mapId = currentMapId,
+        dimension = map.dimension or 0,
+        pickups = list,
+    }
+end
+
+local function broadcastPickupState(id, visible)
+    local payload = {
+        id = id,
+        visible = visible == true,
+    }
+    for _, player in ipairs(getElementsByType('player')) do
+        triggerClientEvent(player, 'rst:pickups:state', player, toJSON(payload))
+    end
+end
+
+function MapManager.sendPickups(player)
+    local payload = pickupPayload(player)
+    if payload then
+        triggerClientEvent(player, 'rst:pickups:sync', player, toJSON(payload))
+    end
+end
+
+function MapManager.hitPickup(player, pickupId)
+    if not currentMapId or not isElement(player) then
+        return
+    end
+    local room = Rooms.playerRoom(player)
+    if not room or room.mapId ~= currentMapId then
+        return
+    end
+
+    local pickup
+    for _, value in ipairs(currentPickups) do
+        if value.id == pickupId then
+            pickup = value
+            break
+        end
+    end
+    if not pickup then
+        return
+    end
+
+    local state = pickupState[pickup.id]
+    if state and state.visible == false then
+        return
+    end
+
+    local vehicle = getPedOccupiedVehicle(player)
+    if not vehicle then
+        return
+    end
+
+    local x, y, z = getElementPosition(vehicle)
+    local dx, dy, dz = x - pickup.x, y - pickup.y, z - pickup.z
+    if dx * dx + dy * dy + dz * dz > 30 * 30 then
+        return
+    end
+
+    pickupState[pickup.id] = { visible = false }
+
+    if pickup.type == 'nitro' then
+        pcall(addVehicleUpgrade, vehicle, 1010)
+    elseif pickup.type == 'repair' then
+        pcall(fixVehicle, vehicle)
+    elseif pickup.type == 'vehiclechange' and pickup.vehicle then
+        if getElementModel(vehicle) ~= pickup.vehicle then
+            pcall(removeVehicleUpgrade, vehicle, 1010)
+            local health = getElementHealth(vehicle)
+            pcall(setElementModel, vehicle, pickup.vehicle)
+            setElementHealth(vehicle, health)
+        end
+    end
+
+    broadcastPickupState(pickup.id, false)
+
+    local respawn = tonumber(pickup.respawn) or 0
+    if respawn > 0 then
+        local delay = respawn >= 1000 and respawn or respawn * 1000
+        pickupTimers[pickup.id] = setTimer(function()
+            pickupTimers[pickup.id] = nil
+            local current = pickupState[pickup.id]
+            if current then
+                current.visible = true
+            end
+            broadcastPickupState(pickup.id, true)
+        end, delay, 1)
+    end
+end
+
+addEvent('rst:pickups:request', true)
+addEventHandler('rst:pickups:request', root, function()
+    local player = client or source
+    if isElement(player) then
+        MapManager.sendPickups(player)
+    end
+end)
+
+addEvent('rst:pickups:hit', true)
+addEventHandler('rst:pickups:hit', root, function(pickupId)
+    local player = client or source
+    if isElement(player) then
+        MapManager.hitPickup(player, tostring(pickupId))
+    end
+end)
 
 local function stopCurrent()
+    clearPickupTimers()
+    currentPickups = {}
+    pickupState = {}
+
     if currentResource and getResourceState(currentResource) == 'running' then
         stopResource(currentResource)
     end
     currentResource = nil
     currentMapId = nil
+
+    for _, player in ipairs(getElementsByType('player')) do
+        triggerClientEvent(player, 'rst:pickups:sync', player, toJSON({ mapId = nil, pickups = {} }))
+    end
 end
 
 function MapManager.currentMapId()
@@ -59,6 +213,11 @@ function MapManager.load(mapId)
 
     currentResource = resource
     currentMapId = mapId
+    currentPickups = map.pickups or {}
+    pickupState = {}
+    for _, pickup in ipairs(currentPickups) do
+        pickupState[pickup.id] = { visible = true }
+    end
 
     -- 地图自带车辆会与玩家赛车重复；只清理未打 rst 标记的车辆
     for _, vehicle in ipairs(getElementsByType('vehicle')) do
@@ -67,7 +226,9 @@ function MapManager.load(mapId)
         end
     end
 
-    outputServerLog(('[MAP] loaded %s (%s)'):format(tostring(map.name), tostring(map.resource)))
+    outputServerLog(('[MAP] loaded %s (%s) pickups=%d'):format(
+        tostring(map.name), tostring(map.resource), #currentPickups
+    ))
     return true
 end
 

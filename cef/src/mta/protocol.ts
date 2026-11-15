@@ -72,6 +72,7 @@ export interface MapDetails {
 export interface RoomSummary {
   id: string
   name: string
+  mapId?: string | null
   mapName: string
   author: string
   mapDetails?: MapDetails | null

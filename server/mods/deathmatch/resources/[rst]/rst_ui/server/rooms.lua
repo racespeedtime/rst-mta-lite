@@ -1681,6 +1681,7 @@ function Rooms.summary(room)
     return {
         id = room.id,
         name = room.name,
+        mapId = room.mapId,
         mapName = map and map.name or '等待开始',
         author = map and map.author or '未知作者',
         mapDetails = mapDetails,

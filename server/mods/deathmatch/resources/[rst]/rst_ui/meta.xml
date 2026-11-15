@@ -20,6 +20,7 @@
     <!-- 客户端 -->
     <script src="client/main.lua" type="client" />
     <script src="client/rewind.lua" type="client" />
+    <script src="client/pickups.lua" type="client" />
 
     <!-- 地图外部展示元数据 / 缩略图（不是地图格式） -->
     <file src="mapmeta.json" />
@@ -34,6 +35,14 @@
     <file src="sounds/go.wav" />
     <file src="sounds/finish.wav" />
     <file src="sounds/fail.wav" />
+
+    <!-- racepickup 模型（官方 race 资源同款） -->
+    <file src="pickups/nitro.dff" />
+    <file src="pickups/nitro.txd" />
+    <file src="pickups/repair.dff" />
+    <file src="pickups/repair.txd" />
+    <file src="pickups/vehiclechange.dff" />
+    <file src="pickups/vehiclechange.txd" />
 
     <!-- Vue 构建产物（cef/vite.config.ts 输出到这里，ui/ 不入库） -->
     <file src="ui/index.html" />
