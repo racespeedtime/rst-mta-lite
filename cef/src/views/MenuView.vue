@@ -105,6 +105,11 @@ function openMapPool(): void {
   emitAction('menu:close')
 }
 
+function openRecords(): void {
+  ui.recordsOpen = true
+  emitAction('menu:close')
+}
+
 function openMapDetails(): void {
   if (!ui.room) return
   ui.mapDetails = ui.room.mapDetails || null
@@ -251,6 +256,15 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>地图池</strong>
             <small>浏览全部地图</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="openRecords">
+          <span class="menu-action__icon"><IconTrophy class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>赛道排行榜</strong>
+            <small>当前地图历史最佳成绩</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

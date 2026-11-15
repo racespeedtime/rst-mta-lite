@@ -11,6 +11,7 @@ import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
 import MapPoolModal from '@/components/MapPoolModal.vue'
+import RecordsModal from '@/components/RecordsModal.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
@@ -138,6 +139,7 @@ function applyState(state: StatePayload): void {
   if (state.phase !== 'playing') {
     ui.menuOpen = false
     ui.mapPoolOpen = false
+    ui.recordsOpen = false
   }
   if (
     state.phase !== 'playing' ||
@@ -181,6 +183,13 @@ onMounted(() => {
     },
   )
 
+  watch(
+    () => ui.recordsOpen,
+    (open) => {
+      emitAction('recordsmodal', { open })
+    },
+  )
+
   offs.push(
     onBridge('state', applyState),
     onBridge('menu', (payload) => {
@@ -214,6 +223,11 @@ onMounted(() => {
       if (Number(payload.requestId) !== ui.mapPoolRequestId) return
       ui.mapPool = payload
       ui.mapPoolLoading = false
+    }),
+    onBridge('recordsPage', (payload) => {
+      if (Number(payload.requestId) !== ui.recordsRequestId) return
+      ui.records = payload
+      ui.recordsLoading = false
     }),
     onBridge('vehicle', (payload) => {
       ui.vehicle = payload.active ? payload : null
@@ -282,6 +296,7 @@ onUnmounted(() => {
     <AuthView v-else />
     <MapDetailsModal v-if="ui.mapDetailsOpen" />
     <MapPoolModal v-if="ui.mapPoolOpen" />
+    <RecordsModal v-if="ui.recordsOpen" />
     <BuildTag v-if="!ui.hudHidden" />
     <ToastMessage :text="toast" />
   </div>

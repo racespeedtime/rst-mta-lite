@@ -502,6 +502,25 @@ actions['maps:page'] = function(player, session, data)
     triggerClientEvent(player, 'rst:ui:maps', player, toJSON(payload))
 end
 
+actions['records:page'] = function(player, session, data)
+    if not session.authed then
+        return
+    end
+
+    local room = session.roomId and Rooms.get(session.roomId)
+    if not room or not room.mapId then
+        return
+    end
+
+    local map = MapRegistry.peek(room.mapId)
+    local payload = Records.leaderboard(room.mapId, data.page, data.pageSize)
+    payload.mapId = room.mapId
+    payload.mapName = map and map.name or room.mapId
+    payload.mapAuthor = map and map.author or ''
+    payload.requestId = data.requestId
+    triggerClientEvent(player, 'rst:ui:records', player, toJSON(payload))
+end
+
 actions['chat:send'] = function(player, session, data)
     if not session.authed then
         return

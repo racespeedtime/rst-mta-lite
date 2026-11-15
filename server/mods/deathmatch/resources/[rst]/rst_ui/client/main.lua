@@ -20,6 +20,7 @@ local menuOpen = false
 local chatOpen = false
 local mapDetailsOpen = false
 local mapPoolOpen = false
+local recordsOpen = false
 local helpOpen = false
 local voteActive = false
 local readyWaiting = false
@@ -198,6 +199,7 @@ local function isForcedCursor()
         or chatOpen
         or mapDetailsOpen
         or mapPoolOpen
+        or recordsOpen
         or helpOpen
         or voteActive
         or readyWaiting
@@ -911,6 +913,7 @@ addEvent('rst:ui:state', true)
 addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
 addEvent('rst:ui:maps', true)
+addEvent('rst:ui:records', true)
 addEvent('rst:ui:countdown', true)
 addEvent('rst:ui:lives', true)
 
@@ -939,6 +942,9 @@ addEventHandler('rst:ui:action', root, function(json)
         applyInteractive()
     elseif data.action == 'mappool' then
         mapPoolOpen = data.open == true
+        applyInteractive()
+    elseif data.action == 'recordsmodal' then
+        recordsOpen = data.open == true
         applyInteractive()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
@@ -1009,6 +1015,13 @@ addEventHandler('rst:ui:maps', root, function(json)
     local data = fromJSON(json or '')
     if type(data) == 'table' then
         dispatch('mapsPage', data)
+    end
+end)
+
+addEventHandler('rst:ui:records', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' then
+        dispatch('recordsPage', data)
     end
 end)
 

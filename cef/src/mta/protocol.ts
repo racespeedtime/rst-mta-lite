@@ -177,6 +177,25 @@ export interface MapPoolPage {
   items: MapPoolItem[]
 }
 
+export interface MapRecordItem {
+  rank: number
+  name: string
+  bestMs: number
+  updatedAt?: number
+}
+
+export interface MapRecordsPage {
+  page: number
+  pageSize: number
+  total: number
+  pages: number
+  mapId: string
+  mapName: string
+  mapAuthor: string
+  requestId?: number
+  items: MapRecordItem[]
+}
+
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -292,4 +311,5 @@ export type BridgeEventMap = {
   countdown: CountdownPayload
   cursor: CursorPayload
   mapsPage: MapPoolPage
+  recordsPage: MapRecordsPage
 }

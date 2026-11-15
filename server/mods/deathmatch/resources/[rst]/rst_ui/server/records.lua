@@ -34,12 +34,18 @@ local function migrateSchema()
             CREATE TABLE records (
                 serial TEXT NOT NULL,
                 map_id TEXT NOT NULL,
+                name TEXT,
                 best_ms INTEGER NOT NULL,
                 updated_at INTEGER NOT NULL,
                 PRIMARY KEY (serial, map_id)
             )
         ]])
         return
+    end
+
+    if not columns.name then
+        dbExec(db, 'ALTER TABLE records ADD COLUMN name TEXT')
+        columns.name = true
     end
 
     if columns.best_ms then
@@ -52,6 +58,7 @@ local function migrateSchema()
         CREATE TABLE records (
             serial TEXT NOT NULL,
             map_id TEXT NOT NULL,
+            name TEXT,
             best_ms INTEGER NOT NULL,
             updated_at INTEGER NOT NULL,
             PRIMARY KEY (serial, map_id)
@@ -141,15 +148,77 @@ function Records.record(player, mapId, milliseconds)
     dbExec(
         db,
         [[
-            INSERT OR REPLACE INTO records (serial, map_id, best_ms, updated_at)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO records (serial, map_id, name, best_ms, updated_at)
+            VALUES (?, ?, ?, ?, ?)
         ]],
         serial,
         mapId,
+        getPlayerName(player) or '',
         milliseconds,
         getRealTime().timestamp
     )
 
     cache[cacheKey(serial, mapId)] = milliseconds
     return milliseconds
+end
+
+function Records.leaderboard(mapId, page, pageSize)
+    if not db or type(mapId) ~= 'string' then
+        return {
+            page = 1,
+            pageSize = 20,
+            total = 0,
+            pages = 1,
+            items = {},
+        }
+    end
+
+    page = math.max(1, math.floor(tonumber(page) or 1))
+    pageSize = math.max(1, math.min(100, math.floor(tonumber(pageSize) or 20)))
+
+    local countRow
+    local countHandle = dbQuery(db, 'SELECT COUNT(*) AS total FROM records WHERE map_id = ?', mapId)
+    if countHandle then
+        local rows = dbPoll(countHandle, -1)
+        countRow = rows and rows[1]
+    end
+
+    local total = countRow and tonumber(countRow.total) or 0
+    local pages = math.max(1, math.ceil(total / pageSize))
+    page = math.min(page, pages)
+    local offset = (page - 1) * pageSize
+
+    local items = {}
+    local handle = dbQuery(
+        db,
+        [[
+            SELECT name, best_ms, updated_at
+            FROM records
+            WHERE map_id = ?
+            ORDER BY best_ms ASC, updated_at ASC
+            LIMIT ? OFFSET ?
+        ]],
+        mapId,
+        pageSize,
+        offset
+    )
+    if handle then
+        local rows = dbPoll(handle, -1) or {}
+        for index, row in ipairs(rows) do
+            items[#items + 1] = {
+                rank = offset + index,
+                name = (row.name and row.name ~= '') and row.name or '未知玩家',
+                bestMs = tonumber(row.best_ms) or 0,
+                updatedAt = tonumber(row.updated_at) or 0,
+            }
+        end
+    end
+
+    return {
+        page = page,
+        pageSize = pageSize,
+        total = total,
+        pages = pages,
+        items = items,
+    }
 end
