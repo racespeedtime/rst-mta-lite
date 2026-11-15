@@ -512,21 +512,44 @@ tools/mtavault/README.md
 
 地图本体、压缩包、地图缓存都不进 Git。
 
-### 自定义 Infernus 模型（可选）
+### 自定义载具模型（可选）
 
-代码已经内置服务器默认 Infernus 模型加载，但默认没有模型文件，所以不会生效。
+代码已经内置服务器默认载具 DFF/TXD 加载，但默认没有模型文件，所以不会生效。
 
-把自定义模型放到：
+推荐用**载具模型 ID**命名：
 
 ```text
-server/mods/deathmatch/resources/[rst]/rst_ui/models/infernus.dff
-server/mods/deathmatch/resources/[rst]/rst_ui/models/infernus.txd
+server/mods/deathmatch/resources/[rst]/rst_ui/models/411.dff
+server/mods/deathmatch/resources/[rst]/rst_ui/models/411.txd
 ```
 
-- 两个文件可以只放其中一个
-- 模型 ID 固定为 `411`（Infernus）
-- 文件格式必须是 GTA:SA 可用的 DFF / TXD
-- 这两个文件不入库，版权归模型作者
+`411` 是 Infernus。任何 GTA:SA 载具模型 ID 都可以：
+
+```text
+models/411.dff   Infernus
+models/522.dff   NRG-500
+models/470.dff   Patriot
+...
+```
+
+也支持车名 slug 作为别名：
+
+```text
+models/infernus.dff
+models/infernus.txd
+models/nrg500.dff
+models/nrg500.txd
+```
+
+规则：
+
+- 数字 ID 优先：`models/411.dff` 存在时不会用 `models/infernus.dff`
+- 车名 slug 是 `getVehicleNameFromModel` 转小写后只保留字母数字
+- 例如 `Infernus` → `infernus`，`NRG-500` → `nrg500`
+- 支持模型 ID `400` 到 `611`
+- DFF 和 TXD 可以只放其中一个
+- 文件必须是 GTA:SA 可用的 DFF / TXD
+- 模型文件不入库，版权归模型作者
 
 MTA 1.6 的 meta 已经用 glob 自动登记：
 
@@ -543,15 +566,21 @@ restart rst_ui
 
 或者重启服务器。没有模型文件时不会替换，也不会报错。
 
+载具 ID 查询：
+
+```text
+https://wiki.multitheftauto.com/wiki/Vehicle_IDs
+```
+
 优先级：
 
 ```text
-服务器默认 Infernus 模型
+服务器默认载具模型
         ↓ 地图 resource 启动，地图自己的模型脚本加载
-地图自己的 DFF / TXD 覆盖 411
+地图自己的 DFF / TXD 覆盖对应模型 ID
 ```
 
-地图 resource 有对应模型时始终使用地图的；换图时服务器默认模型会在地图启动前重新应用，再由新地图覆盖。
+地图 resource 有对应模型时始终使用地图的；换图时服务器默认模型会在地图启动前重新应用，再由新地图覆盖。地图只覆盖部分车型时，其余车型继续使用服务器默认模型。
 
 如果想完全关闭这个功能，把：
 
