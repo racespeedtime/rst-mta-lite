@@ -265,19 +265,46 @@ local function applyRewindCamera(element)
     local fx, fy = -math.sin(yaw), math.cos(yaw)
     local isVehicle = getElementType(element) == 'vehicle'
 
-    local distance = isVehicle and 7.0 or 3.2
-    local height = isVehicle and 2.6 or 1.5
-    local lookAhead = isVehicle and 4.0 or 1.0
-    local aimHeight = isVehicle and 0.9 or 0.6
+    local speed = math.sqrt(
+        (currentVX or 0) * (currentVX or 0)
+        + (currentVY or 0) * (currentVY or 0)
+        + (currentVZ or 0) * (currentVZ or 0)
+    ) * 180
+    local ratio = math.max(0, math.min(1, speed / 220))
 
-    -- 始终在载具/角色正后方，避免回放时原生相机滞后旋转
+    local fov = 70
+    if getCameraFieldOfView then
+        local mode = isVehicle and 'vehicle' or 'player'
+        fov = tonumber(getCameraFieldOfView(mode)) or fov
+        if isVehicle then
+            local maxFov = tonumber(getCameraFieldOfView('vehicle_max')) or fov
+            fov = fov + (maxFov - fov) * ratio
+        end
+    end
+
+    local distance, height, lookAhead, aimHeight
+    if isVehicle then
+        -- 接近默认追车镜头：静止稍近，高速自动拉远
+        distance = 6.2 + 2.2 * ratio
+        height = 2.2 + 0.4 * ratio
+        lookAhead = 1.2 + 0.8 * ratio
+        aimHeight = 1.0
+    else
+        distance = 3.2
+        height = 1.5
+        lookAhead = 0.4
+        aimHeight = 0.6
+    end
+
+    -- 始终在载具/角色正后方；FOV 跟随默认动态镜头，避免回放看起来被放大
     setCameraMatrix(
         x - fx * distance,
         y - fy * distance,
         z + height,
         x + fx * lookAhead,
         y + fy * lookAhead,
-        z + aimHeight
+        z + aimHeight,
+        fov
     )
 end
 
