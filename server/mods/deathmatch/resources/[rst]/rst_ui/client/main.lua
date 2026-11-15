@@ -1067,6 +1067,22 @@ addEventHandler('onClientCursorMove', root, function(_, _, absoluteX, absoluteY)
     end
 end)
 
+local lastBrowserWheelAt = 0
+local function injectBrowserWheel(delta)
+    local nowTick = getTickCount()
+    if nowTick - lastBrowserWheelAt < 40 then
+        return
+    end
+    lastBrowserWheelAt = nowTick
+
+    -- 确保滚轮落在当前鼠标位置下的 CEF 元素上
+    local cursorX, cursorY = getCursorPosition()
+    if cursorX then
+        injectBrowserMouseMove(browser, cursorX, cursorY)
+    end
+    injectBrowserMouseWheel(browser, delta, 0)
+end
+
 addEventHandler('onClientClick', root, function(button, state, absoluteX, absoluteY)
     if not interactive or not browserReady or chatOpen then
         return
@@ -1082,7 +1098,7 @@ end)
 
 addEventHandler('onClientMouseWheel', root, function(delta)
     if interactive and browserReady and type(delta) == 'number' then
-        injectBrowserMouseWheel(browser, delta)
+        injectBrowserWheel(delta)
     end
 end)
 
@@ -1122,10 +1138,10 @@ addEventHandler('onClientKey', root, function(button, press)
         return
     end
     if button == 'mouse_wheel_up' then
-        injectBrowserMouseWheel(browser, 1)
+        injectBrowserWheel(1)
         cancelEvent()
     elseif button == 'mouse_wheel_down' then
-        injectBrowserMouseWheel(browser, -1)
+        injectBrowserWheel(-1)
         cancelEvent()
     end
 end)
