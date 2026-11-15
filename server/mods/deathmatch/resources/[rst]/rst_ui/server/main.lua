@@ -566,6 +566,32 @@ addEventHandler('rst:rewind:use', root, function()
     broadcastState()
 end)
 
+-- 客户端 rewind 结束时同步载具血量，避免客户端回放后又被服务端旧血量覆盖
+addEvent('rst:rewind:health', true)
+addEventHandler('rst:rewind:health', root, function(health)
+    local player = client or source
+    if not isElement(player) then
+        return
+    end
+
+    local room = Rooms.playerRoom(player)
+    if not room or not room.active then
+        return
+    end
+
+    local vehicle = getPedOccupiedVehicle(player)
+    if not vehicle then
+        return
+    end
+
+    health = tonumber(health)
+    if not health then
+        return
+    end
+    health = math.max(1, math.min(1000, health))
+    setElementHealth(vehicle, health)
+end)
+
 -- ---------------------------------------------------------------------------
 -- 生命周期
 -- ---------------------------------------------------------------------------

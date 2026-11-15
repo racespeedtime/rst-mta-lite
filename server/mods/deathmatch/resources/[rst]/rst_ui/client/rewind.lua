@@ -23,6 +23,7 @@ local lastDispatchAt = 0
 local currentVX, currentVY, currentVZ = 0, 0, 0
 local currentNitroLevel, currentNitroCount, currentNitroActive
 local appliedNitroLevel, appliedNitroCount
+local currentHealth, appliedHealth
 
 local rewindRender
 
@@ -49,6 +50,21 @@ local function applyNitroState(vehicle, level, count)
     end
 end
 
+local function applyHealthState(vehicle, health)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' then
+        return
+    end
+    if type(health) ~= 'number' then
+        return
+    end
+
+    health = math.max(1, math.min(1000, health))
+    if appliedHealth == nil or math.abs(health - appliedHealth) >= 1 then
+        pcall(setElementHealth, vehicle, health)
+        appliedHealth = health
+    end
+end
+
 local function captureSample()
     local vehicle = getPedOccupiedVehicle(localPlayer)
     local target = vehicle or localPlayer
@@ -61,10 +77,12 @@ local function captureSample()
     local vx, vy, vz = getElementVelocity(target)
 
     local nitroLevel, nitroCount, nitroActive
+    local health
     if vehicle and isElement(vehicle) then
         nitroLevel = getVehicleNitroLevel(vehicle)
         nitroCount = getVehicleNitroCount(vehicle)
         nitroActive = isVehicleNitroActivated(vehicle)
+        health = getElementHealth(vehicle)
     end
 
     samples[#samples + 1] = {
@@ -81,6 +99,7 @@ local function captureSample()
         nitroLevel = nitroLevel,
         nitroCount = nitroCount,
         nitroActive = nitroActive,
+        health = health,
     }
 
     local cutoff = now() - HISTORY_SECONDS * 1000
@@ -106,8 +125,11 @@ local function stopRewind()
     if isElement(frozenElement) then
         applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
         if getElementType(frozenElement) == 'vehicle' then
-            -- 回放结束后恢复回放点当时的喷射状态
             pcall(setVehicleNitroActivated, frozenElement, currentNitroActive == true)
+            applyHealthState(frozenElement, currentHealth)
+            if type(currentHealth) == 'number' then
+                triggerServerEvent('rst:rewind:health', localPlayer, currentHealth)
+            end
         end
         setElementFrozen(frozenElement, false)
         setElementVelocity(frozenElement, currentVX, currentVY, currentVZ)
@@ -116,6 +138,7 @@ local function stopRewind()
     frozenElement = nil
     appliedNitroLevel = nil
     appliedNitroCount = nil
+    appliedHealth = nil
     resetSamples()
 
     if RST.dispatch then
@@ -167,11 +190,13 @@ local function startRewind()
     currentVX, currentVY, currentVZ = 0, 0, 0
     appliedNitroLevel = nil
     appliedNitroCount = nil
+    appliedHealth = nil
 
     local latest = samples[#samples]
     currentNitroLevel = latest.nitroLevel
     currentNitroCount = latest.nitroCount
     currentNitroActive = latest.nitroActive
+    currentHealth = latest.health
 
     frozenElement = getPedOccupiedVehicle(localPlayer) or localPlayer
 
@@ -181,6 +206,7 @@ local function startRewind()
     end
 
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
+    applyHealthState(frozenElement, currentHealth)
     setElementFrozen(frozenElement, true)
     setElementVelocity(frozenElement, 0, 0, 0)
 
@@ -216,7 +242,9 @@ rewindRender = function()
         currentNitroLevel = first.nitroLevel
         currentNitroCount = first.nitroCount
         currentNitroActive = first.nitroActive
+        currentHealth = first.health
         applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
+        applyHealthState(frozenElement, currentHealth)
         stopRewind()
         return
     end
@@ -265,7 +293,19 @@ rewindRender = function()
     else
         currentNitroActive = false
     end
+
+    if type(a.health) == 'number' and type(b.health) == 'number' then
+        currentHealth = lerp(a.health, b.health, alpha)
+    elseif type(a.health) == 'number' then
+        currentHealth = a.health
+    elseif type(b.health) == 'number' then
+        currentHealth = b.health
+    else
+        currentHealth = nil
+    end
+
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
+    applyHealthState(frozenElement, currentHealth)
 
     if RST.dispatch and now() - lastDispatchAt >= 100 then
         lastDispatchAt = now()
