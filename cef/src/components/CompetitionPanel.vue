@@ -22,13 +22,6 @@ const groups = computed<TeamGroup[]>(() => {
   }
   return [{ team: null, players: competition.players }]
 })
-
-function progressLabel(player: CompetitionPlayer): string {
-  if (player.finished) return '完赛'
-  if (player.progress !== undefined && player.progress !== null) return `${player.progress}%`
-  if (player.distance !== undefined && player.distance !== null) return `${player.distance}m`
-  return '--'
-}
 </script>
 
 <template>
@@ -68,10 +61,8 @@ function progressLabel(player: CompetitionPlayer): string {
           >
             <span class="competition__rank">{{ player.rank }}</span>
             <span class="competition__name">{{ player.name }}</span>
-            <span v-if="player.alive" class="competition__distance">
-              {{ progressLabel(player) }}
-            </span>
-            <span v-if="player.alive" class="competition__lives">
+            <span v-if="player.finished" class="competition__distance">完赛</span>
+            <span v-else-if="player.alive" class="competition__lives">
               <IconHeart class="icon icon--sm" />
               {{ player.lives }}
             </span>
@@ -83,13 +74,9 @@ function progressLabel(player: CompetitionPlayer): string {
     </div>
 
     <p class="competition__foot">
-      {{
-        ui.competition.format === 'team'
-          ? '按冲线名次计分，红蓝总分高者胜'
-          : ui.competition.ranking === 'finish'
-            ? '按冲线顺序 / 终点进度排序'
-            : '按远离起点进度估算'
-      }}
+      {{ ui.competition.format === 'team'
+        ? '完赛优先，同组按命数降序'
+        : '按完赛顺序 / 剩余命数降序' }}
     </p>
   </aside>
 </template>

@@ -15,7 +15,6 @@ local rooms = {}
 local stateChanged = function() end
 local freezeTimers = {}
 local raceVehicles = {}
-local trackMileage
 
 local function contains(list, value)
     for _, item in ipairs(list) do
@@ -295,9 +294,6 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
         return
     end
     room.dimension = map.dimension or 0
-    room.mileage[player] = 0
-    room.lastPos[player] = nil
-    room.rewindActive[player] = nil
 
     -- 竞速出生：清理旧车并计算发车格位
     if isElement(raceVehicles[player]) then
@@ -416,9 +412,6 @@ local function startRound(room, forcedMapId)
     room.trainingReturns = {}
     room.trainingReturnsMs = {}
     room.trainingResults = {}
-    room.mileage = {}
-    room.lastPos = {}
-    room.rewindActive = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
     local stayingSpectators = {}
@@ -639,9 +632,6 @@ function Rooms.init(onChanged)
             lives = {},
             ob = {},
             recentMaps = {},
-            mileage = {},
-            lastPos = {},
-            rewindActive = {},
             lastVoteAt = 0,
             lastModeVoteAt = 0,
             finishOrder = {},
@@ -663,7 +653,6 @@ function Rooms.init(onChanged)
         local time = now()
         for _, room in pairs(rooms) do
             if not room.vote and not room.modeVote then
-                trackMileage(room)
                 checkFinishes(room, time)
             end
         end
@@ -774,53 +763,6 @@ scoreForRank = function(rank)
     return tonumber(scores[rank]) or tonumber(scores[#scores]) or 0
 end
 
-trackMileage = function(room)
-    for _, player in ipairs(room.players) do
-        if isElement(player)
-            and not room.finished[player]
-            and not room.rewindActive[player]
-        then
-            local x, y, z = getElementPosition(player)
-            local last = room.lastPos[player]
-            if last then
-                local dx, dy, dz = x - last.x, y - last.y, z - last.z
-                local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-                -- 超过阈值视为重生/传送，不累计
-                if distance <= 75 then
-                    room.mileage[player] = (room.mileage[player] or 0) + distance
-                end
-            end
-            room.lastPos[player] = { x = x, y = y, z = z }
-        end
-    end
-end
-
-local function mapProgress(room, player, map)
-    local finish = map and map.finish
-    if not finish or not isElement(player) then
-        return nil
-    end
-
-    local x, y, z = getElementPosition(player)
-    local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
-    local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
-
-    if room.finished[player] then
-        return 100, 0, true, room.mileage[player] or 0
-    end
-
-    local traveled = room.mileage[player] or 0
-    local total = traveled + distance
-    if total <= 0 then
-        return nil
-    end
-
-    -- 路线未知时的里程进度：已行驶 /（已行驶 + 直线剩余）
-    local percent = (traveled / total) * 100
-    percent = math.max(0, math.min(100, percent))
-    return math.floor(percent + 0.5), math.floor(distance + 0.5), false, math.floor(traveled + 0.5)
-end
-
 teamScores = function(room)
     local teams = {
         { id = 'red', name = TEAM_NAMES.red, score = 0, finished = 0, bestRank = math.huge },
@@ -858,46 +800,15 @@ teamScores = function(room)
     return teams
 end
 
-function Rooms.progressState(room, player)
-    if not room or not room.mapId then
-        return nil
-    end
-
-    local map = MapRegistry.details(room.mapId)
-    local percent, distance, finished, traveled = mapProgress(room, player, map)
-    if percent == nil then
-        return nil
-    end
-
-    return {
-        percent = percent,
-        distance = distance,
-        traveled = traveled or 0,
-        finished = finished,
-    }
-end
-
 function Rooms.competitionState(room, player)
     if not room or room.mode ~= 'competitive' then
         return nil
     end
 
-    local map = room.mapId and MapRegistry.details(room.mapId)
-    local finish = map and map.finish
-    local hasStart = map and map.x and map.y and map.z
     local format = room.competitiveMode or 'solo'
-
-    local ranking = 'lives'
-    if finish then
-        ranking = 'finish'
-    elseif hasStart then
-        ranking = 'progress'
-    end
-
     local entries = {}
 
     for _, p in ipairs(room.players) do
-        local percent, distance, completed = mapProgress(room, p, map)
         local result = room.finished[p]
         entries[#entries + 1] = {
             name = getPlayerName(p) or '?',
@@ -905,9 +816,7 @@ function Rooms.competitionState(room, player)
             lives = room.lives[p] or 0,
             alive = true,
             me = p == player,
-            distance = distance,
-            progress = percent,
-            finished = completed == true,
+            finished = result ~= nil,
             finishRank = result and result.rank or nil,
             points = result and result.points or 0,
         }
@@ -921,8 +830,6 @@ function Rooms.competitionState(room, player)
                 lives = room.lives[p] or 0,
                 alive = false,
                 me = p == player,
-                distance = nil,
-                progress = nil,
                 finished = false,
                 points = 0,
             }
@@ -930,31 +837,19 @@ function Rooms.competitionState(room, player)
     end
 
     table.sort(entries, function(a, b)
-        if a.alive ~= b.alive then
-            return a.alive
-        end
+        -- 已按 Hunter/终点完赛的玩家优先，同组按冲线名次
         if a.finished ~= b.finished then
             return a.finished
         end
-        if a.finished and b.finished then
-            if a.finishRank ~= b.finishRank then
-                return (a.finishRank or math.huge) < (b.finishRank or math.huge)
-            end
-        elseif ranking == 'finish' then
-            local ad = a.distance or math.huge
-            local bd = b.distance or math.huge
-            if ad ~= bd then
-                return ad < bd
-            end
-        elseif ranking == 'progress' then
-            local ad = a.distance or -math.huge
-            local bd = b.distance or -math.huge
-            if ad ~= bd then
-                return ad > bd
-            end
+        if a.finished and b.finished and a.finishRank ~= b.finishRank then
+            return (a.finishRank or math.huge) < (b.finishRank or math.huge)
         end
+        -- 其余按剩余命数降序
         if a.lives ~= b.lives then
             return a.lives > b.lives
+        end
+        if a.alive ~= b.alive then
+            return a.alive
         end
         return a.name < b.name
     end)
@@ -969,8 +864,6 @@ function Rooms.competitionState(room, player)
         alive = #room.players,
         total = #entries,
         waiting = room.waiting == true,
-        finish = finish ~= nil,
-        ranking = ranking,
         teams = format == 'team' and teamScores(room) or nil,
         players = entries,
     }
@@ -1183,28 +1076,6 @@ function Rooms.respawn(player)
     spawnPlayerInRoom(player, room, true)
     stateChanged()
     return true
-end
-
-function Rooms.rewindStart(player)
-    local room = Rooms.playerRoom(player)
-    if not room or not room.active then
-        return
-    end
-    room.rewindActive[player] = true
-end
-
-function Rooms.rewindFinish(player, distance)
-    local room = Rooms.playerRoom(player)
-    if not room then
-        return
-    end
-    room.rewindActive[player] = nil
-    distance = tonumber(distance) or 0
-    room.mileage[player] = math.max(0, (room.mileage[player] or 0) - distance)
-    if isElement(player) then
-        local x, y, z = getElementPosition(player)
-        room.lastPos[player] = { x = x, y = y, z = z }
-    end
 end
 
 function Rooms.all()

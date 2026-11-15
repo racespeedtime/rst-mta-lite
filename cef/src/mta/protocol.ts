@@ -143,8 +143,6 @@ export interface CompetitionPlayer {
   lives: number
   alive: boolean
   me: boolean
-  distance?: number
-  progress?: number
   finished?: boolean
   points?: number
 }
@@ -155,8 +153,6 @@ export interface CompetitionState {
   alive: number
   total: number
   waiting: boolean
-  finish?: boolean
-  ranking?: 'finish' | 'progress' | 'lives'
   teams?: TeamScore[]
   players: CompetitionPlayer[]
 }
@@ -179,13 +175,6 @@ export interface MapPoolPage {
   items: MapPoolItem[]
 }
 
-export interface ProgressState {
-  percent: number
-  distance: number
-  traveled?: number
-  finished: boolean
-}
-
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -202,7 +191,6 @@ export interface StatePayload {
   room?: RoomSummary
   mode?: GameMode
   competitiveMode?: CompetitiveFormat
-  progress?: ProgressState | null
   lives?: number
   ob?: boolean
   ready?: ReadyState

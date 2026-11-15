@@ -12,7 +12,6 @@ import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
 import MapPoolModal from '@/components/MapPoolModal.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
-import TrackProgress from '@/components/TrackProgress.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
@@ -97,7 +96,6 @@ function applyState(state: StatePayload): void {
   }
 
   ui.competitiveMode = state.competitiveMode === 'team' ? 'team' : 'solo'
-  ui.progress = state.progress || null
 
   ui.rooms = state.rooms || []
   ui.room = state.room || null
@@ -266,7 +264,6 @@ onUnmounted(() => {
       <template v-if="!ui.hudHidden">
         <GameHud />
         <MapTimer v-if="ui.room" />
-        <TrackProgress v-if="ui.room" />
         <Transition name="speedo">
           <Speedometer v-if="ui.vehicle" />
         </Transition>
