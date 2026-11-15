@@ -189,7 +189,7 @@ html[data-theme='light'] .app-root .chat {
 }
 
 html[data-theme='light'] .app-root .chat__list {
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 4px rgba(255, 255, 255, 0.75);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.82), 0 0 5px rgba(0, 0, 0, 0.45);
 }
 
 html[data-theme='light'] .app-root .track .icon {
@@ -289,23 +289,24 @@ html[data-theme='light'] .app-root .auth__input::placeholder {
 }
 
 html[data-theme='light'] .app-root .chat__name {
-  color: var(--rst-text) !important;
+  color: #ffffff !important;
   font-weight: 600;
-  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.82);
 }
 
 html[data-theme='light'] .app-root .chat__text,
 html[data-theme='light'] .app-root .chat__text--native {
-  color: var(--rst-text) !important;
+  color: #ffffff !important;
   opacity: 1 !important;
 }
 
 html[data-theme='light'] .app-root .chat__text--system {
-  color: var(--rst-gold) !important;
+  color: rgba(255, 255, 255, 0.92) !important;
 }
 
-html[data-theme='light'] .app-root .chat__time {
-  color: var(--rst-muted) !important;
+html[data-theme='light'] .app-root .chat__time,
+html[data-theme='light'] .app-root .chat__empty {
+  color: rgba(255, 255, 255, 0.68) !important;
 }
 
 html[data-theme='light'] .app-root .scoreboard__status,

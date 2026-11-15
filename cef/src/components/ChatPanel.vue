@@ -1,14 +1,30 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 
 import type { ChatEntry } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { formatClock } from '@/utils/format'
 
+const CHAT_IDLE_MS = 15_000
+const CHAT_VISIBLE_LINES = 10
+
 const listRef = ref<HTMLElement | null>(null)
 const stickToBottom = ref(true)
 const unread = ref(0)
+const idle = ref(false)
+let idleTimer: number | undefined
 let lastMessageId = ui.messages.at(-1)?.id ?? 0
+
+const visibleMessages = computed(() => ui.messages.slice(-CHAT_VISIBLE_LINES))
+
+function resetIdleTimer(): void {
+  idle.value = false
+  window.clearTimeout(idleTimer)
+  if (ui.chatOpen) return
+  idleTimer = window.setTimeout(() => {
+    idle.value = true
+  }, CHAT_IDLE_MS)
+}
 
 function nameColor(message: ChatEntry): string {
   if (message.team === 'red') return 'rgb(255, 110, 110)'
@@ -51,9 +67,13 @@ watch(
   () => ui.chatOpen,
   (open) => {
     if (open) {
+      idle.value = false
+      window.clearTimeout(idleTimer)
       stickToBottom.value = true
       unread.value = 0
       void nextTick(() => scrollToBottom(true))
+    } else {
+      resetIdleTimer()
     }
   },
 )
@@ -63,10 +83,7 @@ watch(
   (id) => {
     if (id === lastMessageId) return
     lastMessageId = id
-    if (!ui.chatOpen) {
-      unread.value = 0
-      return
-    }
+    resetIdleTimer()
     if (stickToBottom.value) {
       scrollToBottom(true)
     } else {
@@ -75,15 +92,23 @@ watch(
   },
 )
 
-onMounted(() => scrollToBottom(true))
+onMounted(() => {
+  scrollToBottom(true)
+  resetIdleTimer()
+})
+
+onUnmounted(() => {
+  window.clearTimeout(idleTimer)
+})
 </script>
 
 <template>
-  <section class="chat" :class="{ 'chat--open': ui.chatOpen }">
+  <section class="chat" :class="{ 'chat--open': ui.chatOpen, 'chat--idle': idle && !ui.chatOpen }">
     <div ref="listRef" class="chat__list" @scroll="onScroll">
       <p v-if="ui.messages.length === 0" class="chat__empty">按 T 发送第一条消息</p>
 
-      <div v-for="message in ui.messages" :key="message.id" class="chat__line">
+      <TransitionGroup name="chat-line" tag="div" class="chat__messages">
+        <div v-for="message in visibleMessages" :key="message.id" class="chat__line">
         <span class="chat__time">{{ formatClock(message.time) }}</span>
 
         <template v-if="message.kind === 'player'">
@@ -103,6 +128,7 @@ onMounted(() => scrollToBottom(true))
           <span class="chat__text chat__text--system">{{ message.text }}</span>
         </template>
       </div>
+      </TransitionGroup>
     </div>
 
     <button
@@ -122,7 +148,7 @@ onMounted(() => scrollToBottom(true))
   top: 36%;
   left: 24px;
   width: 400px;
-  height: min(48vh, 380px);
+  height: 236px;
   display: flex;
   flex-direction: column;
   border: 0;
@@ -131,10 +157,39 @@ onMounted(() => scrollToBottom(true))
   box-shadow: none;
   overflow: hidden;
   pointer-events: none;
+  opacity: 1;
+  transition: opacity 0.45s ease;
 }
 
 .chat--open {
   pointer-events: auto;
+}
+
+.chat--idle {
+  opacity: 0;
+}
+
+.chat__messages {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.chat-line-enter-active {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.chat-line-enter-from {
+  opacity: 0;
+  transform: translateY(4px);
+}
+
+.chat-line-leave-active {
+  display: none;
+}
+
+.chat-line-move {
+  transition: transform 0.18s ease;
 }
 
 .chat__head {
