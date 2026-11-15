@@ -57,6 +57,10 @@ RST = {
     countdownActive = false,
     readyWaiting = false,
     rewindLives = nil,
+    gameMode = 'training',
+    mapId = nil,
+    warpBusy = false,
+    warpHolding = false,
 }
 
 -- 解除飞机 / 直升机 / 喷气背包的默认高度上限。
@@ -74,9 +78,8 @@ addEventHandler('onClientResourceStart', root, function(started)
     if started == resourceRoot then
         return
     end
-    if getResourceInfo(started, 'type') == 'map' then
-        setTimer(applyFlightHeightLimits, 100, 1)
-    end
+    -- 地图启动后可能重新设置高度上限，延迟再恢复一次
+    setTimer(applyFlightHeightLimits, 100, 1)
 end)
 
 function RST.isGameplayActive()
@@ -90,6 +93,8 @@ end
 
 function RST.canRewind()
     return RST.isGameplayActive()
+        and not RST.warpBusy
+        and not RST.warpHolding
         and getElementHealth(localPlayer) > 0
         and (RST.rewindLives == nil or RST.rewindLives > 0)
         and not isChatBoxInputActive()
@@ -297,6 +302,9 @@ local function setInteractive(enabled)
 
     if not enabled and RST.stopRewind then
         RST.stopRewind()
+    end
+    if enabled and RST.stopWarp then
+        RST.stopWarp()
     end
 
     interactive = enabled
@@ -771,8 +779,20 @@ local function applyState(state)
     RST.voteActive = voteActive
     RST.readyWaiting = readyWaiting
     RST.rewindLives = tonumber(state.lives)
+
+    local previousMapId = RST.mapId
+    RST.gameMode = state.mode == 'competitive' and 'competitive'
+        or (state.room and state.room.gameMode == 'competitive' and 'competitive' or 'training')
+    RST.mapId = state.room and state.room.mapId or nil
+    if RST.mapId ~= previousMapId and RST.clearWarps then
+        RST.clearWarps()
+    end
+
     disableMotionBlur()
     setChatSuppressed(phase ~= 'playing' or voteActive or readyWaiting)
+    if (phase ~= 'playing' or voteActive or readyWaiting) and RST.stopWarp then
+        RST.stopWarp()
+    end
     if scoreboardOpen and (phase ~= 'playing' or voteActive or readyWaiting) then
         closeScoreboard()
     end
@@ -1207,6 +1227,31 @@ addEventHandler('rst:ui:action', root, function(json)
                 pcall(setDevelopmentMode, false, false)
             end
         end
+    elseif data.action == 'warp:save' then
+        if menuOpen then
+            setMenuOpen(false)
+        end
+        if RST.saveWarp then
+            RST.saveWarp()
+        end
+    elseif data.action == 'warp:latest' then
+        if menuOpen then
+            setMenuOpen(false)
+        end
+        if RST.goLatestWarp then
+            RST.goLatestWarp()
+        end
+    elseif data.action == 'warp:go' then
+        if menuOpen then
+            setMenuOpen(false)
+        end
+        if RST.goWarp then
+            RST.goWarp(tonumber(data.id))
+        end
+    elseif data.action == 'warp:delete' then
+        if RST.deleteWarp then
+            RST.deleteWarp(tonumber(data.id))
+        end
     else
         triggerServerEvent('rst:ui:action', localPlayer, json)
     end
@@ -1354,6 +1399,9 @@ end)
 addEventHandler('onClientPlayerWasted', localPlayer, function()
     if RST.stopRewind then
         RST.stopRewind()
+    end
+    if RST.stopWarp then
+        RST.stopWarp()
     end
 
     if countdownTimer then
@@ -1597,6 +1645,9 @@ end)
 addEventHandler('onClientResourceStop', resourceRoot, function()
     if RST.stopRewind then
         RST.stopRewind()
+    end
+    if RST.stopWarp then
+        RST.stopWarp()
     end
 
     if chatOpen then

@@ -217,6 +217,23 @@ export interface ScoreboardScrollPayload {
   delta: number
 }
 
+export interface WarpPoint {
+  id: number
+  index: number
+  x: number
+  y: number
+  z: number
+  rx: number
+  ry: number
+  rz: number
+  at: number
+  vehicle: number
+}
+
+export interface WarpsPayload {
+  items: WarpPoint[]
+}
+
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -335,4 +352,5 @@ export type BridgeEventMap = {
   recordsPage: MapRecordsPage
   scoreboard: ScoreboardPayload
   scoreboardScroll: ScoreboardScrollPayload
+  warps: WarpsPayload
 }

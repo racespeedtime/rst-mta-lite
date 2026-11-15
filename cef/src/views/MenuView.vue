@@ -13,6 +13,7 @@ import IconMapPinned from '~icons/lucide/map-pinned'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconRotateCcw from '~icons/lucide/rotate-ccw'
 import IconSettings from '~icons/lucide/settings'
+import IconTrash2 from '~icons/lucide/trash-2'
 import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
 import IconVote from '~icons/lucide/vote'
@@ -23,7 +24,7 @@ import { ui } from '@/stores/ui'
 import { formatMs, formatTime } from '@/utils/format'
 
 const now = useTicker()
-const activeTab = ref<'play' | 'view' | 'system'>('play')
+const activeTab = ref<'play' | 'training' | 'view' | 'system'>('play')
 const roomRemainingMs = computed(() => {
   const base = ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000
   const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
@@ -135,6 +136,33 @@ function setCursor(mode: 'auto' | 'always'): void {
   emitAction('cursor:set', { mode })
 }
 
+function saveWarp(): void {
+  emitAction('warp:save')
+}
+
+function goWarp(id: number): void {
+  emitAction('menu:close')
+  emitAction('warp:go', { id })
+}
+
+function goLatestWarp(): void {
+  emitAction('menu:close')
+  emitAction('warp:latest')
+}
+
+function deleteWarp(id: number): void {
+  emitAction('warp:delete', { id })
+}
+
+function warpTime(at: number): string {
+  if (!at) return ''
+  return new Date(at * 1000).toLocaleTimeString('zh-CN', { hour12: false })
+}
+
+function warpPosition(x: number, y: number, z: number): string {
+  return `${Math.round(x)}, ${Math.round(y)}, ${Math.round(z)}`
+}
+
 function openMapPool(): void {
   ui.mapPoolOpen = true
   emitAction('menu:close')
@@ -216,6 +244,15 @@ function respawn(): void {
           @click="activeTab = 'play'"
         >
           玩法
+        </button>
+        <button
+          type="button"
+          role="tab"
+          :aria-selected="activeTab === 'training'"
+          :class="{ 'is-active': activeTab === 'training' }"
+          @click="activeTab = 'training'"
+        >
+          训练
         </button>
         <button
           type="button"
@@ -316,6 +353,57 @@ function respawn(): void {
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
+      </div>
+
+      <div v-else-if="activeTab === 'training'" class="menu-actions">
+        <p class="warp-hint">
+          短按左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 回到最近一个点。
+          回到传送点后会冻结 0.5 秒，且不能与倒带同时进行。
+        </p>
+
+        <template v-if="ui.gameMode === 'training'">
+          <button type="button" class="menu-action" @click="saveWarp">
+            <span class="menu-action__icon"><IconMapPinned class="icon" /></span>
+            <span class="menu-action__text">
+              <strong>保存当前位置</strong>
+              <small>也可以短按左 Alt</small>
+            </span>
+            <IconChevronRight class="icon menu-action__arrow" />
+          </button>
+
+          <button
+            type="button"
+            class="menu-action"
+            :disabled="!ui.warps.length"
+            @click="goLatestWarp"
+          >
+            <span class="menu-action__icon"><IconRotateCcw class="icon" /></span>
+            <span class="menu-action__text">
+              <strong>回到最近传送点</strong>
+              <small>{{ ui.warps.length ? `#${ui.warps[0]?.id} · ${warpTime(ui.warps[0]?.at || 0)}` : '还没有保存' }}</small>
+            </span>
+            <IconChevronRight class="icon menu-action__arrow" />
+          </button>
+
+          <div v-if="ui.warps.length" class="warp-list">
+            <div v-for="warp in ui.warps" :key="warp.id" class="warp-row">
+              <div class="warp-row__main">
+                <strong>#{{ warp.id }}<span v-if="warp.id === ui.warps[0]?.id"> 最近</span></strong>
+                <small>
+                  {{ warpTime(warp.at) }} · {{ warp.vehicle ? `车辆 ${warp.vehicle}` : '步行' }} ·
+                  {{ warpPosition(warp.x, warp.y, warp.z) }}
+                </small>
+              </div>
+              <button type="button" class="warp-row__button" @click="goWarp(warp.id)">回到</button>
+              <button type="button" class="warp-row__button warp-row__button--danger" @click="deleteWarp(warp.id)">
+                <IconTrash2 class="icon icon--sm" />
+                删除
+              </button>
+            </div>
+          </div>
+          <p v-else class="warp-empty">还没有保存传送点，按左 Alt 保存第一个。</p>
+        </template>
+        <p v-else class="warp-empty">传送点仅在训练模式可用。</p>
       </div>
 
       <div v-else-if="activeTab === 'view'" class="menu-actions">
@@ -637,6 +725,104 @@ function respawn(): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.warp-hint {
+  margin: 0 0 2px;
+  padding: 9px 11px;
+  border: 1px solid rgba(88, 200, 255, 0.16);
+  border-radius: 8px;
+  background: rgba(88, 200, 255, 0.05);
+  color: var(--rst-muted);
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+.warp-hint kbd {
+  padding: 1px 4px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--rst-text);
+  font-family: inherit;
+  font-size: 9px;
+}
+
+.warp-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 2px;
+}
+
+.warp-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 9px;
+  border: 1px solid var(--rst-border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.warp-row__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.warp-row__main strong {
+  display: block;
+  color: var(--rst-text);
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.warp-row__main strong span {
+  margin-left: 5px;
+  color: var(--rst-accent);
+  font-size: 8px;
+  font-weight: 500;
+}
+
+.warp-row__main small {
+  display: block;
+  overflow: hidden;
+  margin-top: 2px;
+  color: var(--rst-muted);
+  font-size: 8px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.warp-row__button {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(88, 200, 255, 0.22);
+  border-radius: 5px;
+  background: rgba(88, 200, 255, 0.08);
+  color: var(--rst-accent);
+  font-size: 8px;
+}
+
+.warp-row__button:hover {
+  background: rgba(88, 200, 255, 0.16);
+}
+
+.warp-row__button--danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  border-color: rgba(255, 123, 114, 0.2);
+  background: rgba(255, 123, 114, 0.06);
+  color: #ff9b94;
+}
+
+.warp-empty {
+  margin: 0;
+  padding: 12px 8px;
+  color: var(--rst-muted);
+  font-size: 10px;
+  text-align: center;
 }
 
 .menu-tabs {

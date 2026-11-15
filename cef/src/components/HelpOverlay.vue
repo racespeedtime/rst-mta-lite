@@ -79,6 +79,10 @@ onUnmounted(() => {
               <span>按住查看全服玩家列表；不显示鼠标，不暂停游戏</span>
             </li>
             <li>
+              <span class="help__keys"><kbd>左 Alt</kbd></span>
+              <span>训练模式：短按保存当前位置，长按回到最近传送点</span>
+            </li>
+            <li>
               <span class="help__keys"><kbd>Y</kbd></span>
               <span>长按倒带最近 8 秒；松开后冻结 0.5 秒再继续</span>
             </li>

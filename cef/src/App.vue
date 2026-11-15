@@ -284,6 +284,9 @@ onMounted(() => {
       if (payload.open !== undefined) ui.scoreboardOpen = payload.open
       if (payload.players) ui.scoreboard = payload
     }),
+    onBridge('warps', (payload) => {
+      ui.warps = payload.items || []
+    }),
     onBridge('vehicle', (payload) => {
       ui.vehicle = payload.active ? payload : null
     }),

@@ -32,6 +32,10 @@ local currentHealth, appliedHealth
 
 local rewindRender
 
+function RST.isRewindBusy()
+    return active or holding or releaseFreezing
+end
+
 local function now()
     return getTickCount()
 end
@@ -231,6 +235,9 @@ end
 
 local function startRewind()
     if active or #samples < 8 then
+        return
+    end
+    if RST.warpBusy or RST.warpHolding then
         return
     end
     if not RST.canRewind() then
