@@ -2,7 +2,6 @@
 import { computed } from 'vue'
 
 import IconClock from '~icons/lucide/clock'
-import IconMap from '~icons/lucide/map'
 import IconTimer from '~icons/lucide/timer'
 import IconTrophy from '~icons/lucide/trophy'
 import { useTicker } from '@/composables/useTicker'
@@ -39,13 +38,6 @@ const bestMs = computed(() => ui.personalBestMs)
 
 <template>
   <div class="maptimer">
-    <span class="maptimer__map">
-      <IconMap class="icon icon--sm" />
-      <span>{{ ui.room?.mapName }}</span>
-    </span>
-
-    <span class="maptimer__divider" />
-
     <span class="maptimer__item" :class="remainingTone">
       <IconTimer class="icon icon--sm" />
       <span class="maptimer__label">{{ remainingLabel }}</span>
@@ -82,28 +74,6 @@ const bestMs = computed(() => ui.personalBestMs)
   box-shadow: 0 12px 34px rgba(0, 0, 0, 0.3);
   pointer-events: none;
   white-space: nowrap;
-}
-
-.maptimer__map {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-width: 0;
-  max-width: 210px;
-  color: var(--rst-accent);
-  font-size: 11px;
-  letter-spacing: 0.02em;
-}
-
-.maptimer__map span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.maptimer__divider {
-  width: 1px;
-  height: 16px;
-  background: var(--rst-border);
 }
 
 .maptimer__item {

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-import IconClock from '~icons/lucide/clock'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
@@ -11,29 +10,12 @@ import IconMap from '~icons/lucide/map'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconRewind from '~icons/lucide/rewind'
-import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
-import IconVote from '~icons/lucide/vote'
 import IconWaypoints from '~icons/lucide/waypoints'
-import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { formatMs } from '@/utils/format'
 
 const spectating = computed(() => ui.mode === 'spectating')
-const now = useTicker()
-const elapsedMs = computed(() => (ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0))
-const remainingFrom = (baseMs?: number): number =>
-  Math.max(0, (baseMs ?? 0) - elapsedMs.value)
-const roundTime = computed(() =>
-  ui.room ? formatMs(remainingFrom(ui.room.timeLeftMs ?? ui.room.timeLeft * 1000)) : '--:--.---',
-)
-const voteTime = computed(() =>
-  formatMs(remainingFrom(ui.vote?.timeLeftMs ?? (ui.vote?.timeLeft ?? 0) * 1000)),
-)
-const modeVoteTime = computed(() =>
-  formatMs(remainingFrom(ui.modeVote?.timeLeftMs ?? (ui.modeVote?.timeLeft ?? 0) * 1000)),
-)
 const teamLabel = computed(() => (ui.team === 'red' ? '红队' : ui.team === 'blue' ? '蓝队' : ''))
 const spectateLabel = computed(() => {
   if (!spectating.value) return ''
@@ -80,14 +62,6 @@ const gameModeLabel = computed(() => {
 
       <dl class="room__rows">
         <div>
-          <dt><IconMap class="icon icon--sm" />赛道</dt>
-          <dd>{{ ui.room.mapName }}</dd>
-        </div>
-        <div>
-          <dt><IconClock class="icon icon--sm" />剩余</dt>
-          <dd>{{ roundTime }}</dd>
-        </div>
-        <div>
           <dt><IconUsers class="icon icon--sm" />玩家</dt>
           <dd>{{ ui.room.players }}</dd>
         </div>
@@ -96,15 +70,6 @@ const gameModeLabel = computed(() => {
           <dd>{{ ui.room.spectators }}</dd>
         </div>
       </dl>
-
-      <p v-if="ui.vote?.active" class="room__vote">
-        <IconVote class="icon icon--sm" />
-        换图投票 · {{ voteTime }}
-      </p>
-      <p v-else-if="ui.modeVote?.active" class="room__vote">
-        <IconVote class="icon icon--sm" />
-        模式投票 · {{ modeVoteTime }}
-      </p>
     </section>
 
     <div v-if="spectating" class="spectate">
@@ -132,10 +97,6 @@ const gameModeLabel = computed(() => {
       <p class="track__author">
         <IconPenLine class="icon icon--sm" />
         <span>作者 · {{ ui.room.author }}</span>
-      </p>
-      <p class="track__best">
-        <IconTrophy class="icon icon--sm" />
-        <span>最佳 · {{ ui.personalBestMs !== null ? formatMs(ui.personalBestMs) : '暂无' }}</span>
       </p>
     </div>
   </div>
@@ -237,8 +198,8 @@ const gameModeLabel = computed(() => {
   position: absolute;
   top: 20px;
   right: 24px;
-  width: 286px;
-  padding: 14px 16px;
+  width: 270px;
+  padding: 12px 14px;
   border: 1px solid var(--rst-border);
   border-radius: 14px;
   background: var(--rst-panel);
@@ -294,8 +255,8 @@ const gameModeLabel = computed(() => {
 .room__rows {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 10px 12px;
-  margin: 14px 0 0;
+  gap: 8px 12px;
+  margin: 12px 0 0;
 }
 
 .room__rows dt {
@@ -313,17 +274,6 @@ const gameModeLabel = computed(() => {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-
-.room__vote {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 12px 0 0;
-  padding-top: 10px;
-  border-top: 1px solid var(--rst-border);
-  font-size: 11px;
-  color: var(--rst-gold);
 }
 
 .spectate {
@@ -378,15 +328,15 @@ const gameModeLabel = computed(() => {
 
 .track {
   position: absolute;
-  right: 24px;
-  bottom: 52px;
-  width: 286px;
-  padding: 12px 15px 13px;
+  left: 380px;
+  bottom: 24px;
+  width: 246px;
+  padding: 10px 13px 11px;
   border: 1px solid var(--rst-border);
-  border-radius: 14px;
+  border-radius: 12px;
   background:
-    linear-gradient(160deg, rgba(23, 38, 58, 0.9), rgba(8, 13, 22, 0.94));
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.34);
+    linear-gradient(160deg, rgba(23, 38, 58, 0.86), rgba(8, 13, 22, 0.9));
+  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
 }
 
 .track__label {
@@ -403,8 +353,8 @@ const gameModeLabel = computed(() => {
   display: flex;
   align-items: center;
   gap: 7px;
-  margin: 7px 0 3px;
-  font-size: 14px;
+  margin: 6px 0 3px;
+  font-size: 13px;
   font-weight: 600;
   color: var(--rst-text);
 }
@@ -420,15 +370,6 @@ const gameModeLabel = computed(() => {
   margin: 0;
   font-size: 10px;
   color: var(--rst-muted);
-}
-
-.track__best {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  font-size: 10px;
-  color: #ffd167;
 }
 
 .hud__tag--red {
