@@ -259,11 +259,12 @@ function MapRegistry.init()
             tostring(entry.name), #(entry.pickups or {})
         ))
         local settings = entry.settings or {}
-        outputServerLog(('[MAP] settings %s time=%s weather=%s duration=%s'):format(
+        outputServerLog(('[MAP] settings %s time=%s weather=%s duration=%s locked_time=%s'):format(
             tostring(entry.name),
             tostring(settings.time),
             tostring(settings.weather),
-            tostring(settings.duration)
+            tostring(settings.duration),
+            tostring(settings.locked_time)
         ))
     end
 

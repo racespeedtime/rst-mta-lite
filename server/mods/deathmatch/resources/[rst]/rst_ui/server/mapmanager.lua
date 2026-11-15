@@ -26,28 +26,22 @@ local function clearPickupTimers()
 end
 
 local function applyMapSettings(settings)
-    if type(settings) ~= 'table' then
-        return
-    end
+    settings = type(settings) == 'table' and settings or {}
 
-    if type(settings.time) == 'string' then
-        local hour, minute = settings.time:match('^(%d+):(%d+)$')
-        if hour then
-            pcall(setTime, tonumber(hour), tonumber(minute))
-        end
-    end
-    if tonumber(settings.weather) then
-        pcall(setWeather, tonumber(settings.weather))
-    end
-    if tonumber(settings.gravity) then
-        pcall(setGravity, tonumber(settings.gravity))
-    end
-    if tonumber(settings.gamespeed) then
-        pcall(setGameSpeed, tonumber(settings.gamespeed))
-    end
-    if tonumber(settings.waveheight) then
-        pcall(setWaveHeight, tonumber(settings.waveheight))
-    end
+    -- 对齐官方 mapmanager 的默认值，避免换图后残留上一张图的时间/重力状态
+    local timeValue = type(settings.time) == 'string' and settings.time or '12:00'
+    local hour, minute = timeValue:match('^(%d+):(%d+)$')
+    pcall(setTime, tonumber(hour) or 12, tonumber(minute) or 0)
+
+    pcall(setWeather, tonumber(settings.weather) or 0)
+    pcall(setGravity, tonumber(settings.gravity) or 0.008)
+    pcall(setGameSpeed, tonumber(settings.gamespeed) or 1)
+    pcall(setWaveHeight, tonumber(settings.waveheight) or 0)
+
+    -- 官方 mapmanager：locked_time=true 时把一分钟拉长到 2147483647ms，实际冻结时间
+    local locked = settings.locked_time == true or settings.locked_time == 'true'
+    pcall(setMinuteDuration, locked and 2147483647 or 1000)
+
     if settings.clouds ~= nil then
         pcall(setCloudsEnabled, settings.clouds == true or settings.clouds == 'true')
     end
