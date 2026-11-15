@@ -27,17 +27,34 @@ import type { StatePayload } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { applyTheme, loadThemeSettings, watchSystemTheme } from '@/theme'
 
-const toast = ref('')
-let toastTimer: number | undefined
+interface ToastItem {
+  id: number
+  text: string
+}
+
+const toasts = ref<ToastItem[]>([])
+const toastTimers = new Map<number, number>()
 let nextMessageId = 1
+let nextToastId = 1
 const offs: Array<() => void> = []
 
+function removeToast(id: number): void {
+  const timer = toastTimers.get(id)
+  if (timer !== undefined) {
+    window.clearTimeout(timer)
+    toastTimers.delete(id)
+  }
+  const index = toasts.value.findIndex((item) => item.id === id)
+  if (index >= 0) toasts.value.splice(index, 1)
+}
+
 function showToast(text: string): void {
-  toast.value = text
-  window.clearTimeout(toastTimer)
-  toastTimer = window.setTimeout(() => {
-    toast.value = ''
+  const id = nextToastId++
+  toasts.value.push({ id, text })
+  const timer = window.setTimeout(() => {
+    removeToast(id)
   }, 3200)
+  toastTimers.set(id, timer)
 }
 
 function playSound(name: string): void {
@@ -363,7 +380,10 @@ onUnmounted(() => {
   offs.forEach((off) => off())
   document.removeEventListener('click', onAnyClick, true)
   document.removeEventListener('keydown', onCursorKeydown)
-  window.clearTimeout(toastTimer)
+  for (const timer of toastTimers.values()) {
+    window.clearTimeout(timer)
+  }
+  toastTimers.clear()
 })
 </script>
 
@@ -396,6 +416,6 @@ onUnmounted(() => {
     <RecordsModal v-if="ui.recordsOpen" />
     <ScoreboardPanel v-if="ui.scoreboardOpen" />
     <BuildTag v-if="!ui.hudHidden && ui.showHud" />
-    <ToastMessage :text="toast" />
+    <ToastMessage :items="toasts" />
   </div>
 </template>

@@ -1,46 +1,83 @@
 <script setup lang="ts">
 import IconInfo from '~icons/lucide/info'
 
-defineProps<{ text: string }>()
+interface ToastItem {
+  id: number
+  text: string
+}
+
+defineProps<{ items: ToastItem[] }>()
 </script>
 
 <template>
-  <transition name="toast">
-    <div v-if="text" class="toast">
+  <TransitionGroup name="toast-stack" tag="div" class="toast-stack">
+    <div v-for="item in items" :key="item.id" class="toast">
       <IconInfo class="icon icon--sm" />
-      <span>{{ text }}</span>
+      <span>{{ item.text }}</span>
     </div>
-  </transition>
+  </TransitionGroup>
 </template>
 
 <style scoped>
-.toast {
+.toast-stack {
   position: absolute;
-  left: 50%;
   top: 112px;
-  transform: translateX(-50%);
+  left: 50%;
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 7px;
-  padding: 9px 15px;
-  border: 1px solid var(--rst-border);
-  border-radius: 999px;
-  background: var(--rst-panel);
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4);
-  font-size: 12px;
-  color: var(--rst-text);
+  gap: 8px;
+  width: min(560px, calc(100vw - 48px));
+  transform: translateX(-50%);
   pointer-events: none;
   z-index: 50;
 }
 
-.toast-enter-active,
-.toast-leave-active {
-  transition: opacity 0.2s ease, transform 0.2s ease;
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 100%;
+  padding: 9px 15px;
+  border: 1px solid var(--rst-border);
+  border-radius: 999px;
+  background: var(--rst-panel);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.28);
+  color: var(--rst-text);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: left;
+  overflow-wrap: anywhere;
 }
 
-.toast-enter-from,
-.toast-leave-to {
+.toast .icon {
+  color: var(--rst-accent);
+}
+
+.toast-stack-enter-active,
+.toast-stack-leave-active {
+  transition: opacity 0.22s ease, transform 0.22s ease;
+}
+
+.toast-stack-enter-from {
   opacity: 0;
-  transform: translate(-50%, -6px);
+  transform: translateY(-10px) scale(0.98);
+}
+
+.toast-stack-leave-to {
+  opacity: 0;
+  transform: translateY(-6px) scale(0.98);
+}
+
+.toast-stack-move {
+  transition: transform 0.22s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .toast-stack-enter-active,
+  .toast-stack-leave-active,
+  .toast-stack-move {
+    transition-duration: 0.01ms;
+  }
 }
 </style>
