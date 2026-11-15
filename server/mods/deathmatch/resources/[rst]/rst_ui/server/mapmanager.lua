@@ -158,11 +158,12 @@ function MapManager.hitPickup(player, pickupId)
         end
     end
 
-    broadcastPickupState(pickup.id, false)
-
+    -- 官方 race 只有 respawn >= 50ms 才卸载/重生；0 表示永久可重复拾取
     local respawn = tonumber(pickup.respawn) or 0
-    if respawn > 0 then
-        local delay = respawn >= 1000 and respawn or respawn * 1000
+    if respawn >= 50 then
+        pickupState[pickup.id] = { visible = false }
+        broadcastPickupState(pickup.id, false)
+
         pickupTimers[pickup.id] = setTimer(function()
             pickupTimers[pickup.id] = nil
             local current = pickupState[pickup.id]
@@ -170,7 +171,7 @@ function MapManager.hitPickup(player, pickupId)
                 current.visible = true
             end
             broadcastPickupState(pickup.id, true)
-        end, delay, 1)
+        end, respawn, 1)
     end
 end
 

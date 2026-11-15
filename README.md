@@ -120,7 +120,7 @@ node tools/setup-map-acl.mjs
 - 直接读取 `meta.xml` 和 `.map`
 - 从 `.map` 读取全部 spawnpoint、vehicle、racepickup、Hunter 终点 / checkpoint
 - `racepickup` 由客户端按官方 race 资源方式创建自定义模型 object + colshape
-- 支持 nitro / repair / vehiclechange，命中后服务端同步、隐藏和重生
+- 支持 nitro / repair / vehiclechange；respawn=0 为永久可重复拾取，respawn>=50 才隐藏并按毫秒重生
 - 官方 race pickup 模型放在 `pickups/`
 - 解析并应用 `<settings>`：时间、天气、重力、游戏速度、浪高、车辆武器、云层、地图时长
 - 地图车辆模型替换由地图 resource 自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行

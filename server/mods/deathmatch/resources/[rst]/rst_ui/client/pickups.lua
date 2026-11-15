@@ -155,7 +155,10 @@ addEventHandler('onClientColShapeHit', root, function(element)
     end
 
     applyLocalEffect(pickup, element)
-    applyPickupVisibility(pickup, false)
+    -- 官方 race：respawn 为 0 的 pickup 是永久可重复拾取，不隐藏
+    if (pickup.respawn or 0) >= 50 then
+        applyPickupVisibility(pickup, false)
+    end
     triggerServerEvent('rst:pickups:hit', localPlayer, pickup.id)
     pcall(playSoundFrontEnd, 46)
 end)
