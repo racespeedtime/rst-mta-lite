@@ -27,6 +27,8 @@ local spectateTarget = nil
 local spectateName = ''
 local spectateTimer = nil
 local countdownTimer = nil
+local countdownVehicle = nil
+local controlLocked = false
 local cursorAlways = false
 local freeCursor = false
 local lastCursorToggleAt = 0
@@ -229,6 +231,36 @@ local function applyInteractive()
     updateCursor()
 end
 
+-- 倒计时/准备阶段双保险：服务端冻结之外，本地也锁输入和载具。
+-- 服务端 freeze 偶尔会被载具同步覆盖，单靠服务端会出现倒计时能挪车。
+local function setSpawnControlLock(locked)
+    if locked == controlLocked then
+        return
+    end
+    controlLocked = locked
+
+    pcall(toggleAllControls, not locked, true, false)
+
+    if locked then
+        countdownVehicle = getPedOccupiedVehicle(localPlayer)
+        if isElement(countdownVehicle) then
+            setElementFrozen(countdownVehicle, true)
+            setElementVelocity(countdownVehicle, 0, 0, 0)
+        end
+        if isElement(localPlayer) then
+            setElementFrozen(localPlayer, true)
+        end
+    else
+        if isElement(countdownVehicle) then
+            setElementFrozen(countdownVehicle, false)
+        end
+        countdownVehicle = nil
+        if isElement(localPlayer) then
+            setElementFrozen(localPlayer, false)
+        end
+    end
+end
+
 -- ---------------------------------------------------------------------------
 -- 观战相机
 -- ---------------------------------------------------------------------------
@@ -381,7 +413,6 @@ local function applyState(state)
         or (type(state.modeVote) == 'table' and state.modeVote.active == true)
     readyWaiting = type(state.ready) == 'table'
         and state.ready.waiting == true
-        and state.ready.canReady ~= false
 
     RST.phase = phase
     RST.mode = mode
@@ -413,6 +444,7 @@ local function applyState(state)
             killTimer(countdownTimer)
             countdownTimer = nil
         end
+        setSpawnControlLock(false)
         dispatch('countdown', { active = false })
     end
 
@@ -427,6 +459,11 @@ local function applyState(state)
     end
 
     applyInteractive()
+    setSpawnControlLock(
+        phase == 'playing'
+        and mode ~= 'spectating'
+        and (readyWaiting or RST.countdownActive)
+    )
 
     -- state 每秒推送；只在 phase/mode 真正切换时重置相机，避免把自由视角拉回车后
     if
@@ -722,10 +759,12 @@ addEventHandler('rst:ui:countdown', root, function(json)
     RST.countdownActive = true
     dispatch('countdown', { active = true, duration = seconds })
     applyInteractive()
+    setSpawnControlLock(true)
 
     countdownTimer = setTimer(function()
         countdownTimer = nil
         RST.countdownActive = false
+        setSpawnControlLock(false)
         applyInteractive()
     end, math.floor(seconds * 1000) + 50, 1)
 end)

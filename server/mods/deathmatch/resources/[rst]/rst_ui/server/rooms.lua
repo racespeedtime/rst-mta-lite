@@ -258,9 +258,18 @@ local function beginCountdownFor(player, seconds)
     clearFreezeTimer(player)
     setPlayerFrozen(player, true)
 
+    local car = raceVehicles[player]
+    if isElement(car) then
+        setElementVelocity(car, 0, 0, 0)
+        pcall(setVehicleEngineState, car, false)
+    end
+
     seconds = seconds or config.spawnCountdown or 0
     if seconds <= 0 then
         setPlayerFrozen(player, false)
+        if isElement(car) then
+            pcall(setVehicleEngineState, car, true)
+        end
         return
     end
 
@@ -271,6 +280,10 @@ local function beginCountdownFor(player, seconds)
     freezeTimers[player] = setTimer(function()
         freezeTimers[player] = nil
         setPlayerFrozen(player, false)
+        local currentCar = raceVehicles[player]
+        if isElement(currentCar) then
+            pcall(setVehicleEngineState, currentCar, true)
+        end
     end, math.floor(seconds * 1000) + 250, 1)
 end
 
