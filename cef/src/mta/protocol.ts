@@ -163,6 +163,8 @@ export interface MapPoolItem {
   name: string
   author: string
   dimension: number
+  downloads?: number
+  popularity?: number
 }
 
 export interface MapPoolPage {

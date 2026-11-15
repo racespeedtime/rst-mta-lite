@@ -245,6 +245,9 @@ function MapRegistry.init()
     for _, resource in ipairs(getResources()) do
         local entry = readMapMeta(resource)
         if entry then
+            entry.mtavaultDownloads = MapMeta and MapMeta.downloads(
+                entry.resource, entry.name, entry.author
+            ) or 0
             maps[entry.id] = entry
             ids[#ids + 1] = entry.id
         elseif getResourceInfo(resource, 'type') == 'map' then
@@ -315,6 +318,15 @@ function MapRegistry.page(page, pageSize, search)
     end
 
     local total = #filtered
+    table.sort(filtered, function(a, b)
+        local ap = MapStats and MapStats.popularity(a.id, a) or (a.mtavaultDownloads or 0)
+        local bp = MapStats and MapStats.popularity(b.id, b) or (b.mtavaultDownloads or 0)
+        if ap ~= bp then
+            return ap > bp
+        end
+        return tostring(a.name or a.id) < tostring(b.name or b.id)
+    end)
+
     local pages = math.max(1, math.ceil(total / pageSize))
     page = math.min(page, pages)
     local start = (page - 1) * pageSize + 1
@@ -327,6 +339,8 @@ function MapRegistry.page(page, pageSize, search)
             name = entry.name,
             author = entry.author,
             dimension = entry.dimension or 0,
+            downloads = entry.mtavaultDownloads or 0,
+            popularity = MapStats and MapStats.popularity(entry.id, entry) or 0,
         }
     end
 

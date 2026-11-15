@@ -12,6 +12,13 @@ local db
 local cache = {}
 local DB_PATH = ':/rst_ui_mapmeta.db'
 
+-- mtavault 下载量索引：地图池排序 / 热度计算会频繁读取，避免逐图查 SQLite
+local downloadsByResource = {}
+local downloadsBySlug = {}
+local downloadsByFile = {}
+local downloadsByName = {}
+local metaNames = {}
+
 local function normalize(value)
     return tostring(value or ''):lower():gsub('[^%w]', '')
 end
@@ -32,6 +39,93 @@ end
 local function countRows()
     local row = queryOne('SELECT COUNT(*) AS total FROM map_meta WHERE mtavault_id IS NOT NULL')
     return row and tonumber(row.total) or 0
+end
+
+local function slugFromSourceUrl(url)
+    local slug = tostring(url or ''):match('/map/([^/?#]+)')
+    return slug and slug:lower() or nil
+end
+
+local function loadDownloadIndex()
+    downloadsByResource = {}
+    downloadsBySlug = {}
+    downloadsByFile = {}
+    downloadsByName = {}
+    metaNames = {}
+
+    local handle = dbQuery(db, [[
+        SELECT resource, source_url, name_norm, file_name_norm, downloads
+        FROM map_meta
+    ]])
+    if not handle then
+        return
+    end
+    local rows = dbPoll(handle, -1)
+    if not rows then
+        return
+    end
+
+    for _, row in ipairs(rows) do
+        local downloads = tonumber(row.downloads) or 0
+        local resource = tostring(row.resource or '')
+        local slug = slugFromSourceUrl(row.source_url)
+        local nameNorm = tostring(row.name_norm or '')
+        local fileNorm = tostring(row.file_name_norm or '')
+
+        if resource ~= '' then
+            downloadsByResource[resource] = downloads
+        end
+        if slug then
+            downloadsBySlug[slug] = downloads
+        end
+        if fileNorm ~= '' then
+            downloadsByFile[fileNorm] = downloads
+        end
+        if nameNorm ~= '' then
+            downloadsByName[nameNorm] = downloads
+            metaNames[#metaNames + 1] = {
+                name = nameNorm,
+                downloads = downloads,
+            }
+        end
+    end
+
+    -- 长名称优先匹配，避免 "Silent Hill" 被更短的名字抢先
+    table.sort(metaNames, function(a, b)
+        return #a.name > #b.name
+    end)
+end
+
+function MapMeta.downloads(resource, name, author)
+    resource = tostring(resource or '')
+    if resource ~= '' then
+        if downloadsByResource[resource] then
+            return downloadsByResource[resource]
+        end
+        local slug = resource:lower()
+        if downloadsBySlug[slug] then
+            return downloadsBySlug[slug]
+        end
+        local fileNorm = normalize(resource)
+        if downloadsByFile[fileNorm] then
+            return downloadsByFile[fileNorm]
+        end
+    end
+
+    local nameNorm = normalize(name)
+    if nameNorm ~= '' then
+        if downloadsByName[nameNorm] then
+            return downloadsByName[nameNorm]
+        end
+        -- 兼容 mtavault 名称被地图 meta 加上前缀的情况，例如 "[DM] X - Silent Hill"
+        for _, candidate in ipairs(metaNames) do
+            if nameNorm:find(candidate.name, 1, true) then
+                return candidate.downloads
+            end
+        end
+    end
+
+    return 0
 end
 
 local function rowToMeta(row)
@@ -135,6 +229,7 @@ function MapMeta.init()
     dbExec(db, 'CREATE INDEX IF NOT EXISTS idx_map_meta_file_name ON map_meta(file_name_norm)')
     dbExec(db, 'CREATE INDEX IF NOT EXISTS idx_map_meta_name ON map_meta(name_norm)')
 
+    loadDownloadIndex()
     local rows = countRows()
     outputServerLog(('[MAPMETA] sqlite rows=%d'):format(rows))
     if rows == 0 then

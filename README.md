@@ -506,17 +506,19 @@ tools/mtavault/README.md
 ### 地图选择与热度
 
 - 非投票时 `pickMap()` 从当前可用地图池里纯随机，排除当前地图
-- 投票候选也是随机抽取，只区分“最近玩过 / 没玩过”
+- 投票候选随机抽取，只区分“最近玩过 / 没玩过”
 - 服务器内游玩次数记录在 `rst_ui_mapstats.db`
+- mtavault 下载量来自 `rst_ui_mapmeta.db`
 - 热度公式：
 
 ```text
-popularity = 服务器内游玩次数 × playPopularityWeight
+popularity = mtavault 下载量 + 服务器内游玩次数 × playPopularityWeight
 ```
 
-- 这个热度只在投票票数相同的时候作为平票裁决
-- 不参与随机地图抽取，也不参与投票候选排序
-- mtavault 的下载量只用于地图详情展示，不参与选图，也不参与平票裁决
+- F2「地图池」按这个热度降序分页，热度相同再按名称
+- 投票票数相同时用这个热度做平票裁决
+- 随机选图仍然是纯随机，不会因为下载量高就固定出某张图
+- 投票候选抽取本身不做热度加权；热度只影响地图池显示排序和平票
 
 地图详情：
 
@@ -669,7 +671,7 @@ local ENABLED = true
 | `raceEndCountdown` | 第一名完赛后的结算倒计时 |
 | `raceResultSeconds` | 结算排行展示时间 |
 | `trainingReturnSeconds` | 训练模式完赛回出生点延迟 |
-| `playPopularityWeight` | 服务器游玩次数热度权重（仅投票平票时使用） |
+| `playPopularityWeight` | 服务器游玩次数权重（叠加 mtavault 下载量） |
 | `scoreTable` | 冲线名次对应积分 |
 | `teamColors` | 红 / 蓝队名字颜色 |
 | `vehicle` | 没有 spawnpoint vehicle 时的默认车型 |

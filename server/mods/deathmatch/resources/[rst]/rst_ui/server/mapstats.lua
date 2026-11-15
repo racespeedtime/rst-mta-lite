@@ -3,7 +3,7 @@
 
     地图游玩次数统计：
     - 持久化到 SQLite，服务端启动时加载
-    - 有效热度 = 服务器内游玩次数 * playPopularityWeight
+    - 有效热度 = mtavault 下载量 + 服务器内游玩次数 * playPopularityWeight
 ]]
 
 MapStats = {}
@@ -42,9 +42,11 @@ function MapStats.getPlays(mapId)
     return plays[mapId] or 0
 end
 
-function MapStats.popularity(mapId)
+function MapStats.popularity(mapId, entry)
     local weight = RST.config.playPopularityWeight or 0
-    return MapStats.getPlays(mapId) * weight
+    entry = entry or (MapRegistry and MapRegistry.peek and MapRegistry.peek(mapId)) or nil
+    local sourcePopularity = entry and (entry.mtavaultDownloads or 0) or 0
+    return sourcePopularity + MapStats.getPlays(mapId) * weight
 end
 
 function MapStats.recordPlay(mapId)

@@ -85,8 +85,12 @@ onMounted(() => request(1))
           <span class="map-pool__index">{{ map.dimension }}</span>
           <span class="map-pool__main">
             <strong>{{ map.name }}</strong>
-            <small>{{ map.author }} · {{ map.id }}</small>
+            <small>
+              {{ map.author }} · {{ map.id }}
+              <template v-if="map.downloads"> · {{ map.downloads }} 下载</template>
+            </small>
           </span>
+          <span v-if="map.popularity" class="map-pool__heat">{{ map.popularity }} 热度</span>
         </div>
       </div>
 
@@ -272,6 +276,15 @@ onMounted(() => request(1))
   font-size: 9px;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+
+.map-pool__heat {
+  margin-left: auto;
+  flex: 0 0 auto;
+  color: var(--rst-accent);
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.8;
 }
 
 .map-pool__empty {
