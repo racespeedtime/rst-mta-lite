@@ -495,7 +495,8 @@ tools/mtavault/README.md
 
 出生：
 
-- 每名玩家从 spawnpoint 列表随机选一个
+- 每名玩家优先分配一个未被占用的 spawnpoint
+- 只有在 spawnpoint 全部分满后才允许重复
 - 使用该 spawnpoint 对应的 vehicle
 - 不默认安装氮气
 

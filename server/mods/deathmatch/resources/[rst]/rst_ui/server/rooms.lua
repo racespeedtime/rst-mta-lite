@@ -312,6 +312,38 @@ local function beginCountdownFor(player, seconds, room)
     end, math.floor(seconds * 1000) + 250, 1)
 end
 
+local function chooseSpawnIndex(room, player, count)
+    room.spawnAssignments = room.spawnAssignments or {}
+    local assigned = room.spawnAssignments[player]
+    if assigned and assigned >= 1 and assigned <= count then
+        return assigned
+    end
+
+    local used = {}
+    for p, index in pairs(room.spawnAssignments) do
+        if p ~= player and index >= 1 and index <= count then
+            used[index] = true
+        end
+    end
+
+    local free = {}
+    for index = 1, count do
+        if not used[index] then
+            free[#free + 1] = index
+        end
+    end
+
+    local index
+    if #free > 0 then
+        index = free[math.random(#free)]
+    else
+        -- spawnpoint 已经全部分满，才允许重复
+        index = math.random(count)
+    end
+    room.spawnAssignments[player] = index
+    return index
+end
+
 -- 竞速车辆之间关闭碰撞由客户端统一处理（setElementCollidableWith 是客户端碰撞状态）
 local function spawnPlayerInRoom(player, room, countdown, waiting)
     local map = MapRegistry.details(room.mapId)
@@ -331,7 +363,7 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
     if type(spawns) ~= 'table' or #spawns == 0 then
         spawns = { { x = map.x, y = map.y, z = map.z, rot = map.rot, vehicle = map.vehicle } }
     end
-    local spawn = spawns[math.random(#spawns)]
+    local spawn = spawns[chooseSpawnIndex(room, player, #spawns)]
     local x = spawn.x
     local y = spawn.y
     local z = spawn.z + 0.5
@@ -442,6 +474,7 @@ local function startRound(room, forcedMapId)
     room.trainingResults = {}
     room.playerStartedAt = {}
     room.playerStartedAtMs = {}
+    room.spawnAssignments = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
     local stayingSpectators = {}
@@ -699,6 +732,7 @@ function Rooms.init(onChanged)
             trainingResults = {},
             playerStartedAt = {},
             playerStartedAtMs = {},
+            spawnAssignments = {},
         }
     end
 
@@ -950,6 +984,7 @@ function Rooms.eliminate(player, room)
     room.ready[player] = nil
     room.playerStartedAt[player] = nil
     room.playerStartedAtMs[player] = nil
+    room.spawnAssignments[player] = nil
     clearFreezeTimer(player)
     clearDeathTimer(player)
     if isElement(raceVehicles[player]) then
@@ -1033,6 +1068,7 @@ function Rooms.becomeSpectator(player)
     room.ready[player] = nil
     room.playerStartedAt[player] = nil
     room.playerStartedAtMs[player] = nil
+    room.spawnAssignments[player] = nil
 
     clearFreezeTimer(player)
     clearDeathTimer(player)
@@ -1252,6 +1288,7 @@ function Rooms.leave(player)
             room.ob[player] = nil
             room.playerStartedAt[player] = nil
             room.playerStartedAtMs[player] = nil
+            room.spawnAssignments[player] = nil
             clearDeathTimer(player)
             if room.vote then
                 room.vote.votes[player] = nil
