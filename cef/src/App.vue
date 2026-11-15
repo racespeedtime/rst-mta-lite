@@ -272,8 +272,8 @@ onUnmounted(() => {
         <RaceResultOverlay v-if="ui.raceResult" />
         <ReadyOverlay v-if="ui.ready.waiting" />
         <RewindOverlay v-if="ui.rewind.active" />
+        <ChatPanel />
       </template>
-      <ChatPanel />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <ModeVoteView v-if="ui.modeVote?.active" />

@@ -958,6 +958,8 @@ addEventHandler('rst:ui:action', root, function(json)
         hudHidden = not hudHidden
         pcall(setPlayerHudComponentVisible, 'radar', not hudHidden)
         pcall(setPlayerHudComponentVisible, 'crosshair', not hudHidden)
+        -- 隐藏全部 UI 时，原生 chatbox 也一起隐藏并禁止输入
+        pcall(showChat, not hudHidden, hudHidden)
     elseif data.action == 'devtools' then
         if browser then
             pcall(setDevelopmentMode, true, true)
