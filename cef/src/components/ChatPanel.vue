@@ -134,7 +134,7 @@ onMounted(() => scrollToBottom(true))
 <style scoped>
 .chat {
   position: absolute;
-  top: 126px;
+  top: 50%;
   left: 24px;
   width: 400px;
   max-height: min(38vh, 380px);

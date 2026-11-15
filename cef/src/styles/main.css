@@ -156,11 +156,13 @@ html[data-theme='light'] .app-root :is(
   .race-result__banner,
   .ready__panel,
   .rewind,
+  .speedo,
   .chat,
   .competition,
   .hud__player,
   .hud .room,
   .track,
+  .build,
   .vote__panel,
   .mode-vote__panel,
   .scoreboard,
@@ -170,21 +172,6 @@ html[data-theme='light'] .app-root :is(
   background: linear-gradient(160deg, #ffffff, #f3f6fa) !important;
   color: var(--rst-text) !important;
   box-shadow: var(--rst-shadow);
-}
-
-html[data-theme='light'] .app-root .speedo {
-  border-color: rgba(17, 24, 39, 0.12) !important;
-  background: rgba(255, 255, 255, 0.22) !important;
-  box-shadow: 0 14px 34px rgba(22, 32, 48, 0.12);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-}
-
-html[data-theme='light'] .app-root .speedo__vehicle,
-html[data-theme='light'] .app-root .speedo__unit,
-html[data-theme='light'] .app-root .speedo__label {
-  color: rgba(17, 24, 39, 0.72) !important;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.7);
 }
 
 html[data-theme='light'] .app-root .track__map,
@@ -233,12 +220,6 @@ html[data-theme='light'] .app-root :is(
 
 html[data-theme='light'] .app-root .menu-tabs {
   background: rgba(35, 75, 115, 0.06) !important;
-}
-
-html[data-theme='light'] .app-root .build {
-  border-color: var(--rst-border);
-  background: rgba(255, 255, 255, 0.68) !important;
-  color: var(--rst-muted);
 }
 
 html[data-theme='light'] .app-root :is(
