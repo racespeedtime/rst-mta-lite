@@ -26,6 +26,9 @@ local function num(node, name)
 end
 
 local function child(node, name)
+    if not node then
+        return nil
+    end
     for _, value in ipairs(xmlNodeGetChildren(node) or {}) do
         if xmlNodeGetName(value) == name then
             return value
@@ -36,12 +39,42 @@ end
 
 local function all(node, name)
     local found = {}
+    if not node then
+        return found
+    end
     for _, value in ipairs(xmlNodeGetChildren(node) or {}) do
         if xmlNodeGetName(value) == name then
             found[#found + 1] = value
         end
     end
     return found
+end
+
+local function parseSettingValue(raw)
+    if raw == nil or raw == '' then
+        return nil
+    end
+
+    local ok, parsed = pcall(fromJSON, raw)
+    if ok and parsed ~= nil then
+        if type(parsed) == 'table' then
+            return parsed[1] or parsed
+        end
+        return parsed
+    end
+    return raw
+end
+
+local function readSettings(meta)
+    local settings = {}
+    local node = child(meta, 'settings')
+    for _, setting in ipairs(all(node, 'setting')) do
+        local name = attr(setting, 'name')
+        if name then
+            settings[name:gsub('^#', '')] = parseSettingValue(attr(setting, 'value'))
+        end
+    end
+    return settings
 end
 
 -- 外部展示元数据（YouTube / 封面 / 下载量等）单独存放，
@@ -89,8 +122,7 @@ local function readMap(resource)
 
     local spawns = {}
     local pickups = {}
-    local lastCheckpoint
-    local hunterCount = 0
+    local lastCheckpoint    local hunterCount = 0
     local hunterX, hunterY, hunterZ = 0, 0, 0
 
     for _, node in ipairs(xmlNodeGetChildren(mapRoot) or {}) do
@@ -142,6 +174,7 @@ local function readMap(resource)
     if #spawns > 0 then
         local first = spawns[1]
         local finish
+        local settings = readSettings(meta)
         if hunterCount > 0 then
             finish = { x = hunterX / hunterCount, y = hunterY / hunterCount, z = hunterZ / hunterCount }
         elseif lastCheckpoint then
@@ -166,6 +199,7 @@ local function readMap(resource)
             vehicle = first.vehicle,
             finish = finish,
             pickups = pickups,
+            settings = settings,
         }
     end
 
@@ -223,6 +257,13 @@ function MapRegistry.init()
         ))
         outputServerLog(('[MAP] pickups %s count=%d'):format(
             tostring(entry.name), #(entry.pickups or {})
+        ))
+        local settings = entry.settings or {}
+        outputServerLog(('[MAP] settings %s time=%s weather=%s duration=%s'):format(
+            tostring(entry.name),
+            tostring(settings.time),
+            tostring(settings.weather),
+            tostring(settings.duration)
         ))
     end
 

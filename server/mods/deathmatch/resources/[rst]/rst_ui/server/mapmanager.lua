@@ -25,6 +25,37 @@ local function clearPickupTimers()
     pickupTimers = {}
 end
 
+local function applyMapSettings(settings)
+    if type(settings) ~= 'table' then
+        return
+    end
+
+    if type(settings.time) == 'string' then
+        local hour, minute = settings.time:match('^(%d+):(%d+)$')
+        if hour then
+            pcall(setTime, tonumber(hour), tonumber(minute))
+        end
+    end
+    if tonumber(settings.weather) then
+        pcall(setWeather, tonumber(settings.weather))
+    end
+    if tonumber(settings.gravity) then
+        pcall(setGravity, tonumber(settings.gravity))
+    end
+    if tonumber(settings.gamespeed) then
+        pcall(setGameSpeed, tonumber(settings.gamespeed))
+    end
+    if tonumber(settings.waveheight) then
+        pcall(setWaveHeight, tonumber(settings.waveheight))
+    end
+    if settings.clouds ~= nil then
+        pcall(setCloudsEnabled, settings.clouds == true or settings.clouds == 'true')
+    end
+    if settings.vehicleweapons ~= nil then
+        pcall(setVehicleWeaponsEnabled, settings.vehicleweapons == true or settings.vehicleweapons == 'true')
+    end
+end
+
 local function pickupPayload(player)
     if not currentMapId then
         return nil
@@ -218,6 +249,7 @@ function MapManager.load(mapId)
     for _, pickup in ipairs(currentPickups) do
         pickupState[pickup.id] = { visible = true }
     end
+    applyMapSettings(map.settings)
 
     -- 地图自带车辆会与玩家赛车重复；只清理未打 rst 标记的车辆
     for _, vehicle in ipairs(getElementsByType('vehicle')) do

@@ -122,6 +122,8 @@ node tools/setup-map-acl.mjs
 - `racepickup` 由客户端按官方 race 资源方式创建自定义模型 object + colshape
 - 支持 nitro / repair / vehiclechange，命中后服务端同步、隐藏和重生
 - 官方 race pickup 模型放在 `pickups/`
+- 解析并应用 `<settings>`：时间、天气、重力、游戏速度、浪高、车辆武器、云层、地图时长
+- 地图车辆模型替换由地图 resource 自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行
 - 地图 ID 就是 resource 名
 - 地图池就是发现到的地图列表
 

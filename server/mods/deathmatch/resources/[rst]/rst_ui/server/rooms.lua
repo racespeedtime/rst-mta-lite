@@ -383,9 +383,15 @@ local function startRound(room, forcedMapId)
     end
 
     MapStats.recordPlay(room.mapId)
+    local mapInfo = MapRegistry.get(room.mapId)
+    local roundSeconds = config.roundSeconds
+    local mapDuration = mapInfo and mapInfo.settings and tonumber(mapInfo.settings.duration)
+    if mapDuration and mapDuration > 0 then
+        roundSeconds = math.min(mapDuration, 86400)
+    end
     room.active = true
-    room.roundEnds = now() + config.roundSeconds
-    room.roundEndsMs = RST.nowMs() + config.roundSeconds * 1000
+    room.roundEnds = now() + roundSeconds
+    room.roundEndsMs = RST.nowMs() + roundSeconds * 1000
     room.vote = nil
     room.modeVote = nil
     room.ready = {}
