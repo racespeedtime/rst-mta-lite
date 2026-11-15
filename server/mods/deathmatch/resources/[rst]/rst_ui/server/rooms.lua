@@ -15,6 +15,7 @@ local rooms = {}
 local stateChanged = function() end
 local freezeTimers = {}
 local raceVehicles = {}
+local trackMileage
 
 local function contains(list, value)
     for _, item in ipairs(list) do
@@ -773,7 +774,7 @@ scoreForRank = function(rank)
     return tonumber(scores[rank]) or tonumber(scores[#scores]) or 0
 end
 
-local function trackMileage(room)
+trackMileage = function(room)
     for _, player in ipairs(room.players) do
         if isElement(player)
             and not room.finished[player]
