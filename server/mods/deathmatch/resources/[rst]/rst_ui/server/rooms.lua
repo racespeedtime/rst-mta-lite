@@ -996,7 +996,7 @@ function Rooms.becomeSpectator(player)
     return true
 end
 
--- 从纯 OB 返回比赛：准备阶段立即上车，其他阶段下回合自动参赛
+-- 从纯 OB 返回比赛：准备阶段立即上车；训练模式立即重生；竞技其他阶段下回合
 function Rooms.returnToRace(player)
     local room = Rooms.playerRoom(player)
     if not room then
@@ -1058,7 +1058,7 @@ function Rooms.returnToRace(player)
     return true, 'next-round'
 end
 
--- 训练模式主动重生：回随机出生点并重新倒计时，不影响其他玩家
+-- 训练模式主动重生：参赛者回随机出生点；观战者直接回到当前赛道
 function Rooms.respawn(player)
     local room = Rooms.playerRoom(player)
     if not room then
