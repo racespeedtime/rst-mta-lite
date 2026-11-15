@@ -13,7 +13,7 @@ const count = computed(() => ui.scoreboard?.count ?? players.value.length)
 
 function onScroll(payload: { delta: number }): void {
   if (!scrollRef.value) return
-  scrollRef.value.scrollTop += Math.sign(payload.delta) * 48
+  scrollRef.value.scrollTop -= Math.sign(payload.delta) * 48
 }
 
 onMounted(() => {

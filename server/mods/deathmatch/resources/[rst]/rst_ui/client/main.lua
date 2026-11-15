@@ -1137,6 +1137,22 @@ local function handleWheelDirection(direction)
     injectBrowserWheel(direction)
 end
 
+local lastScoreboardWheelDirection = 0
+local lastScoreboardWheelAt = 0
+local function handleScoreboardWheel(direction)
+    local nowTick = getTickCount()
+    if lastScoreboardWheelDirection ~= 0
+        and direction ~= lastScoreboardWheelDirection
+        and nowTick - lastScoreboardWheelAt < 80
+    then
+        lastScoreboardWheelAt = nowTick
+        return
+    end
+    lastScoreboardWheelDirection = direction
+    lastScoreboardWheelAt = nowTick
+    dispatch('scoreboardScroll', { delta = direction })
+end
+
 addEventHandler('onClientKey', root, function(button, press)
     if tostring(button):lower() ~= 'tab' then
         return
@@ -1200,10 +1216,10 @@ end)
 addEventHandler('onClientKey', root, function(button, press)
     if scoreboardOpen then
         if press and button == 'mouse_wheel_up' then
-            dispatch('scoreboardScroll', { delta = 1 })
+            handleScoreboardWheel(1)
             cancelEvent()
         elseif press and button == 'mouse_wheel_down' then
-            dispatch('scoreboardScroll', { delta = -1 })
+            handleScoreboardWheel(-1)
             cancelEvent()
         end
         return
