@@ -161,13 +161,10 @@ local function stopRewind()
         end
         setElementFrozen(frozenElement, false)
         setElementVelocity(frozenElement, currentVX, currentVY, currentVZ)
-
-        if getElementType(frozenElement) == 'vehicle' then
-            pcall(setCameraTarget, frozenElement)
-        else
-            pcall(setCameraTarget, localPlayer)
-        end
     end
+
+    -- 回放结束必须把相机目标还给本地玩家；否则下车后镜头仍跟随载具
+    pcall(setCameraTarget, localPlayer)
 
     frozenElement = nil
     appliedNitroLevel = nil

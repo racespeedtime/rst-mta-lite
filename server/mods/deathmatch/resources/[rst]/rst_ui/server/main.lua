@@ -637,6 +637,8 @@ addEventHandler('onResourceStart', resourceRoot, function()
     MapStats.init()
     Records.init()
     MapMeta.init()
+    -- 地图投票/自动选图都依赖 math.random；显式播种，避免每次启动同一序列
+    math.randomseed(os.time() + getTickCount())
     MapRegistry.init()
     Rooms.init(broadcastState)
 
