@@ -739,7 +739,8 @@ local function ensureChatEdit()
     end
 
     local _, screenHeight = guiGetScreenSize()
-    chatEdit = guiCreateEdit(24, math.max(120, screenHeight - 150), 420, 30, '', false)
+    local panelHeight = math.min(screenHeight * 0.38, 380)
+    chatEdit = guiCreateEdit(24, 126 + panelHeight + 8, 400, 30, '', false)
     if not chatEdit then
         outputDebugString('[rst_ui] guiCreateEdit failed', 1)
         return
@@ -749,8 +750,8 @@ local function ensureChatEdit()
     guiSetAlpha(chatEdit, 0.96)
     guiSetAlwaysOnTop(chatEdit, true)
     guiEditSetMaxLength(chatEdit, 160)
-    pcall(guiSetProperty, chatEdit, 'NormalTextColour', 'FFE9F5FF')
-    pcall(guiSetProperty, chatEdit, 'ActiveTextColour', 'FFFFFFFF')
+    pcall(guiSetProperty, chatEdit, 'NormalTextColour', 'FF0B1524')
+    pcall(guiSetProperty, chatEdit, 'ActiveTextColour', 'FF0B1524')
 
     addEventHandler('onClientGUIAccepted', chatEdit, function()
         local text = tostring(guiEditGetText(chatEdit) or '')

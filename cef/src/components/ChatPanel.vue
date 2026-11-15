@@ -150,6 +150,7 @@ onMounted(() => scrollToBottom(true))
 }
 
 .chat--open {
+  height: min(38vh, 380px);
   pointer-events: auto;
   border-color: rgba(88, 200, 255, 0.35);
   background: linear-gradient(180deg, rgba(8, 14, 23, 0.94), rgba(6, 11, 19, 0.9));
