@@ -304,6 +304,7 @@ local function applyRewindCamera(element)
         x + fx * lookAhead,
         y + fy * lookAhead,
         z + aimHeight,
+        0,
         fov
     )
 end
