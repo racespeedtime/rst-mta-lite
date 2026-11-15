@@ -15,7 +15,11 @@ import { formatBytes } from '@/utils/format'
 const copied = ref('')
 
 const details = computed(() => ui.mapDetails)
-const coverSrc = computed(() => (details.value?.cover ? `../${details.value.cover}` : ''))
+const coverSrc = computed(() => {
+  const cover = details.value?.cover || ''
+  if (!cover) return ''
+  return /^https?:\/\//i.test(cover) ? cover : `../${cover}`
+})
 const youtube = computed(() => details.value?.youtube || '')
 const sourceUrl = computed(() => details.value?.sourceUrl || '')
 

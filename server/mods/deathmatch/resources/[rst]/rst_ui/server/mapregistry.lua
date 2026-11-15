@@ -77,51 +77,24 @@ local function readSettings(meta)
     return settings
 end
 
--- 外部展示元数据按地图 resource 拆成 sidecar，按需读取；
--- 不再把上万张地图的封面/YouTube 信息塞进一个 mapmeta.json。
-local externalCache = {}
-
-local function loadMapMeta(mapId)
-    if externalCache[mapId] ~= nil then
-        return externalCache[mapId] or nil
-    end
-
-    local handle = fileOpen('mapmeta/' .. mapId .. '.json')
-    if not handle then
-        externalCache[mapId] = false
-        return nil
-    end
-
-    local size = fileGetSize(handle)
-    local text = size > 0 and fileRead(handle, size) or ''
-    fileClose(handle)
-
-    local data = fromJSON(text or '')
-    if type(data) ~= 'table' then
-        externalCache[mapId] = false
-        return nil
-    end
-
-    externalCache[mapId] = data
-    return data
-end
-
 local function applyMapMeta(entry)
     if not entry or entry._externalLoaded then
         return entry
     end
     entry._externalLoaded = true
 
-    local extra = loadMapMeta(entry.id)
+    local extra = MapMeta and MapMeta.get(entry.id, entry.name, entry.author) or nil
     if type(extra) == 'table' then
         entry.cover = extra.cover
         entry.youtube = extra.youtube
         entry.sourceUrl = extra.sourceUrl
         entry.uploadedAt = extra.uploadedAt
-        entry.downloads = tonumber(extra.downloads)
+        entry.downloads = extra.downloads
         entry.difficulty = extra.difficulty
-        entry.fileSize = tonumber(extra.fileSize)
+        entry.fileSize = extra.fileSize
         entry.tags = extra.tags
+        entry.mtavaultId = extra.mtavaultId
+        entry.mapType = extra.mapType
     end
     return entry
 end
@@ -241,7 +214,6 @@ end
 function MapRegistry.init()
     maps = {}
     ids = {}
-    externalCache = {}
 
     for _, resource in ipairs(getResources()) do
         local entry = readMap(resource)
@@ -283,7 +255,7 @@ function MapRegistry.init()
         ))
     end
 
-    outputServerLog(('[MAP] discovered %d native map resource(s); metadata sidecars are lazy loaded'):format(
+    outputServerLog(('[MAP] discovered %d native map resource(s); metadata from sqlite'):format(
         #ids
     ))
     return #ids

@@ -636,6 +636,7 @@ addEventHandler('onResourceStart', resourceRoot, function()
     Accounts.init()
     MapStats.init()
     Records.init()
+    MapMeta.init()
     MapRegistry.init()
     Rooms.init(broadcastState)
 

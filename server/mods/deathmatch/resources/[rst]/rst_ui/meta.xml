@@ -12,6 +12,7 @@
     <script src="server/accounts.lua" type="server" />
     <script src="server/mapstats.lua" type="server" />
     <script src="server/records.lua" type="server" />
+    <script src="server/mapmeta.lua" type="server" />
     <script src="server/mapregistry.lua" type="server" />
     <script src="server/mapmanager.lua" type="server" />
     <script src="server/rooms.lua" type="server" />

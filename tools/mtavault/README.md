@@ -1,6 +1,32 @@
 # mtavault 地图元数据
 
-从 `mtavault.com` 的公开 API 获取 DM 赛道元数据。**脚本只手动运行，不接进服务器启动流程，也不会现在自动抓取。**
+从 `mtavault.com` 的公开 API 获取 DM / HDM 赛道元数据。**脚本只手动运行，不接进服务器启动流程，也不会自动抓取。** 只抓元数据，不下载地图本体。
+
+## 全量 DM / HDM → SQLite
+
+生成服务端使用的 `mapmeta-catalog.json`：
+
+```bash
+node tools/mtavault/fetch-mapmeta.mjs
+```
+
+它会分别抓 `DM` / `HDM`，按 map id 合并去重，写到：
+
+```text
+server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json
+```
+
+服务端首次启动时把 catalog 导入 SQLite 的 `map_meta` 表；之后 `MapRegistry.get()` 按地图 resource 懒查询，不再读大 JSON。
+
+当前抓取结果：
+
+```text
+DM  = 4509
+HDM =   15
+合并 = 4509（HDM 同时带 DM 标签）
+```
+
+不下载封面、不下载地图。封面使用 mtavault/YouTube 的远程 `coverUrl`；本地 `covers/` 只作为已有资源保留。
 
 ## 为什么走 API
 
