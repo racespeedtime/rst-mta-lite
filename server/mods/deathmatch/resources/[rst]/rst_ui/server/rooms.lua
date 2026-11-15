@@ -442,12 +442,8 @@ local function startRound(room, forcedMapId)
     end
 
     MapStats.recordPlay(room.mapId)
-    local mapInfo = MapRegistry.peek(room.mapId)
+    -- 统一使用全局单图时长；地图 meta 里的 #duration 不再覆盖它
     local roundSeconds = config.roundSeconds
-    local mapDuration = mapInfo and mapInfo.settings and tonumber(mapInfo.settings.duration)
-    if mapDuration and mapDuration > 0 then
-        roundSeconds = math.min(mapDuration, 86400)
-    end
     room.active = true
     room.roundEnds = now() + roundSeconds
     room.roundEndsMs = RST.nowMs() + roundSeconds * 1000

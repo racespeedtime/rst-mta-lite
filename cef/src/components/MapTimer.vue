@@ -62,8 +62,11 @@ const bestMs = computed(() => ui.personalBestMs)
 .maptimer {
   position: absolute;
   top: 18px;
-  left: 50%;
-  transform: translateX(-50%);
+  left: 0;
+  right: 0;
+  width: max-content;
+  max-width: calc(100vw - 32px);
+  margin: 0 auto;
   display: flex;
   align-items: center;
   gap: 12px;
