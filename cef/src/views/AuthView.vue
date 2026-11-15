@@ -151,7 +151,7 @@ function onKeydown(event: KeyboardEvent): void {
       </button>
 
       <p class="auth__foot">
-        {{ mode === 'login' ? '登录后进入舞台选择。' : '两次密码一致后创建账号并自动登录。' }}
+        {{ mode === 'login' ? '登录后直接进入比赛。' : '两次密码一致后创建账号并自动登录。' }}
       </p>
     </section>
   </div>

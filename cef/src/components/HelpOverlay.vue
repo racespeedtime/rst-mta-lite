@@ -60,7 +60,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>F2</kbd></span>
-              <span>菜单：换图投票 / 模式投票 / 离开舞台</span>
+              <span>菜单：换图投票 / 模式投票</span>
             </li>
             <li>
               <span class="help__keys"><kbd>T</kbd></span>
@@ -100,7 +100,7 @@ onUnmounted(() => {
               <span>切换到上一位玩家</span>
             </li>
           </ul>
-          <p class="help__note">进入已有玩家的舞台会先观战，下一回合自动加入比赛。</p>
+          <p class="help__note">比赛进行中加入会先观战，下一回合自动加入比赛。</p>
         </section>
 
         <section class="help__section">

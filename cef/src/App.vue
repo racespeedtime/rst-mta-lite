@@ -17,7 +17,6 @@ import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
 import MenuView from '@/views/MenuView.vue'
-import StageSelectView from '@/views/StageSelectView.vue'
 import VoteView from '@/views/VoteView.vue'
 import ModeVoteView from '@/views/ModeVoteView.vue'
 import { emitAction, emitToLua, onBridge } from '@/mta/bridge'
@@ -242,7 +241,6 @@ onUnmounted(() => {
 <template>
   <div class="app-root">
     <AuthView v-if="ui.phase === 'auth'" />
-    <StageSelectView v-else-if="ui.phase === 'stage'" />
     <template v-else-if="ui.phase === 'playing'">
       <GameHud />
       <MapTimer v-if="ui.room" />

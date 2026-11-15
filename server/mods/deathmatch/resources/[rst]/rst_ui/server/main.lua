@@ -186,6 +186,25 @@ end
 
 local actions = {}
 
+local function joinDefaultRoom(player, session)
+    if session.roomId then
+        return true
+    end
+    local def = config.rooms[1]
+    if not def then
+        notify(player, '服务器没有配置舞台')
+        return false
+    end
+    local mode, _, err = Rooms.join(player, def.id)
+    if not mode then
+        notify(player, err or '加入比赛失败')
+        return false
+    end
+    session.roomId = def.id
+    session.mode = mode
+    return true
+end
+
 actions['auth:guest'] = function(player, session)
     if session.authed then
         return
@@ -194,7 +213,9 @@ actions['auth:guest'] = function(player, session)
     session.authed = true
     session.guest = true
     outputServerLog('[AUTH] guest ' .. tostring(getPlayerName(player)))
-    notify(player, '游客模式进入成功')
+    if joinDefaultRoom(player, session) then
+        notify(player, '游客模式进入成功')
+    end
     pushState(player)
 end
 
@@ -243,7 +264,9 @@ actions['auth:register'] = function(player, session, data)
             session.authed = true
             session.guest = false
             outputServerLog('[AUTH] register ' .. tostring(username))
-            notify(player, '注册成功，已自动登录')
+            if joinDefaultRoom(player, session) then
+                notify(player, '注册成功，已自动登录')
+            end
             pushState(player)
         end)
     end)
@@ -278,7 +301,9 @@ actions['auth:login'] = function(player, session, data)
         session.authed = true
         session.guest = false
         outputServerLog(('[AUTH] login %s'):format(tostring(username)))
-        notify(player, '登录成功')
+        if joinDefaultRoom(player, session) then
+            notify(player, '登录成功')
+        end
         pushState(player)
     end)
 end
@@ -640,6 +665,9 @@ addEventHandler('onResourceStart', resourceRoot, function()
     -- 地图投票/自动选图都依赖 math.random；显式播种，避免每次启动同一序列
     math.randomseed(os.time() + getTickCount())
     MapRegistry.init()
+    -- 服务端统一限制所有玩家最高 60 FPS
+    pcall(setFPSLimit, 60)
+    outputServerLog('[PERF] fps limit=60')
     Rooms.init(broadcastState)
 
     for _, player in ipairs(getElementsByType('player')) do

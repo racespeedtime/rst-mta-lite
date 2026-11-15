@@ -43,9 +43,8 @@ RST.config = {
     -- 地图池不在这里维护：MapRegistry 运行时扫描原生 type="map" resource，
     -- 从 meta.xml / .map 读取 name、author、spawnpoint、vehicle、Hunter finish。
 
-    -- 当前两个舞台共用同一个 map resource，同一时间只允许一个舞台开局。
+    -- 一个服务器即一个舞台；不再提供主/副舞台选择
     rooms = {
-        { id = 'main', name = 'DeathMatch · 主舞台', dimension = 0 },
-        { id = 'sub', name = 'DeathMatch · 副舞台', dimension = 0 },
+        { id = 'main', name = 'DeathMatch · 服务器', dimension = 0 },
     },
 }

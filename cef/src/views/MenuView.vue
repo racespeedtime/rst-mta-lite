@@ -5,7 +5,6 @@ import IconChevronRight from '~icons/lucide/chevron-right'
 import IconCar from '~icons/lucide/car'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
-import IconDoorOpen from '~icons/lucide/door-open'
 import IconEye from '~icons/lucide/eye'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
@@ -104,11 +103,6 @@ function openMapDetails(): void {
 
 function openHelp(): void {
   emitAction('help:open')
-  emitAction('menu:close')
-}
-
-function leaveStage(): void {
-  emitAction('stage:leave')
   emitAction('menu:close')
 }
 
@@ -264,15 +258,6 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>打开 DevTools</strong>
             <small>CEF 调试</small>
-          </span>
-          <IconChevronRight class="icon menu-action__arrow" />
-        </button>
-
-        <button type="button" class="menu-action menu-action--ghost" @click="leaveStage">
-          <span class="menu-action__icon"><IconDoorOpen class="icon" /></span>
-          <span class="menu-action__text">
-            <strong>离开舞台</strong>
-            <small>回到舞台选择</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
