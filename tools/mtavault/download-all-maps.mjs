@@ -128,12 +128,13 @@ function curlArgs(part, url, resume) {
     '--fail',
     '--silent',
     '--show-error',
+    '--http1.1',
     '--retry', '2',
     '--retry-delay', '2',
     '--connect-timeout', '20',
-    '--max-time', '600',
+    '--max-time', '240',
     '--speed-limit', '1024',
-    '--speed-time', '60',
+    '--speed-time', '20',
     '-A', 'rst-mta-map-backup/1.0',
     '-o', part,
   ]
@@ -147,7 +148,7 @@ function curlArgs(part, url, resume) {
   return args
 }
 
-function runCurl(args, timeoutMs = 660000) {
+function runCurl(args, timeoutMs = 300000) {
   return new Promise((resolve) => {
     let stderr = ''
     let settled = false
