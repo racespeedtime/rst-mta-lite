@@ -512,6 +512,61 @@ tools/mtavault/README.md
 
 地图本体、压缩包、地图缓存都不进 Git。
 
+### 自定义 Infernus 模型（可选）
+
+代码已经内置服务器默认 Infernus 模型加载，但默认没有模型文件，所以不会生效。
+
+把自定义模型放到：
+
+```text
+server/mods/deathmatch/resources/[rst]/rst_ui/models/infernus.dff
+server/mods/deathmatch/resources/[rst]/rst_ui/models/infernus.txd
+```
+
+- 两个文件可以只放其中一个
+- 模型 ID 固定为 `411`（Infernus）
+- 文件格式必须是 GTA:SA 可用的 DFF / TXD
+- 这两个文件不入库，版权归模型作者
+
+MTA 1.6 的 meta 已经用 glob 自动登记：
+
+```xml
+<file src="models/*.dff" />
+<file src="models/*.txd" />
+```
+
+放入文件后执行：
+
+```text
+restart rst_ui
+```
+
+或者重启服务器。没有模型文件时不会替换，也不会报错。
+
+优先级：
+
+```text
+服务器默认 Infernus 模型
+        ↓ 地图 resource 启动，地图自己的模型脚本加载
+地图自己的 DFF / TXD 覆盖 411
+```
+
+地图 resource 有对应模型时始终使用地图的；换图时服务器默认模型会在地图启动前重新应用，再由新地图覆盖。
+
+如果想完全关闭这个功能，把：
+
+```text
+client/custommodels.lua
+```
+
+顶部的：
+
+```lua
+local ENABLED = true
+```
+
+改成 `false`。
+
 ## 账号
 
 - 自定义 SQLite 账号，昵称即账号名

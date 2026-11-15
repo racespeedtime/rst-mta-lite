@@ -229,6 +229,9 @@ function MapManager.load(mapId)
         stopResource(resource)
     end
 
+    -- 先恢复服务器默认 Infernus；地图客户端脚本随后加载并可覆盖 411
+    triggerClientEvent(root, 'rst:ui:custommodel', root)
+
     local ok, err = startResource(resource)
     if not ok then
         outputServerLog(

@@ -82,6 +82,9 @@ coverage/
 # CEF UI：Vue 构建产物同步到资源内，构建生成、不入库
 server/mods/deathmatch/resources/\[rst\]/rst_ui/ui/
 
+# 自定义 Infernus 模型：版权归模型作者，默认不入库
+server/mods/deathmatch/resources/\[rst\]/rst_ui/models/
+
 # mtavault 元数据 seed：只读、仅公开地图信息，不含玩家数据
 !tools/mtavault/seed/rst_ui_mapmeta.db
 
