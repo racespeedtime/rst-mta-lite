@@ -33,6 +33,8 @@ local cursorAlways = false
 local freeCursor = false
 local hudHidden = false
 local devtoolsOpen = false
+local chatEdit = nil
+local syncChatEdit
 local lastCursorToggleAt = 0
 
 RST = {
@@ -183,7 +185,7 @@ local function setInteractive(enabled)
     toggleAllControls(not enabled, true, false)
 
     if browserReady then
-        if enabled then
+        if enabled and not chatOpen then
             focusBrowser(browser)
         else
             focusBrowser(nil)
@@ -652,6 +654,9 @@ local function applyState(state)
         chatOpen = false
         RST.chatOpen = false
         dispatch('chat', { open = false })
+        if syncChatEdit then
+            syncChatEdit()
+        end
     end
 
     if helpOpen and (phase ~= 'playing' or voteActive) then
@@ -722,11 +727,74 @@ local function setChatOpen(open)
     RST.chatOpen = open
     dispatch('chat', { open = open })
     applyInteractive()
+    if syncChatEdit then
+        syncChatEdit()
+    end
     playUiSound('click')
 end
 
-local function setHelpOpen(open)
-    open = open == true
+local function ensureChatEdit()
+    if isElement(chatEdit) then
+        return
+    end
+
+    local _, screenHeight = guiGetScreenSize()
+    chatEdit = guiCreateEdit(24, math.max(120, screenHeight - 150), 420, 30, '', false)
+    if not chatEdit then
+        outputDebugString('[rst_ui] guiCreateEdit failed', 1)
+        return
+    end
+
+    guiSetFont(chatEdit, 'default-bold')
+    guiSetAlpha(chatEdit, 0.96)
+    guiSetAlwaysOnTop(chatEdit, true)
+    guiEditSetMaxLength(chatEdit, 160)
+    pcall(guiSetProperty, chatEdit, 'NormalTextColour', 'FFE9F5FF')
+    pcall(guiSetProperty, chatEdit, 'ActiveTextColour', 'FFFFFFFF')
+
+    addEventHandler('onClientGUIAccepted', chatEdit, function()
+        local text = tostring(guiEditGetText(chatEdit) or '')
+        text = text:gsub('^%s+', ''):gsub('%s+$', '')
+        if text ~= '' then
+            triggerServerEvent('rst:ui:action', localPlayer, toJSON({
+                action = 'chat:send',
+                text = text,
+            }))
+        end
+        setChatOpen(false)
+    end)
+
+    guiSetVisible(chatEdit, false)
+end
+
+syncChatEdit = function()
+    ensureChatEdit()
+    if not isElement(chatEdit) then
+        return
+    end
+
+    if chatOpen then
+        guiEditSetText(chatEdit, '')
+        guiSetVisible(chatEdit, true)
+        guiBringToFront(chatEdit)
+        guiSetInputEnabled(true)
+        guiFocus(chatEdit)
+        showCursor(true)
+        focusBrowser(nil)
+    else
+        guiSetVisible(chatEdit, false)
+        guiEditSetText(chatEdit, '')
+    end
+end
+
+addEventHandler('onClientKey', root, function(key, press)
+    if chatOpen and press and tostring(key):lower() == 'escape' then
+        setChatOpen(false)
+        cancelEvent()
+    end
+end)
+
+local function setHelpOpen(open)    open = open == true
     if open == helpOpen then
         return
     end
@@ -1344,6 +1412,10 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     end
 
     stopSpectate()
+    if isElement(chatEdit) then
+        destroyElement(chatEdit)
+        chatEdit = nil
+    end
     showCursor(false)
     guiSetInputEnabled(false)
     toggleAllControls(true, true, false)

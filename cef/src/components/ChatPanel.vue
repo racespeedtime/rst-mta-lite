@@ -2,16 +2,11 @@
 import { nextTick, onMounted, ref, watch } from 'vue'
 
 import IconMessageSquare from '~icons/lucide/message-square'
-import IconSend from '~icons/lucide/send'
-import IconX from '~icons/lucide/x'
-import { emitAction } from '@/mta/bridge'
 import type { ChatEntry } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { formatClock } from '@/utils/format'
 
-const draft = ref('')
 const listRef = ref<HTMLElement | null>(null)
-const inputRef = ref<HTMLInputElement | null>(null)
 const stickToBottom = ref(true)
 const unread = ref(0)
 let lastMessageId = ui.messages.at(-1)?.id ?? 0
@@ -53,31 +48,13 @@ function onScroll(): void {
   if (stickToBottom.value) unread.value = 0
 }
 
-function send(): void {
-  const text = draft.value.trim()
-  if (text) {
-    emitAction('chat:send', { text })
-    draft.value = ''
-  }
-  emitAction('chat:close')
-}
-
-function close(): void {
-  emitAction('chat:close')
-}
-
 watch(
   () => ui.chatOpen,
   (open) => {
     if (open) {
       stickToBottom.value = true
       unread.value = 0
-      void nextTick(() => {
-        inputRef.value?.focus()
-        scrollToBottom(true)
-      })
-    } else {
-      draft.value = ''
+      void nextTick(() => scrollToBottom(true))
     }
   },
 )
@@ -110,7 +87,7 @@ onMounted(() => scrollToBottom(true))
         聊天
       </span>
       <span class="chat__hint">
-        {{ ui.chatOpen ? 'Enter 发送 · Esc 取消' : 'T 输入' }} · {{ ui.messages.length }}/{{ ui.chatLimit }}
+        {{ ui.chatOpen ? 'Enter 发送 · Esc 取消 · 原生输入' : 'T 输入' }} · {{ ui.messages.length }}/{{ ui.chatLimit }}
       </span>
     </header>
 
@@ -148,24 +125,9 @@ onMounted(() => scrollToBottom(true))
       {{ unread }} 条新消息 ↓
     </button>
 
-    <form v-if="ui.chatOpen" class="chat__input" @submit.prevent="send">
-      <IconMessageSquare class="icon icon--sm chat__input-icon" />
-      <input
-        ref="inputRef"
-        v-model="draft"
-        maxlength="160"
-        autocomplete="off"
-        placeholder="输入消息，/ 开头为指令…"
-        @keydown.enter.prevent="send"
-        @keydown.esc.prevent="close"
-      />
-      <button type="submit" class="chat__button chat__button--send" aria-label="发送">
-        <IconSend class="icon icon--sm" />
-      </button>
-      <button type="button" class="chat__button" aria-label="关闭聊天" @click="close">
-        <IconX class="icon icon--sm" />
-      </button>
-    </form>
+    <div v-if="ui.chatOpen" class="chat__native-hint">
+      已启用原生输入框 · Enter 发送 · Esc 取消
+    </div>
   </section>
 </template>
 
@@ -303,32 +265,13 @@ onMounted(() => scrollToBottom(true))
   opacity: 0.9;
 }
 
-.chat__input {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  padding: 7px 9px;
+.chat__native-hint {
+  padding: 7px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.14);
-}
-
-.chat__input-icon {
-  color: var(--rst-accent);
-}
-
-.chat__input input {
-  flex: 1;
-  min-width: 0;
-  border: 0;
-  background: transparent;
-  color: var(--rst-text);
-  font: inherit;
-  font-size: 12px;
-  outline: none;
-}
-
-.chat__input input::placeholder {
-  color: rgba(147, 164, 189, 0.6);
+  color: rgba(147, 164, 189, 0.8);
+  font-size: 10px;
+  letter-spacing: 0.04em;
 }
 
 .chat__button {
