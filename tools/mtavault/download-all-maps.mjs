@@ -14,13 +14,14 @@ import { createHash } from 'node:crypto'
 import { spawnSync } from 'node:child_process'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, renameSync, rmSync, statSync, writeFileSync, appendFileSync } from 'node:fs'
 import { join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-const REPO = 'D:/Work/rst-mta-lite'
+const REPO = fileURLToPath(new URL('../..', import.meta.url))
 const CATALOG = join(REPO, 'server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json')
 const CACHE = join(REPO, 'server/mods/deathmatch/map-cache')
-const OUT = resolve(process.env.MAP_BACKUP_DIR || 'D:/Work/rst-mta-map-backup/mtavault-dm-hdm')
+const OUT = resolve(process.env.MAP_BACKUP_DIR || join(REPO, '..', 'mtavault-map-backup', 'mtavault-dm-hdm'))
 const PROXY = process.env.MAP_PROXY || 'http://127.0.0.1:7890'
-const PYTHON = process.env.PYTHON || 'C:/Users/yjl/.dsh/dsh-runtimes/dsh-primary-runtime/dependencies/python/python.exe'
+const PYTHON = process.env.PYTHON || (process.platform === 'win32' ? 'python' : 'python3')
 const LOG = join(OUT, 'download.log')
 const MANIFEST = join(OUT, 'manifest.json')
 
