@@ -71,6 +71,55 @@ local function canWarp()
     return isElement(localPlayer) and getElementHealth(localPlayer) > 0
 end
 
+local function readAngularVelocity(element)
+    if not element or not isElement(element) or not getElementAngularVelocity then
+        return 0, 0, 0
+    end
+    local ok, x, y, z = pcall(getElementAngularVelocity, element)
+    if not ok then
+        return 0, 0, 0
+    end
+    return x or 0, y or 0, z or 0
+end
+
+local function applyAngularVelocity(element, x, y, z)
+    if element and isElement(element) and setElementAngularVelocity then
+        pcall(setElementAngularVelocity, element, x or 0, y or 0, z or 0)
+    end
+end
+
+local function readMatrix(element)
+    if not element or not isElement(element) or not getElementMatrix then
+        return nil
+    end
+    local ok, matrix = pcall(getElementMatrix, element)
+    return ok and matrix or nil
+end
+
+local function applyNitro(element, state)
+    if not isElement(element) or getElementType(element) ~= 'vehicle' then
+        return
+    end
+    if type(state.nitroLevel) == 'number' then
+        pcall(setVehicleNitroLevel, element, math.max(0, math.min(1, state.nitroLevel)))
+    end
+    if type(state.nitroCount) == 'number' then
+        pcall(setVehicleNitroCount, element, state.nitroCount)
+    end
+    if state.nitroActive ~= nil then
+        pcall(setVehicleNitroActivated, element, state.nitroActive == true)
+    end
+end
+
+local function restoreMotion(element, state)
+    if not isElement(element) then
+        return
+    end
+    pcall(setElementVelocity, element, state.vx or 0, state.vy or 0, state.vz or 0)
+    applyAngularVelocity(element, state.avx, state.avy, state.avz)
+    applyNitro(element, state)
+end
+
 function RST.stopWarp()
     if freezeTimer then
         killTimer(freezeTimer)
@@ -83,7 +132,7 @@ function RST.stopWarp()
     RST.warpBusy = false
 end
 
-local function freezeAfterWarp(element)
+local function freezeAfterWarp(element, state)
     if not isElement(element) then
         return
     end
@@ -93,12 +142,16 @@ local function freezeAfterWarp(element)
     RST.warpBusy = true
     pcall(setElementFrozen, element, true)
     pcall(setElementVelocity, element, 0, 0, 0)
+    applyAngularVelocity(element, 0, 0, 0)
+    if getElementType(element) == 'vehicle' then
+        pcall(setVehicleNitroActivated, element, false)
+    end
 
     freezeTimer = setTimer(function()
         freezeTimer = nil
         if isElement(frozenElement) then
             pcall(setElementFrozen, frozenElement, false)
-            pcall(setElementVelocity, frozenElement, 0, 0, 0)
+            restoreMotion(frozenElement, state)
         end
         frozenElement = nil
         RST.warpBusy = false
@@ -128,14 +181,38 @@ local function teleportTo(warp)
         return false
     end
 
+    local state = warp.state or warp
+
+    -- 位置 + 朝向：有矩阵时一起恢复精确朝向，Euler 作为兜底
+    if state.matrix and setElementMatrix then
+        pcall(setElementMatrix, target, state.matrix)
+    end
     setElementPosition(target, warp.x, warp.y, warp.z)
     setElementRotation(target, warp.rx, warp.ry, warp.rz)
-    setElementVelocity(target, 0, 0, 0)
     if vehicle then
         pcall(setElementRotation, localPlayer, warp.rx, warp.ry, warp.rz)
         pcall(setCameraTarget, target)
     end
-    freezeAfterWarp(target)
+
+    -- 载具/玩家血量、护甲、氮气
+    if state.healthKind == 'vehicle' and vehicle then
+        local health = math.max(1, math.min(1000, tonumber(state.health) or 1000))
+        setElementHealth(vehicle, health)
+        triggerServerEvent('rst:rewind:health', localPlayer, health)
+    end
+    if state.playerHealth then
+        pcall(setElementHealth, localPlayer, math.max(1, math.min(100, state.playerHealth)))
+    end
+    if state.armor then
+        pcall(setPedArmor, localPlayer, math.max(0, math.min(100, state.armor)))
+    end
+    if vehicle then
+        applyNitro(vehicle, state)
+        pcall(setVehicleNitroActivated, vehicle, false)
+    end
+
+    setElementVelocity(target, 0, 0, 0)
+    freezeAfterWarp(target, state)
     return true
 end
 
@@ -155,6 +232,16 @@ function RST.saveWarp()
     local target = vehicle or localPlayer
     local x, y, z = getElementPosition(target)
     local rx, ry, rz = getElementRotation(target)
+    local vx, vy, vz = getElementVelocity(target)
+    local avx, avy, avz = readAngularVelocity(target)
+    local matrix = readMatrix(target)
+
+    local nitroLevel, nitroCount, nitroActive
+    if vehicle then
+        nitroLevel = getVehicleNitroLevel(vehicle)
+        nitroCount = getVehicleNitroCount(vehicle)
+        nitroActive = isVehicleNitroActivated(vehicle)
+    end
 
     warps[#warps + 1] = {
         id = nextId,
@@ -167,6 +254,28 @@ function RST.saveWarp()
         rz = rz,
         at = os.time(),
         vehicle = vehicle and getElementModel(vehicle) or 0,
+        state = {
+            x = x,
+            y = y,
+            z = z,
+            rx = rx,
+            ry = ry,
+            rz = rz,
+            vx = vx,
+            vy = vy,
+            vz = vz,
+            avx = avx,
+            avy = avy,
+            avz = avz,
+            matrix = matrix,
+            healthKind = vehicle and 'vehicle' or 'player',
+            health = getElementHealth(target),
+            playerHealth = getElementHealth(localPlayer),
+            armor = getPedArmor(localPlayer) or 0,
+            nitroLevel = nitroLevel,
+            nitroCount = nitroCount,
+            nitroActive = nitroActive,
+        },
     }
     nextId = nextId + 1
 

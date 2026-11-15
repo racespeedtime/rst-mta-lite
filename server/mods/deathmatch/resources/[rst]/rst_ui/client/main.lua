@@ -59,6 +59,7 @@ RST = {
     rewindLives = nil,
     gameMode = 'training',
     mapId = nil,
+    roomId = nil,
     warpBusy = false,
     warpHolding = false,
 }
@@ -781,10 +782,17 @@ local function applyState(state)
     RST.rewindLives = tonumber(state.lives)
 
     local previousMapId = RST.mapId
+    local previousRoomId = RST.roomId
+    local previousGameMode = RST.gameMode
     RST.gameMode = state.mode == 'competitive' and 'competitive'
         or (state.room and state.room.gameMode == 'competitive' and 'competitive' or 'training')
     RST.mapId = state.room and state.room.mapId or nil
-    if RST.mapId ~= previousMapId and RST.clearWarps then
+    RST.roomId = state.room and state.room.id or nil
+    if RST.clearWarps
+        and (RST.mapId ~= previousMapId
+            or RST.roomId ~= previousRoomId
+            or RST.gameMode ~= previousGameMode)
+    then
         RST.clearWarps()
     end
 

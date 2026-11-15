@@ -357,8 +357,8 @@ function respawn(): void {
 
       <div v-else-if="activeTab === 'training'" class="menu-actions">
         <p class="warp-hint">
-          短按左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 回到最近一个点。
-          回到传送点后会冻结 0.5 秒，且不能与倒带同时进行。
+          短按左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 到阈值立即回到最近一个点，不需要等松开。
+          传送后冻结 0.5 秒，且不能与倒带同时进行。换图、换房间或切换模式会清空传送点。
         </p>
 
         <template v-if="ui.gameMode === 'training'">
