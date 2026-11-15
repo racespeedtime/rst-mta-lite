@@ -96,6 +96,7 @@ local function buildState(player, session)
                 state.competitiveMode = room.competitiveMode or 'solo'
                 state.room = Rooms.summary(room)
                 state.room.mode = session.mode or 'playing'
+                state.me.mode = session.mode or 'playing'
                 state.me.team = room.teamOf[player]
                 state.progress = Rooms.progressState(room, player)
                 state.vote = Rooms.voteState(room, player)

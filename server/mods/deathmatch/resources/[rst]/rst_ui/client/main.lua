@@ -25,6 +25,8 @@ local interactive = false
 local cachedState = nil
 local spectateTarget = nil
 local spectateName = ''
+local spectatorFallback = false
+local spectatorFallbackVehicle = nil
 local spectateTimer = nil
 local countdownTimer = nil
 local countdownVehicle = nil
@@ -274,13 +276,56 @@ local function setSpectateName(name)
     dispatch('spectate', { name = name })
 end
 
+local function leaveSpectatorFallback()
+    if not spectatorFallback then
+        return
+    end
+    spectatorFallback = false
+    if isElement(spectatorFallbackVehicle) then
+        setElementAlpha(spectatorFallbackVehicle, 255)
+    end
+    spectatorFallbackVehicle = nil
+    if isElement(localPlayer) then
+        setElementAlpha(localPlayer, 255)
+    end
+end
+
+local function enterSpectatorFallback()
+    if spectatorFallback then
+        return
+    end
+
+    spectatorFallback = true
+    spectatorFallbackVehicle = getPedOccupiedVehicle(localPlayer)
+
+    -- 没有其他玩家可跟随时保持当前镜头，并隐藏自己的角色，避免看起来像“出生了”
+    local px, py, pz, tx, ty, tz = getCameraMatrix()
+    if not px or not tx then
+        local x, y, z = getElementPosition(localPlayer)
+        px, py, pz = x, y, z + 8
+        tx, ty, tz = x, y, z
+    end
+    setCameraMatrix(px, py, pz, tx, ty, tz)
+
+    if isElement(localPlayer) then
+        setElementAlpha(localPlayer, 0)
+    end
+    if isElement(spectatorFallbackVehicle) then
+        setElementAlpha(spectatorFallbackVehicle, 0)
+    end
+end
+
 local function stopSpectate()
     if spectateTimer then
         killTimer(spectateTimer)
         spectateTimer = nil
     end
+    leaveSpectatorFallback()
     spectateTarget = nil
     setSpectateName('')
+    if isElement(localPlayer) then
+        setCameraTarget(localPlayer)
+    end
 end
 
 local function getSpectatePlayers()
@@ -308,6 +353,7 @@ end
 local function setSpectateTarget(target)
     spectateTarget = target
     if isElement(target) then
+        leaveSpectatorFallback()
         setCameraTarget(target)
         setSpectateName(getPlayerName(target) or '')
     else
@@ -323,9 +369,12 @@ local function updateSpectateTarget()
     local players = getSpectatePlayers()
     if #players == 0 then
         spectateTarget = nil
-        setSpectateName('')
+        setSpectateName('等待其他玩家')
+        enterSpectatorFallback()
         return
     end
+
+    leaveSpectatorFallback()
 
     local valid = false
     if spectateTarget and isElement(spectateTarget) then

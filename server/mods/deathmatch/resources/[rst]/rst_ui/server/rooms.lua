@@ -970,9 +970,9 @@ function Rooms.eliminate(player, room)
     end
 
     if #room.players == 0 then
-        room.active = false
-        room.roundEnds = 0
+        -- 淘汰观战也保留地图和投票入口，避免最后一名玩家失去投票权
         room.waiting = false
+        room.ready = {}
     end
 
     stateChanged()
@@ -1051,9 +1051,10 @@ function Rooms.becomeSpectator(player)
     end
 
     if #room.players == 0 then
-        room.active = false
-        room.roundEnds = 0
+        -- 最后一个参赛者转观战后，房间保留地图和投票入口；
+        -- 直接把房间关掉会让唯一的观战者丢掉投票权。
         room.waiting = false
+        room.ready = {}
     elseif room.waiting and allPlayersReady(room) then
         Rooms.beginCountdown(room)
     end
@@ -1081,6 +1082,14 @@ function Rooms.returnToRace(player)
     room.ob[player] = nil
 
     if not room.active and not room.vote and not room.modeVote and #room.players == 0 then
+        removePlayer(room.spectators, player)
+        room.players[#room.players + 1] = player
+        startRound(room)
+        return true, 'started'
+    end
+
+    -- 最后一个参赛者转观战后房间仍保持 active；明确点“参赛”时重新开一回合
+    if room.active and not room.waiting and not room.vote and not room.modeVote and #room.players == 0 then
         removePlayer(room.spectators, player)
         room.players[#room.players + 1] = player
         startRound(room)
@@ -1201,18 +1210,19 @@ function Rooms.leave(player)
             ))
 
             if #room.players == 0 then
-                room.active = false
-                room.roundEnds = 0
-                room.vote = nil
-                room.modeVote = nil
                 room.waiting = false
                 room.ready = {}
-                clearTeams(room)
 
-                -- 只有完全空房才重置模式和纯 OB 标记；只剩观战者时保留偏好
+                -- 还有观战者时保留地图、投票和房间状态；完全空房才彻底重置
                 if #room.spectators == 0 then
+                    room.active = false
+                    room.roundEnds = 0
+                    room.roundEndsMs = 0
+                    room.vote = nil
+                    room.modeVote = nil
                     room.lives = {}
                     room.ob = {}
+                    clearTeams(room)
                     room.mode = config.defaultMode or 'training'
                     room.competitiveMode = 'solo'
                     room.lastVoteAt = 0
