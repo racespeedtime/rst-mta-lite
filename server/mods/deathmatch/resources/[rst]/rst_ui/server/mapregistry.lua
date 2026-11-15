@@ -99,7 +99,7 @@ local function applyMapMeta(entry)
     return entry
 end
 
-local function readMap(resource)
+local function readMapMeta(resource)
     local resourceName = getResourceName(resource)
     if not resourceName or getResourceInfo(resource, 'type') ~= 'map' then
         return nil
@@ -117,15 +117,46 @@ local function readMap(resource)
         return nil
     end
 
-    local mapRoot = xmlLoadFile(':' .. resourceName .. '/' .. mapSrc, true)
+    local entry = {
+        id = resourceName,
+        resource = resourceName,
+        mapSrc = mapSrc,
+        name = (infoNode and attr(infoNode, 'name')) or getResourceInfo(resource, 'name') or resourceName,
+        author = (infoNode and attr(infoNode, 'author')) or getResourceInfo(resource, 'author') or '未知作者',
+        dimension = tonumber(attr(mapNode, 'dimension')) or 0,
+        settings = readSettings(meta),
+        spawnpoints = nil,
+        pickups = nil,
+        finish = nil,
+        _detailsLoaded = false,
+        _detailsFailed = false,
+    }
+
+    xmlUnloadFile(meta)
+    return entry
+end
+
+local function loadMapDetails(entry)
+    if not entry then
+        return false
+    end
+    if entry._detailsLoaded then
+        return true
+    end
+    if entry._detailsFailed then
+        return false
+    end
+
+    local mapRoot = xmlLoadFile(':' .. entry.resource .. '/' .. entry.mapSrc, true)
     if not mapRoot then
-        xmlUnloadFile(meta)
-        return nil
+        entry._detailsFailed = true
+        return false
     end
 
     local spawns = {}
     local pickups = {}
-    local lastCheckpoint    local hunterCount = 0
+    local lastCheckpoint
+    local hunterCount = 0
     local hunterX, hunterY, hunterZ = 0, 0, 0
 
     for _, node in ipairs(xmlNodeGetChildren(mapRoot) or {}) do
@@ -173,42 +204,38 @@ local function readMap(resource)
         end
     end
 
-    local entry
-    if #spawns > 0 then
-        local first = spawns[1]
-        local finish
-        local settings = readSettings(meta)
-        if hunterCount > 0 then
-            finish = { x = hunterX / hunterCount, y = hunterY / hunterCount, z = hunterZ / hunterCount }
-        elseif lastCheckpoint then
-            finish = {
-                x = num(lastCheckpoint, 'posX'),
-                y = num(lastCheckpoint, 'posY'),
-                z = num(lastCheckpoint, 'posZ'),
-            }
-        end
+    if #spawns == 0 then
+        entry._detailsFailed = true
+        xmlUnloadFile(mapRoot)
+        return false
+    end
 
-        entry = {
-            id = resourceName,
-            resource = resourceName,
-            name = (infoNode and attr(infoNode, 'name')) or getResourceInfo(resource, 'name') or resourceName,
-            author = (infoNode and attr(infoNode, 'author')) or getResourceInfo(resource, 'author') or '未知作者',
-            dimension = tonumber(attr(mapNode, 'dimension')) or 0,
-            spawnpoints = spawns,
-            x = first.x,
-            y = first.y,
-            z = first.z,
-            rot = first.rot or 0,
-            vehicle = first.vehicle,
-            finish = finish,
-            pickups = pickups,
-            settings = settings,
+    local first = spawns[1]
+    local finish
+    if hunterCount > 0 then
+        finish = {
+            x = hunterX / hunterCount,
+            y = hunterY / hunterCount,
+            z = hunterZ / hunterCount,
+        }
+    elseif lastCheckpoint then
+        finish = {
+            x = num(lastCheckpoint, 'posX'),
+            y = num(lastCheckpoint, 'posY'),
+            z = num(lastCheckpoint, 'posZ'),
         }
     end
 
+    entry.spawnpoints = spawns
+    entry.x, entry.y, entry.z = first.x, first.y, first.z
+    entry.rot = first.rot or 0
+    entry.vehicle = first.vehicle
+    entry.finish = finish
+    entry.pickups = pickups
+    entry._detailsLoaded = true
+
     xmlUnloadFile(mapRoot)
-    xmlUnloadFile(meta)
-    return entry
+    return true
 end
 
 function MapRegistry.init()
@@ -216,12 +243,12 @@ function MapRegistry.init()
     ids = {}
 
     for _, resource in ipairs(getResources()) do
-        local entry = readMap(resource)
+        local entry = readMapMeta(resource)
         if entry then
             maps[entry.id] = entry
             ids[#ids + 1] = entry.id
         elseif getResourceInfo(resource, 'type') == 'map' then
-            outputServerLog(('[MAP] skipped %s: no usable spawnpoint / .map'):format(
+            outputServerLog(('[MAP] skipped %s: unreadable meta/map declaration'):format(
                 tostring(getResourceName(resource))
             ))
         end
@@ -231,31 +258,7 @@ function MapRegistry.init()
         return (maps[a].name or a) < (maps[b].name or b)
     end)
 
-    for _, id in ipairs(ids) do
-        local entry = maps[id]
-        outputServerLog(('[MAP] native %s spawns=%d first=(%.2f, %.2f, %.2f) vehicle=%s finish=%s'):format(
-            tostring(entry.name),
-            #entry.spawnpoints,
-            entry.x,
-            entry.y,
-            entry.z,
-            tostring(entry.vehicle or 'default'),
-            entry.finish and 'hunter/checkpoint' or 'none'
-        ))
-        outputServerLog(('[MAP] pickups %s count=%d'):format(
-            tostring(entry.name), #(entry.pickups or {})
-        ))
-        local settings = entry.settings or {}
-        outputServerLog(('[MAP] settings %s time=%s weather=%s duration=%s locked_time=%s'):format(
-            tostring(entry.name),
-            tostring(settings.time),
-            tostring(settings.weather),
-            tostring(settings.duration),
-            tostring(settings.locked_time)
-        ))
-    end
-
-    outputServerLog(('[MAP] discovered %d native map resource(s); metadata from sqlite'):format(
+    outputServerLog(('[MAP] discovered %d native map resource(s); .map details are lazy loaded'):format(
         #ids
     ))
     return #ids
@@ -263,6 +266,22 @@ end
 
 function MapRegistry.get(mapId)
     return applyMapMeta(maps[mapId])
+end
+
+function MapRegistry.peek(mapId)
+    return maps[mapId]
+end
+
+function MapRegistry.details(mapId)
+    local entry = maps[mapId]
+    if not entry then
+        return nil
+    end
+    if not loadMapDetails(entry) then
+        outputServerLog(('[MAP] failed to load details for %s'):format(tostring(mapId)))
+        return nil
+    end
+    return applyMapMeta(entry)
 end
 
 function MapRegistry.list()

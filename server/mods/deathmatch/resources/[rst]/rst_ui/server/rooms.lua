@@ -195,7 +195,7 @@ local function pickVoteOptions(room)
     for _, mapId in ipairs(MapRegistry.list()) do
         if
             mapId ~= room.mapId
-            and MapRegistry.get(mapId)
+            and MapRegistry.peek(mapId)
             and not mapUsedByOtherRoom(room, mapId)
         then
             if recent[mapId] then
@@ -219,13 +219,13 @@ local function pickVoteOptions(room)
     end
 
     -- 只有一张图时允许投票保留当前图
-    if #selected == 0 and room.mapId and MapRegistry.get(room.mapId) then
+    if #selected == 0 and room.mapId and MapRegistry.peek(room.mapId) then
         selected[1] = room.mapId
     end
 
     local options = {}
     for _, mapId in ipairs(selected) do
-        local map = MapRegistry.get(mapId)
+        local map = MapRegistry.peek(mapId)
         options[#options + 1] = {
             id = mapId,
             name = map.name,
@@ -290,7 +290,7 @@ end
 
 -- 竞速车辆之间关闭碰撞由客户端统一处理（setElementCollidableWith 是客户端碰撞状态）
 local function spawnPlayerInRoom(player, room, countdown, waiting)
-    local map = MapRegistry.get(room.mapId)
+    local map = MapRegistry.details(room.mapId)
     if not map or not isElement(player) then
         return
     end
@@ -362,7 +362,7 @@ local function startRound(room, forcedMapId)
     end
 
     room.mapId = forcedMapId or pickMap(room)
-    if not room.mapId or not MapRegistry.get(room.mapId) then
+    if not room.mapId or not MapRegistry.peek(room.mapId) then
         room.active = false
         room.roundEnds = 0
         room.waiting = false
@@ -387,7 +387,7 @@ local function startRound(room, forcedMapId)
     end
 
     MapStats.recordPlay(room.mapId)
-    local mapInfo = MapRegistry.get(room.mapId)
+    local mapInfo = MapRegistry.peek(room.mapId)
     local roundSeconds = config.roundSeconds
     local mapDuration = mapInfo and mapInfo.settings and tonumber(mapInfo.settings.duration)
     if mapDuration and mapDuration > 0 then
@@ -521,7 +521,7 @@ local function checkFinishes(room, time)
         return
     end
 
-    local map = MapRegistry.get(room.mapId)
+    local map = MapRegistry.details(room.mapId)
     local finish = map and map.finish
     if not finish then
         return
@@ -863,7 +863,7 @@ function Rooms.progressState(room, player)
         return nil
     end
 
-    local map = MapRegistry.get(room.mapId)
+    local map = MapRegistry.details(room.mapId)
     local percent, distance, finished, traveled = mapProgress(room, player, map)
     if percent == nil then
         return nil
@@ -882,7 +882,7 @@ function Rooms.competitionState(room, player)
         return nil
     end
 
-    local map = room.mapId and MapRegistry.get(room.mapId)
+    local map = room.mapId and MapRegistry.details(room.mapId)
     local finish = map and map.finish
     local hasStart = map and map.x and map.y and map.z
     local format = room.competitiveMode or 'solo'
@@ -1712,7 +1712,7 @@ function Rooms.modeVoteState(room, player)
 end
 
 function Rooms.summary(room)
-    local map = room.mapId and MapRegistry.get(room.mapId)
+    local map = room.mapId and MapRegistry.details(room.mapId)
     local mapDetails
     if map then
         local vehicles = {}
@@ -1772,7 +1772,7 @@ function Rooms.voteState(room, player)
 
     local options = {}
     for _, option in ipairs(room.vote.options) do
-        local map = MapRegistry.get(option.id)
+        local map = MapRegistry.peek(option.id)
         options[#options + 1] = {
             id = option.id,
             name = option.name,

@@ -54,7 +54,7 @@ local function pickupPayload(player)
     if not currentMapId then
         return nil
     end
-    local map = MapRegistry.get(currentMapId)
+    local map = MapRegistry.details(currentMapId)
     if not map then
         return nil
     end
@@ -206,7 +206,7 @@ function MapManager.currentMapId()
 end
 
 function MapManager.load(mapId)
-    local map = MapRegistry.get(mapId)
+    local map = MapRegistry.details(mapId)
     if not map then
         return false, '地图资源未发现'
     end
