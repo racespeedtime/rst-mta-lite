@@ -124,6 +124,52 @@ node tools/setup-map-acl.mjs
 - 地图车辆模型替换由地图 resource 自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行
 - 地图 ID 就是 resource 名
 - 地图池就是发现到的地图列表
+- 启动只读 `meta.xml`，`.map` 的 spawn / pickup / finish 在选中地图时才解析
+
+## mtavault 地图集
+
+截至 **2026-11-15**：
+
+- 已抓取并写入 SQLite 的 mtavault **DM / HDM** 元数据：**4509 张**
+- HDM 15 张同时带 DM 标签，按地图 ID 去重后为 4509
+- 当前服务器实际安装并用于验证的地图：4 张
+- 地图本体 zip 作为可选备份包，不进入 Git
+
+完整地图 zip 由维护者上传网盘；下载后不需要解压，直接放到：
+
+```text
+server/mods/deathmatch/resources/
+```
+
+例如：
+
+```text
+resources/silent-hill.zip
+resources/atlas.zip
+resources/superieur.zip
+```
+
+MTA 支持 zip resource，资源名就是 zip 去掉 `.zip` 的名字。
+
+然后：
+
+```text
+refresh
+restart rst_ui
+```
+
+或者直接重启服务器，地图会进入地图池。
+
+要求：
+
+- zip 根目录直接有 `meta.xml`，不能多套一层文件夹
+- 不要同时保留同名解压目录和 zip
+- 不要把已经安装过的 4 张重复复制
+- 客户端只会下载当前被选中的地图，不会因为装了 4509 张就全部下载
+
+F2 →「地图池」可以分页浏览和搜索已安装地图。
+
+启动只读取轻量 meta；只有地图被选中时才解析 `.map`。全量 4509 张会扫描 4509 个 resource/meta，但不会启动时解析全部地图细节。
 
 出生：
 
@@ -228,9 +274,9 @@ tools/setup-map-acl.mjs      地图 ACL 设置
 
 ## 已知限制
 
-- CEF 中文输入不可用
+- CEF 输入框中文输入不可用；聊天输入已改用 MTA 原生 chatbox
 - 单服务器单舞台，同一时间一张地图；真正并行需要地图实例化或双服务器
-- 地图没有 checkpoint / 圈速校验；完赛按终点半径判定，排行按冲线顺序
+- 地图没有 checkpoint / 圈速校验；完赛按终点半径判定，排行按冲线顺序和剩余命数
 - rewind 是客户端本地回放，无服务端校验
 - 原生地图脚本可能输出自己的聊天提示或 deprecated 警告
 - 登录错误会区分账号不存在 / 密码错误
@@ -238,9 +284,10 @@ tools/setup-map-acl.mjs      地图 ACL 设置
 ## 验证
 
 - `pnpm type-check`、`pnpm build`、Lua 5.1 语法检查通过
-- 真实客户端验证注册、登录、游客、HUD、地图加载、地图详情
-- 服务端启动：`Resources: 4 loaded, 0 failed`
-- 地图发现：3 个原生 map resource
+- 真实客户端验证注册、登录、游客、HUD、地图加载、地图详情、地图池分页
+- 服务端启动：`Resources: 5 loaded, 0 failed`
+- 地图发现：4 个原生 map resource
+- mtavault 元数据：4509 张，SQLite 已导入
 - 地图资源 ACL、随机 spawn、无默认氮气、地图详情已在客户端验证
 
 ## 约定
