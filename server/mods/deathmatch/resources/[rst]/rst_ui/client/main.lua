@@ -88,6 +88,11 @@ local function setNativeHudVisible(visible)
     end
 end
 
+-- 关闭速度/加速度引起的原生动态模糊
+local function disableMotionBlur()
+    pcall(setBlurLevel, 0)
+end
+
 -- ---------------------------------------------------------------------------
 -- 与页面通信
 -- ---------------------------------------------------------------------------
@@ -633,6 +638,7 @@ local function applyState(state)
     RST.voteActive = voteActive
     RST.readyWaiting = readyWaiting
     RST.rewindLives = tonumber(state.lives)
+    disableMotionBlur()
 
     if phase ~= 'playing' and menuOpen then
         menuOpen = false
@@ -1038,6 +1044,7 @@ end)
 -- ---------------------------------------------------------------------------
 
 addEventHandler('onClientPlayerSpawn', localPlayer, function()
+    disableMotionBlur()
     if phase == 'playing' and mode == 'playing' then
         stopSpectate()
         setCameraTarget(localPlayer)
@@ -1339,5 +1346,6 @@ showChat(false, true)
 
 -- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
 setNativeHudVisible(false)
+disableMotionBlur()
 
 createUiBrowser()
