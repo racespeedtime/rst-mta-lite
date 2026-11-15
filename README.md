@@ -93,11 +93,17 @@ server/
 1. 先把官方 MTA 服务端完整解压到临时目录
 2. 把完整目录合并到仓库的 `server/`
 3. 确认仓库里的 `[rst]/rst_ui` 没有被覆盖
+4. 用仓库自带的 `mtaserver.conf` / `acl.xml` 覆盖官方默认文件
 
 注意：
 
-- `server/` 整体在 `.gitignore` 中，除了 `server/mods/deathmatch/resources/[rst]/`。
-- `MTA Server.exe`、DLL、`mods/deathmatch` 核心文件、`mtaserver.conf`、`acl.xml` 都需要本地准备。
+- `server/` 大部分文件在 `.gitignore` 中，只显式跟踪：
+  - `server/mods/deathmatch/resources/[rst]/`
+  - `server/mods/deathmatch/mtaserver.conf`
+  - `server/mods/deathmatch/acl.xml`
+- `MTA Server.exe`、DLL、`mods/deathmatch` 核心文件需要本地准备。
+- `mtaserver.conf` 和 `acl.xml` 仓库已经提供默认配置，可以直接用，也可以按部署环境修改。
+- 官方服务端安装包自带的配置会覆盖仓库版本，合并后要把仓库版本恢复回来。
 - `libmysql.dll` 只是 MTA 服务端自带的客户端库，正常开服不需要安装 MySQL Server。
 
 ### 3. 补地图资源
@@ -158,26 +164,28 @@ server/mods/deathmatch/resources/[rst]/rst_ui/ui/
 
 ### 5. 配置服务端
 
-编辑：
+仓库自带：
 
 ```text
 server/mods/deathmatch/mtaserver.conf
 ```
 
-至少确认：
+默认配置已经包含：
 
 ```xml
+<servername>rst-mta-lite</servername>
 <serverport>22003</serverport>
 <httpport>22005</httpport>
 <maxplayers>32</maxplayers>
+<fpslimit>60</fpslimit>
 
 <!-- 启动核心资源 -->
 <resource src="rst_ui" startup="1" protected="0"/>
 ```
 
-`rst_ui` 必须设为 `startup="1"`，否则服务器启动后没有比赛逻辑。
+可以按部署环境修改端口、服务器名和下载地址。`rst_ui` 必须保持 `startup="1"`，否则服务器启动后没有比赛逻辑。
 
-脚本启动时会统一设置：
+脚本启动时也会统一设置：
 
 ```lua
 setFPSLimit(60)
@@ -185,23 +193,33 @@ setFPSLimit(60)
 
 ### 6. 配置地图 ACL
 
-`rst_ui` 需要启动 / 停止地图 resource，并读取地图 XML：
+仓库自带：
+
+```text
+server/mods/deathmatch/acl.xml
+```
+
+其中的 `raceACLGroup` 已经包含：
+
+```xml
+<object name="resource.rst_ui"></object>
+```
+
+并授予：
 
 - `function.startResource`
 - `function.stopResource`
 - `function.xmlLoadFile`
 
-这些权限写在 `rst_ui/meta.xml` 的 `<aclrequest>` 中。
+如果安装官方服务端时用官方 `acl.xml` 覆盖了仓库版本，需要恢复仓库的 `acl.xml`，或者在 MTA 管理面板批准 `rst_ui` 的地图资源权限。
 
-方式一：在 MTA 管理面板批准 `rst_ui` 的 ACL 请求。
-
-方式二：停止服务器后运行：
+也可以停止服务器后运行：
 
 ```bash
 node tools/setup-map-acl.mjs
 ```
 
-如果脚本提示找不到 `raceACLGroup`，需要在 `acl.xml` 中手动把：
+如果脚本提示找不到 `raceACLGroup`，需要手动把：
 
 ```xml
 <object name="resource.rst_ui"></object>
@@ -293,9 +311,10 @@ mtasa://127.0.0.1:22003
 | `rst_ui/` Lua / CEF 页面 | 是 | UI 构建产物 `ui/` 除外 |
 | `mapmeta` seed DB | 是 | 安装为运行时 `rst_ui_mapmeta.db` |
 | `MTA Server.exe` + `core.dll` / `net.dll` / `pthread.dll` / `xmll.dll` | 否 | 官方 MTA 服务端完整安装 |
-| `mods/deathmatch` 的 DLL / 配置文件 | 否 | `deathmatch.dll`、`lua5.1.dll`、`libssl-3.dll` 等 |
-| `mtaserver.conf` / `acl.xml` / `banlist.xml` | 否 | 本地配置 |
-| `internal.db` / `registry.db` / `server-id.keys` | 否 | 运行时文件 |
+| `mods/deathmatch` 的 DLL | 否 | `deathmatch.dll`、`lua5.1.dll`、`libssl-3.dll` 等 |
+| `mtaserver.conf` / `acl.xml` | 是 | 默认配置，含 `rst_ui` 启动项和地图 ACL |
+| `banlist.xml` / `settings.xml` / `internal.db` | 否 | 本地配置或运行时文件 |
+| `server-id.keys` | 否 | 运行时生成，不能共享 |
 | 地图 zip | 否 | 从网盘/备份补充 |
 | `map-cache` / `databases` / `logs` | 否 | 运行时生成 |
 | `rst_ui/ui/` | 否 | `pnpm build` 生成 |
