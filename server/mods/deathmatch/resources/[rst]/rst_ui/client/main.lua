@@ -365,8 +365,49 @@ local function cycleSpectate(direction)
     setSpectateName((getPlayerName(trackingTarget) or '玩家') .. (vehicle and ' · 车辆' or ' · 角色'))
 end
 
+local function freecamPaused()
+    return interactive
+        or chatOpen
+        or menuOpen
+        or isMTAWindowActive()
+        or isMainMenuActive()
+        or isConsoleActive()
+        or isChatBoxInputActive()
+end
+
+local function applyFreecamCamera()
+    local yaw = math.rad(freecamYaw)
+    local pitch = math.rad(freecamPitch)
+    local fx = math.cos(pitch) * math.cos(yaw)
+    local fy = math.cos(pitch) * math.sin(yaw)
+    local fz = math.sin(pitch)
+    setCameraMatrix(freecamX, freecamY, freecamZ, freecamX + fx * 8, freecamY + fy * 8, freecamZ + fz * 8)
+end
+
+local function armMouseLook()
+    mouseLookReady = false
+    if mouseResumeTimer then
+        killTimer(mouseResumeTimer)
+        mouseResumeTimer = nil
+    end
+
+    local width, height = guiGetScreenSize()
+    setCursorPosition(width / 2, height / 2)
+    mouseResumeTimer = setTimer(function()
+        mouseResumeTimer = nil
+        if freecamActive and not freecamPaused() then
+            mouseLookReady = true
+        end
+    end, 150, 1)
+end
+
 local function onSpectateMouse(_, _, absoluteX, absoluteY)
-    if not freecamActive or not mouseLookReady or trackingTarget or interactive or chatOpen or menuOpen then
+    if not freecamActive or trackingTarget or freecamPaused() then
+        return
+    end
+    if not mouseLookReady then
+        local width, height = guiGetScreenSize()
+        setCursorPosition(width / 2, height / 2)
         return
     end
 
@@ -377,7 +418,7 @@ local function onSpectateMouse(_, _, absoluteX, absoluteY)
         return
     end
 
-    freecamYaw = freecamYaw - dx * 0.12
+    freecamYaw = freecamYaw + dx * 0.12
     freecamPitch = math.max(-85, math.min(85, freecamPitch - dy * 0.12))
 
     if not mouseRecentering then
@@ -392,13 +433,30 @@ local function freecamRender()
         return
     end
 
-    if interactive or chatOpen or menuOpen then
+    if interactive or chatOpen or menuOpen or isMTAWindowActive() or isMainMenuActive() then
+        mouseLookReady = false
+        if mouseResumeTimer then
+            killTimer(mouseResumeTimer)
+            mouseResumeTimer = nil
+        end
+        -- 菜单期间保持当前镜头，避免原生相机被鼠标带着转
+        if trackingTarget then
+            local px, py, pz, tx, ty, tz = getCameraMatrix()
+            if px and tx then
+                setCameraMatrix(px, py, pz, tx, ty, tz)
+            end
+        else
+            applyFreecamCamera()
+        end
         setCursorAlpha(255)
         return
     end
 
     showCursor(true)
     setCursorAlpha(0)
+    if not mouseLookReady and not mouseResumeTimer then
+        armMouseLook()
+    end
 
     if trackingTarget then
         if not isElement(trackingTarget) or getElementHealth(trackingTarget) <= 0 then
@@ -454,7 +512,7 @@ local function freecamRender()
         freecamZ = freecamZ - speed
     end
 
-    setCameraMatrix(freecamX, freecamY, freecamZ, freecamX + fx * 8, freecamY + fy * 8, freecamZ + fz * 8)
+    applyFreecamCamera()
 end
 
 local function startSpectate()
@@ -484,11 +542,7 @@ local function startSpectate()
     setSpectateName('自由视角')
     addEventHandler('onClientCursorMove', root, onSpectateMouse)
     addEventHandler('onClientRender', root, freecamRender)
-    setTimer(function()
-        if freecamActive then
-            mouseLookReady = true
-        end
-    end, 250, 1)
+    armMouseLook()
 end
 
 local function stopSpectate()
@@ -498,6 +552,11 @@ local function stopSpectate()
 
     freecamActive = false
     trackingTarget = nil
+    mouseLookReady = false
+    if mouseResumeTimer then
+        killTimer(mouseResumeTimer)
+        mouseResumeTimer = nil
+    end
     removeEventHandler('onClientCursorMove', root, onSpectateMouse)
     removeEventHandler('onClientRender', root, freecamRender)
 
@@ -1130,11 +1189,11 @@ bindUiKey('T', function()
     setChatOpen(true)
 end)
 
--- 观战自由视角：鼠标转向，WASD 平移，空格 / Ctrl 升降，↑/↓ 切换跟踪玩家
-bindUiKey('arrow_u', function()
+-- 观战自由视角：鼠标转向，WASD 平移，空格 / Ctrl 升降，鼠标左右键切换跟踪玩家
+bindUiKey('mouse1', function()
     cycleSpectate(1)
 end)
-bindUiKey('arrow_d', function()
+bindUiKey('mouse2', function()
     cycleSpectate(-1)
 end)
 
