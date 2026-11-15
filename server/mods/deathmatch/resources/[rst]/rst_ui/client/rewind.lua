@@ -18,6 +18,8 @@ local holding = false
 local holdTimer = nil
 local active = false
 local activatedAt = 0
+local currentSampleTime = nil
+local captureSample
 local frozenElement = nil
 local lastDispatchAt = 0
 local currentVX, currentVY, currentVZ = 0, 0, 0
@@ -65,7 +67,7 @@ local function applyHealthState(vehicle, health)
     end
 end
 
-local function captureSample()
+captureSample = function()
     local vehicle = getPedOccupiedVehicle(localPlayer)
     local target = vehicle or localPlayer
     if not isElement(target) then
@@ -112,6 +114,32 @@ local function resetSamples()
     samples = {}
     lastVehicle = nil
     lastSampleAt = 0
+    currentSampleTime = nil
+end
+
+-- 回放结束后不能把历史全部丢掉。保留回放点之前的历史，并把时间轴平移到当前时刻，
+-- 否则连续使用时每次都从 0 开始重新攒 8 秒。
+local function preserveHistory(endpoint)
+    if not endpoint then
+        resetSamples()
+        return
+    end
+
+    local nowTick = now()
+    local offset = nowTick - endpoint
+    local kept = {}
+    for _, sample in ipairs(samples) do
+        if sample.t <= endpoint + 1 then
+            sample.t = sample.t + offset
+            kept[#kept + 1] = sample
+        end
+    end
+    samples = kept
+
+    -- 把当前真实状态补成新的历史末端
+    lastSampleAt = 0
+    captureSample()
+    lastSampleAt = now()
 end
 
 local function stopRewind()
@@ -139,7 +167,8 @@ local function stopRewind()
     appliedNitroLevel = nil
     appliedNitroCount = nil
     appliedHealth = nil
-    resetSamples()
+    preserveHistory(currentSampleTime)
+    currentSampleTime = nil
 
     if RST.dispatch then
         RST.dispatch('rewind', { active = false, progress = 0, seconds = 0 })
@@ -197,6 +226,7 @@ local function startRewind()
     currentNitroCount = latest.nitroCount
     currentNitroActive = latest.nitroActive
     currentHealth = latest.health
+    currentSampleTime = latest.t
 
     frozenElement = getPedOccupiedVehicle(localPlayer) or localPlayer
 
@@ -243,6 +273,7 @@ rewindRender = function()
         currentNitroCount = first.nitroCount
         currentNitroActive = first.nitroActive
         currentHealth = first.health
+        currentSampleTime = first.t
         applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
         applyHealthState(frozenElement, currentHealth)
         stopRewind()
@@ -250,6 +281,7 @@ rewindRender = function()
     end
 
     local targetTime = samples[#samples].t - elapsed
+    currentSampleTime = targetTime
     local index = #samples
     while index > 1 and samples[index].t > targetTime do
         index = index - 1
