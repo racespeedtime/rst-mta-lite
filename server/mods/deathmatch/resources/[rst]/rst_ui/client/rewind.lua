@@ -387,8 +387,36 @@ addEventHandler('onClientPreRender', root, function()
     end
 end)
 
--- 长按 Y
-bindKey('Y', 'down', function()
+-- Y 同时是 MTA 默认团队聊天键。这里不用 bindKey，直接在 onClientKey 中
+-- 取消团队聊天并自行处理长按，避免取消 Y 时把 rewind 的 bind 一并取消。
+addEventHandler('onClientKey', root, function(button, press)
+    if tostring(button):lower() ~= 'y' then
+        return
+    end
+
+    if not press then
+        holding = false
+        if holdTimer then
+            killTimer(holdTimer)
+            holdTimer = nil
+        end
+        if active then
+            stopRewind()
+        end
+        return
+    end
+
+    -- 原生聊天输入中时让 Y 正常输入字符
+    if isChatBoxInputActive() then
+        return
+    end
+    if not RST.isGameplayActive() then
+        return
+    end
+
+    -- 阻止 Y 打开团队聊天
+    cancelEvent()
+
     if holding or active then
         return
     end
@@ -401,17 +429,6 @@ bindKey('Y', 'down', function()
         holdTimer = nil
         startRewind()
     end, HOLD_DELAY_MS, 1)
-end)
-
-bindKey('Y', 'up', function()
-    holding = false
-    if holdTimer then
-        killTimer(holdTimer)
-        holdTimer = nil
-    end
-    if active then
-        stopRewind()
-    end
 end)
 
 addEventHandler('onClientPlayerWasted', localPlayer, function()
