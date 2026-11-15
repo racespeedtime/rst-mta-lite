@@ -8,11 +8,9 @@ import IconGhost from '~icons/lucide/ghost'
 import IconKeyboard from '~icons/lucide/keyboard'
 import IconMap from '~icons/lucide/map'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
-import IconPenLine from '~icons/lucide/pen-line'
 import IconRewind from '~icons/lucide/rewind'
 import IconUser from '~icons/lucide/user'
 import IconUsers from '~icons/lucide/users'
-import IconWaypoints from '~icons/lucide/waypoints'
 import { ui } from '@/stores/ui'
 
 const spectating = computed(() => ui.mode === 'spectating')
@@ -85,19 +83,10 @@ const gameModeLabel = computed(() => {
       <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 回放<span v-if="ui.lives !== null"> · {{ ui.lives }} 命</span></span>
     </div>
 
-    <div v-if="ui.room" class="track">
-      <p class="track__label">
-        <IconWaypoints class="icon icon--sm" />
-        当前赛道
-      </p>
-      <p class="track__map">
-        <IconMap class="icon" />
-        <span>{{ ui.room.mapName }}</span>
-      </p>
-      <p class="track__author">
-        <IconPenLine class="icon icon--sm" />
-        <span>作者 · {{ ui.room.author }}</span>
-      </p>
+    <div v-if="ui.room" class="track" :title="`${ui.room.mapName} by ${ui.room.author}`">
+      <IconMap class="icon icon--sm" />
+      <span class="track__map">{{ ui.room.mapName }}</span>
+      <span class="track__by">by {{ ui.room.author }}</span>
     </div>
   </div>
 </template>
@@ -328,48 +317,41 @@ const gameModeLabel = computed(() => {
 
 .track {
   position: absolute;
-  left: 380px;
-  bottom: 24px;
-  width: 246px;
-  padding: 10px 13px 11px;
-  border: 1px solid var(--rst-border);
-  border-radius: 12px;
-  background:
-    linear-gradient(160deg, rgba(23, 38, 58, 0.86), rgba(8, 13, 22, 0.9));
-  box-shadow: 0 18px 44px rgba(0, 0, 0, 0.3);
-}
-
-.track__label {
-  display: flex;
+  left: 24px;
+  bottom: 18px;
+  display: inline-flex;
   align-items: center;
   gap: 5px;
-  margin: 0;
+  max-width: min(420px, calc(100vw - 360px));
+  padding: 3px 8px;
+  border: 1px solid rgba(140, 180, 255, 0.08);
+  border-radius: 6px;
+  background: rgba(6, 11, 19, 0.45);
+  color: rgba(147, 164, 189, 0.55);
   font-size: 9px;
-  letter-spacing: 0.16em;
-  color: var(--rst-muted);
+  letter-spacing: 0.08em;
+  pointer-events: none;
+  user-select: none;
+}
+
+.track .icon {
+  flex: none;
+  color: rgba(147, 164, 189, 0.45);
 }
 
 .track__map {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  margin: 6px 0 3px;
-  font-size: 13px;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: rgba(200, 219, 241, 0.72);
   font-weight: 600;
-  color: var(--rst-text);
 }
 
-.track__map .icon {
-  color: var(--rst-accent);
-}
-
-.track__author {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-  margin: 0;
-  font-size: 10px;
-  color: var(--rst-muted);
+.track__by {
+  flex: none;
+  color: rgba(147, 164, 189, 0.5);
+  white-space: nowrap;
 }
 
 .hud__tag--red {
