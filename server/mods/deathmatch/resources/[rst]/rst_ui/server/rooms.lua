@@ -294,6 +294,9 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
         return
     end
     room.dimension = map.dimension or 0
+    room.mileage[player] = 0
+    room.lastPos[player] = nil
+    room.rewindActive[player] = nil
 
     -- 竞速出生：清理旧车并计算发车格位
     if isElement(raceVehicles[player]) then
@@ -412,6 +415,9 @@ local function startRound(room, forcedMapId)
     room.trainingReturns = {}
     room.trainingReturnsMs = {}
     room.trainingResults = {}
+    room.mileage = {}
+    room.lastPos = {}
+    room.rewindActive = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
     local stayingSpectators = {}
@@ -632,6 +638,9 @@ function Rooms.init(onChanged)
             lives = {},
             ob = {},
             recentMaps = {},
+            mileage = {},
+            lastPos = {},
+            rewindActive = {},
             lastVoteAt = 0,
             lastModeVoteAt = 0,
             finishOrder = {},
@@ -653,6 +662,7 @@ function Rooms.init(onChanged)
         local time = now()
         for _, room in pairs(rooms) do
             if not room.vote and not room.modeVote then
+                trackMileage(room)
                 checkFinishes(room, time)
             end
         end
@@ -763,6 +773,27 @@ scoreForRank = function(rank)
     return tonumber(scores[rank]) or tonumber(scores[#scores]) or 0
 end
 
+local function trackMileage(room)
+    for _, player in ipairs(room.players) do
+        if isElement(player)
+            and not room.finished[player]
+            and not room.rewindActive[player]
+        then
+            local x, y, z = getElementPosition(player)
+            local last = room.lastPos[player]
+            if last then
+                local dx, dy, dz = x - last.x, y - last.y, z - last.z
+                local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
+                -- 超过阈值视为重生/传送，不累计
+                if distance <= 75 then
+                    room.mileage[player] = (room.mileage[player] or 0) + distance
+                end
+            end
+            room.lastPos[player] = { x = x, y = y, z = z }
+        end
+    end
+end
+
 local function mapProgress(room, player, map)
     local finish = map and map.finish
     if not finish or not isElement(player) then
@@ -774,18 +805,19 @@ local function mapProgress(room, player, map)
     local distance = math.sqrt(dx * dx + dy * dy + dz * dz)
 
     if room.finished[player] then
-        return 100, 0, true
+        return 100, 0, true, room.mileage[player] or 0
     end
 
-    local totalX, totalY, totalZ = map.x - finish.x, map.y - finish.y, map.z - finish.z
-    local total = math.sqrt(totalX * totalX + totalY * totalY + totalZ * totalZ)
+    local traveled = room.mileage[player] or 0
+    local total = traveled + distance
     if total <= 0 then
         return nil
     end
 
-    local percent = (1 - distance / total) * 100
+    -- 路线未知时的里程进度：已行驶 /（已行驶 + 直线剩余）
+    local percent = (traveled / total) * 100
     percent = math.max(0, math.min(100, percent))
-    return math.floor(percent + 0.5), math.floor(distance + 0.5), false
+    return math.floor(percent + 0.5), math.floor(distance + 0.5), false, math.floor(traveled + 0.5)
 end
 
 teamScores = function(room)
@@ -831,7 +863,7 @@ function Rooms.progressState(room, player)
     end
 
     local map = MapRegistry.get(room.mapId)
-    local percent, distance, finished = mapProgress(room, player, map)
+    local percent, distance, finished, traveled = mapProgress(room, player, map)
     if percent == nil then
         return nil
     end
@@ -839,6 +871,7 @@ function Rooms.progressState(room, player)
     return {
         percent = percent,
         distance = distance,
+        traveled = traveled or 0,
         finished = finished,
     }
 end
@@ -1149,6 +1182,28 @@ function Rooms.respawn(player)
     spawnPlayerInRoom(player, room, true)
     stateChanged()
     return true
+end
+
+function Rooms.rewindStart(player)
+    local room = Rooms.playerRoom(player)
+    if not room or not room.active then
+        return
+    end
+    room.rewindActive[player] = true
+end
+
+function Rooms.rewindFinish(player, distance)
+    local room = Rooms.playerRoom(player)
+    if not room then
+        return
+    end
+    room.rewindActive[player] = nil
+    distance = tonumber(distance) or 0
+    room.mileage[player] = math.max(0, (room.mileage[player] or 0) - distance)
+    if isElement(player) then
+        local x, y, z = getElementPosition(player)
+        room.lastPos[player] = { x = x, y = y, z = z }
+    end
 end
 
 function Rooms.all()

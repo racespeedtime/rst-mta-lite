@@ -605,6 +605,23 @@ addEventHandler('rst:ui:requestState', root, function()
     pushState(player)
 end)
 
+-- 客户端开始 / 结束 rewind：进度里程按回放前后位移扣减
+addEvent('rst:rewind:start', true)
+addEventHandler('rst:rewind:start', root, function()
+    local player = client or source
+    if isElement(player) then
+        Rooms.rewindStart(player)
+    end
+end)
+
+addEvent('rst:rewind:finished', true)
+addEventHandler('rst:rewind:finished', root, function(distance)
+    local player = client or source
+    if isElement(player) then
+        Rooms.rewindFinish(player, distance)
+    end
+end)
+
 -- 客户端完成一次 rewind 后扣命
 addEvent('rst:rewind:use', true)
 addEventHandler('rst:rewind:use', root, function()

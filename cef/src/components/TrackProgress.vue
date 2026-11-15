@@ -18,7 +18,9 @@ const percent = computed(() =>
       <span>完赛进度</span>
       <strong>{{ percent }}%</strong>
       <span v-if="progress.finished" class="track-progress__done">已完成</span>
-      <span v-else class="track-progress__distance">距终点 {{ progress.distance }}m</span>
+      <span v-else class="track-progress__distance">
+        里程 {{ progress.traveled ?? 0 }}m · 距终点 {{ progress.distance }}m
+      </span>
     </div>
     <div class="track-progress__bar">
       <i :style="{ width: `${percent}%` }" />
@@ -32,7 +34,7 @@ const percent = computed(() =>
   top: 66px;
   left: 50%;
   transform: translateX(-50%);
-  width: min(360px, calc(100vw - 500px));
+  width: min(460px, calc(100vw - 500px));
   padding: 7px 11px;
   border: 1px solid var(--rst-border);
   border-radius: 9px;

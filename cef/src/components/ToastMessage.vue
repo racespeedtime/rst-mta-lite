@@ -17,7 +17,7 @@ defineProps<{ text: string }>()
 .toast {
   position: absolute;
   left: 50%;
-  top: 22px;
+  top: 112px;
   transform: translateX(-50%);
   display: flex;
   align-items: center;

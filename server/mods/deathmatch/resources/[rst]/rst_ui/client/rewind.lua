@@ -26,6 +26,7 @@ local currentVX, currentVY, currentVZ = 0, 0, 0
 local currentNitroLevel, currentNitroCount, currentNitroActive
 local appliedNitroLevel, appliedNitroCount
 local currentHealth, appliedHealth
+local rewindStartX, rewindStartY, rewindStartZ
 
 local rewindRender
 
@@ -166,6 +167,15 @@ local function stopRewind()
     -- 回放结束必须把相机目标还给本地玩家；否则下车后镜头仍跟随载具
     pcall(setCameraTarget, localPlayer)
 
+    local rewindDistance = 0
+    if isElement(frozenElement) and rewindStartX then
+        local x, y, z = getElementPosition(frozenElement)
+        local dx, dy, dz = x - rewindStartX, y - rewindStartY, z - rewindStartZ
+        rewindDistance = math.sqrt(dx * dx + dy * dy + dz * dz)
+    end
+    rewindStartX, rewindStartY, rewindStartZ = nil, nil, nil
+    triggerServerEvent('rst:rewind:finished', localPlayer, rewindDistance)
+
     frozenElement = nil
     appliedNitroLevel = nil
     appliedNitroCount = nil
@@ -232,6 +242,10 @@ local function startRewind()
     currentSampleTime = latest.t
 
     frozenElement = getPedOccupiedVehicle(localPlayer) or localPlayer
+    if isElement(frozenElement) then
+        rewindStartX, rewindStartY, rewindStartZ = getElementPosition(frozenElement)
+    end
+    triggerServerEvent('rst:rewind:start', localPlayer)
 
     -- 回放期间关掉正在喷的氮气，否则历史 level 会被当前喷射持续覆盖
     if isElement(frozenElement) and getElementType(frozenElement) == 'vehicle' then

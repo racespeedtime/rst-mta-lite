@@ -164,6 +164,7 @@ export interface CompetitionState {
 export interface ProgressState {
   percent: number
   distance: number
+  traveled?: number
   finished: boolean
 }
 
