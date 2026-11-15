@@ -4,6 +4,20 @@
 
 DeathMatch 是竞速模式：随机出生点、对应车辆、无默认氮气。
 
+## License 与地图版权
+
+本项目代码和文档使用 **MIT License**，见 [LICENSE](LICENSE)。
+
+地图展示元数据来自：
+
+```text
+https://mtavault.com
+```
+
+地图模型、贴图、脚本和地图本身的版权属于制作这些地图的作者。**本仓库不提供任何地图文件、完整地图包或网盘链接**；需要地图请自行向作者/社区获取，或在 mtavault 按需下载单张地图。使用、修改和再分发地图前请确认作者授权。
+
+MTA:SA、GTA: San Andreas 及相关名称、资源归其各自权利人所有。
+
 ## 从零部署
 
 这个仓库是**源码仓库**，不包含 MTA 服务端本体、地图 zip、运行时数据库、日志和 CEF 构建产物。克隆后需要手动补齐这些文件。
@@ -106,9 +120,25 @@ server/
 - 官方服务端安装包自带的配置会覆盖仓库版本，合并后要把仓库版本恢复回来。
 - `libmysql.dll` 只是 MTA 服务端自带的客户端库，正常开服不需要安装 MySQL Server。
 
-### 3. 补地图资源
+### 3. 自行准备地图文件
 
-仓库不包含地图本体。地图 zip 由维护者上传网盘，下载后直接放进：
+本仓库**不提供地图文件、地图资源包或网盘链接**。
+
+仓库只包含 mtavault 的展示元数据，地图数据的来源是：
+
+```text
+https://mtavault.com
+```
+
+地图模型、贴图、脚本和地图本身的版权属于各自作者。使用、修改或再分发地图前，请自行确认作者授权和 mtavault 的使用条款。
+
+地图可以按自己的需要获取：
+
+- 向地图作者或社区寻找其他人打包的完整资源包
+- 在 mtavault 上按需下载单张地图
+- 使用自己的地图备份
+
+拿到 zip 后直接放进：
 
 ```text
 server/mods/deathmatch/resources/
@@ -118,12 +148,8 @@ MTA 支持 zip resource，**不需要解压**：
 
 ```text
 resources/
-  superieur.zip
-  atlas.zip
-  silent-hill.zip
+  <map-name>.zip
 ```
-
-补齐 MTA 服务端、构建好 CEF UI 后，地图本体就是“放进 resources 即用”。
 
 要求：
 
@@ -132,11 +158,9 @@ resources/
 - 不要同时保留同名解压目录和 zip
 - 不要把 `manifest.json` / `download.log` 放进 resources
 
-截至 **2026-11-15**，mtavault DM/HDM 元数据共 **4509 张**；地图 zip 作为独立备份包，不进入 Git。地图包由维护者上传网盘，README 不包含网盘地址。
+截至 **2026-11-15**，mtavault DM/HDM 元数据共 **4509 张**，但这只是元数据，不代表仓库附带了 4509 张地图。
 
-本地开发环境当前安装了 4 张地图用于验证；全新克隆仓库时地图池是 **0 张**，必须先补地图才能开局。
-
-没有地图时服务器仍能启动，但地图池为空，无法开局。
+全新克隆时地图池是 **0 张**；没有放地图时服务器仍能启动，但无法开局。
 
 ### 4. 构建 CEF UI
 
@@ -315,7 +339,7 @@ mtasa://127.0.0.1:22003
 | `mtaserver.conf` / `acl.xml` | 是 | 默认配置，含 `rst_ui` 启动项和地图 ACL |
 | `banlist.xml` / `settings.xml` / `internal.db` | 否 | 本地配置或运行时文件 |
 | `server-id.keys` | 否 | 运行时生成，不能共享 |
-| 地图 zip | 否 | 从网盘/备份补充 |
+| 地图 zip | 否 | 本仓库不提供；自行向作者/社区获取 |
 | `map-cache` / `databases` / `logs` | 否 | 运行时生成 |
 | `rst_ui/ui/` | 否 | `pnpm build` 生成 |
 
@@ -415,14 +439,22 @@ mtasa://127.0.0.1:22003
 
 ## mtavault 地图集
 
+地图展示元数据来自：
+
+```text
+https://mtavault.com
+```
+
 截至 **2026-11-15**：
 
 - 已抓取并写入 SQLite 的 mtavault **DM / HDM** 元数据：**4509 张**
 - HDM 15 张同时带 DM 标签，按地图 ID 去重后为 4509
-- 当前服务器实际安装并用于验证的地图：4 张
-- 地图本体 zip 作为可选备份包，不进入 Git
+- 本仓库**不包含任何地图文件**
+- 地图模型、贴图、脚本和地图本身的版权属于各自作者
 
-完整地图 zip 由维护者上传网盘；下载后不需要解压，直接放到：
+地图 zip 需要自行获取，可以找其他人打包的完整包，也可以在 mtavault 按需下载单张地图。使用和再分发前请确认作者授权。
+
+拿到地图后不需要解压，直接放到：
 
 ```text
 server/mods/deathmatch/resources/
@@ -431,9 +463,7 @@ server/mods/deathmatch/resources/
 例如：
 
 ```text
-resources/silent-hill.zip
-resources/atlas.zip
-resources/superieur.zip
+resources/<map-name>.zip
 ```
 
 MTA 支持 zip resource，资源名就是 zip 去掉 `.zip` 的名字。
@@ -451,7 +481,6 @@ restart rst_ui
 
 - zip 根目录直接有 `meta.xml`，不能多套一层文件夹
 - 不要同时保留同名解压目录和 zip
-- 不要把已经安装过的 4 张重复复制
 - 客户端只会下载当前被选中的地图，不会因为装了 4509 张就全部下载
 
 F2 →「地图池」可以分页浏览和搜索已安装地图。

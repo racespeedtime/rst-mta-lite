@@ -1,6 +1,14 @@
-# mtavault 地图元数据
+# mtavault 地图元数据与工具
 
-这个目录负责 mtavault 地图元数据的抓取、数据库安装和地图 zip 备份。
+这个目录负责 mtavault 地图元数据的抓取、数据库安装和可选的本地地图下载。
+
+元数据来源：
+
+```text
+https://mtavault.com
+```
+
+地图模型、贴图、脚本和地图本身的版权属于各自作者。**本仓库不提供任何地图文件、完整地图包或网盘链接。**
 
 服务器运行时**只读 SQLite**，不再读取 JSON catalog。
 
@@ -67,7 +75,15 @@ node tools/mtavault/install-mapmeta-db.mjs --force
 
 元数据库有 4509 条记录，只代表 UI 能显示这些地图的信息。
 
-真正可玩的地图 zip 仍然要放到：
+本仓库不附带任何地图文件。真正可玩的地图 zip 需要自行获取：
+
+- 找其他人打包的完整包
+- 在 mtavault 按需下载单张地图
+- 使用自己的地图备份
+
+使用或再分发地图前请确认作者授权。
+
+地图 zip 放到：
 
 ```text
 server/mods/deathmatch/resources/
@@ -115,7 +131,7 @@ HDM =   15
 合并 = 4509（HDM 同时带 DM 标签）
 ```
 
-### 顺序下载地图 zip 备份
+### 按需下载地图 zip（可选）
 
 ```bash
 node tools/mtavault/download-all-maps.mjs
@@ -148,7 +164,7 @@ set PYTHON=C:\Python312\python.exe
 node tools/mtavault/download-all-maps.mjs
 ```
 
-这些 zip 是网盘备份，**不放进 Git**，也不等于已经安装到服务器。
+这些 zip 只下载到本机，**不随仓库提供，也不放进 Git**。下载和再分发前请确认作者授权与 mtavault 使用条款。
 
 ### 扫描已安装地图
 
