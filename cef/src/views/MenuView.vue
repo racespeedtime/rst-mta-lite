@@ -6,6 +6,7 @@ import IconCar from '~icons/lucide/car'
 import IconCircleQuestionMark from '~icons/lucide/circle-question-mark'
 import IconCode from '~icons/lucide/code'
 import IconEye from '~icons/lucide/eye'
+import IconEyeOff from '~icons/lucide/eye-off'
 import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
 import IconMapPinned from '~icons/lucide/map-pinned'
@@ -88,6 +89,11 @@ function toggleOb(): void {
 
 function devtools(): void {
   emitAction('devtools')
+}
+
+function toggleHud(): void {
+  ui.hudHidden = !ui.hudHidden
+  emitAction('hud:toggle')
 }
 
 function setCursor(mode: 'auto' | 'always'): void {
@@ -249,6 +255,18 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>操作帮助</strong>
             <small>查看全部快捷键</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="toggleHud">
+          <span class="menu-action__icon">
+            <IconEyeOff v-if="!ui.hudHidden" class="icon" />
+            <IconEye v-else class="icon" />
+          </span>
+          <span class="menu-action__text">
+            <strong>{{ ui.hudHidden ? '显示所有 GUI' : '隐藏所有 GUI' }}</strong>
+            <small>HUD / 小地图 / 准星</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

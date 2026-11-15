@@ -247,26 +247,28 @@ onUnmounted(() => {
   <div class="app-root">
     <AuthView v-if="ui.phase === 'auth'" />
     <template v-else-if="ui.phase === 'playing'">
-      <GameHud />
-      <MapTimer v-if="ui.room" />
-      <TrackProgress v-if="ui.room" />
+      <template v-if="!ui.hudHidden">
+        <GameHud />
+        <MapTimer v-if="ui.room" />
+        <TrackProgress v-if="ui.room" />
+        <Transition name="speedo">
+          <Speedometer v-if="ui.vehicle" />
+        </Transition>
+        <SpawnCountdown v-if="ui.countdown.active" />
+        <CompetitionPanel v-if="ui.competition" />
+        <RaceResultOverlay v-if="ui.raceResult" />
+        <ReadyOverlay v-if="ui.ready.waiting" />
+        <RewindOverlay v-if="ui.rewind.active" />
+      </template>
       <ChatPanel />
-      <Transition name="speedo">
-        <Speedometer v-if="ui.vehicle" />
-      </Transition>
-      <SpawnCountdown v-if="ui.countdown.active" />
-      <CompetitionPanel v-if="ui.competition" />
-      <RaceResultOverlay v-if="ui.raceResult" />
-      <ReadyOverlay v-if="ui.ready.waiting" />
       <MenuView v-if="ui.menuOpen" />
       <VoteView v-if="ui.vote?.active" />
       <ModeVoteView v-if="ui.modeVote?.active" />
-      <RewindOverlay v-if="ui.rewind.active" />
       <HelpOverlay v-if="ui.helpOpen" />
     </template>
     <AuthView v-else />
     <MapDetailsModal v-if="ui.mapDetailsOpen" />
-    <BuildTag />
+    <BuildTag v-if="!ui.hudHidden" />
     <ToastMessage :text="toast" />
   </div>
 </template>

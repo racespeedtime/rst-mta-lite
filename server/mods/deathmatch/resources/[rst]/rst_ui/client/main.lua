@@ -31,6 +31,8 @@ local countdownVehicle = nil
 local controlLocked = false
 local cursorAlways = false
 local freeCursor = false
+local hudHidden = false
+local devtoolsOpen = false
 local lastCursorToggleAt = 0
 
 RST = {
@@ -850,6 +852,10 @@ end
 
 local function createUiBrowser()
     screenW, screenH = guiGetScreenSize()
+    -- DevTools 需要先开启开发模式，否则 toggleBrowserDevTools 不会显示
+    pcall(setDevelopmentMode, true, true)
+    pcall(setPlayerHudComponentVisible, 'radar', true)
+    pcall(setPlayerHudComponentVisible, 'crosshair', true)
     -- 第 4 个参数 = 透明浏览器；HTML body 也是透明，游戏画面才能透出
     browser = createBrowser(screenW, screenH, true, true)
     if not browser then
@@ -941,9 +947,18 @@ addEventHandler('rst:ui:action', root, function(json)
         if phase == 'playing' and not isForcedCursor() and not RST.countdownActive then
             toggleCursorVisibility()
         end
+    elseif data.action == 'hud:toggle' then
+        hudHidden = not hudHidden
+        pcall(setPlayerHudComponentVisible, 'radar', not hudHidden)
+        pcall(setPlayerHudComponentVisible, 'crosshair', not hudHidden)
     elseif data.action == 'devtools' then
         if browser then
-            toggleBrowserDevTools(browser)
+            pcall(setDevelopmentMode, true, true)
+            devtoolsOpen = not devtoolsOpen
+            local ok = pcall(toggleBrowserDevTools, browser, devtoolsOpen)
+            if not ok then
+                outputDebugString('[rst_ui] toggleBrowserDevTools failed', 1)
+            end
         end
     else
         triggerServerEvent('rst:ui:action', localPlayer, json)
