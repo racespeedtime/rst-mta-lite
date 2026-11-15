@@ -494,6 +494,15 @@ actions['respawn'] = function(player, session)
     broadcastState()
 end
 
+actions['maps:page'] = function(player, session, data)
+    if not session.authed then
+        return
+    end
+    local payload = MapRegistry.page(data.page, data.pageSize, data.search)
+    payload.requestId = data.requestId
+    triggerClientEvent(player, 'rst:ui:maps', player, toJSON(payload))
+end
+
 actions['chat:send'] = function(player, session, data)
     if not session.authed then
         return

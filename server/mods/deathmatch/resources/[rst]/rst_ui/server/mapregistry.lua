@@ -291,3 +291,51 @@ end
 function MapRegistry.count()
     return #ids
 end
+
+-- 地图池分页：只返回轻量信息，不解析 .map
+function MapRegistry.page(page, pageSize, search)
+    page = tonumber(page) or 1
+    pageSize = tonumber(pageSize) or 30
+    page = math.max(1, math.floor(page))
+    pageSize = math.max(1, math.min(100, math.floor(pageSize)))
+    search = tostring(search or ''):lower():gsub('^%s+', ''):gsub('%s+$', '')
+
+    local filtered = {}
+    for _, mapId in ipairs(ids) do
+        local entry = maps[mapId]
+        if entry then
+            if search == ''
+                or tostring(entry.name or ''):lower():find(search, 1, true)
+                or tostring(entry.author or ''):lower():find(search, 1, true)
+                or tostring(mapId):lower():find(search, 1, true)
+            then
+                filtered[#filtered + 1] = entry
+            end
+        end
+    end
+
+    local total = #filtered
+    local pages = math.max(1, math.ceil(total / pageSize))
+    page = math.min(page, pages)
+    local start = (page - 1) * pageSize + 1
+    local items = {}
+    for index = start, math.min(start + pageSize - 1, total) do
+        local entry = filtered[index]
+        items[#items + 1] = {
+            id = entry.id,
+            resource = entry.resource,
+            name = entry.name,
+            author = entry.author,
+            dimension = entry.dimension or 0,
+        }
+    end
+
+    return {
+        page = page,
+        pageSize = pageSize,
+        total = total,
+        pages = pages,
+        search = search,
+        items = items,
+    }
+end

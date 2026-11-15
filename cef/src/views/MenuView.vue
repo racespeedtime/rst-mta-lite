@@ -100,6 +100,11 @@ function setCursor(mode: 'auto' | 'always'): void {
   emitAction('cursor:set', { mode })
 }
 
+function openMapPool(): void {
+  ui.mapPoolOpen = true
+  emitAction('menu:close')
+}
+
 function openMapDetails(): void {
   if (!ui.room) return
   ui.mapDetails = ui.room.mapDetails || null
@@ -237,6 +242,15 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>{{ obLabel }}</strong>
             <small>{{ obHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="openMapPool">
+          <span class="menu-action__icon"><IconMap class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>地图池</strong>
+            <small>浏览全部地图</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

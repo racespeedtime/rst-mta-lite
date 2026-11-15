@@ -161,6 +161,24 @@ export interface CompetitionState {
   players: CompetitionPlayer[]
 }
 
+export interface MapPoolItem {
+  id: string
+  resource: string
+  name: string
+  author: string
+  dimension: number
+}
+
+export interface MapPoolPage {
+  page: number
+  pageSize: number
+  total: number
+  pages: number
+  search: string
+  requestId?: number
+  items: MapPoolItem[]
+}
+
 export interface ProgressState {
   percent: number
   distance: number
@@ -283,4 +301,5 @@ export type BridgeEventMap = {
   help: HelpPayload
   countdown: CountdownPayload
   cursor: CursorPayload
+  mapsPage: MapPoolPage
 }

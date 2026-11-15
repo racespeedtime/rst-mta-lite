@@ -10,6 +10,7 @@ import CompetitionPanel from '@/components/CompetitionPanel.vue'
 import ReadyOverlay from '@/components/ReadyOverlay.vue'
 import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
+import MapPoolModal from '@/components/MapPoolModal.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
 import TrackProgress from '@/components/TrackProgress.vue'
 import BuildTag from '@/components/BuildTag.vue'
@@ -136,7 +137,10 @@ function applyState(state: StatePayload): void {
     if (state.phase !== 'auth') ui.authError = ''
   }
 
-  if (state.phase !== 'playing') ui.menuOpen = false
+  if (state.phase !== 'playing') {
+    ui.menuOpen = false
+    ui.mapPoolOpen = false
+  }
   if (
     state.phase !== 'playing' ||
     state.vote?.active ||
@@ -172,6 +176,13 @@ onMounted(() => {
     },
   )
 
+  watch(
+    () => ui.mapPoolOpen,
+    (open) => {
+      emitAction('mappool', { open })
+    },
+  )
+
   offs.push(
     onBridge('state', applyState),
     onBridge('menu', (payload) => {
@@ -200,6 +211,11 @@ onMounted(() => {
       if (ui.messages.length > ui.chatLimit) {
         ui.messages.splice(0, ui.messages.length - ui.chatLimit)
       }
+    }),
+    onBridge('mapsPage', (payload) => {
+      if (Number(payload.requestId) !== ui.mapPoolRequestId) return
+      ui.mapPool = payload
+      ui.mapPoolLoading = false
     }),
     onBridge('vehicle', (payload) => {
       ui.vehicle = payload.active ? payload : null
@@ -268,6 +284,7 @@ onUnmounted(() => {
     </template>
     <AuthView v-else />
     <MapDetailsModal v-if="ui.mapDetailsOpen" />
+    <MapPoolModal v-if="ui.mapPoolOpen" />
     <BuildTag v-if="!ui.hudHidden" />
     <ToastMessage :text="toast" />
   </div>
