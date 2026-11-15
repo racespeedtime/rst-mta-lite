@@ -50,6 +50,26 @@ RST = {
     rewindLives = nil,
 }
 
+-- 解除飞机 / 直升机 / 喷气背包的默认高度上限。
+-- 地图 resource 启动后可能会重新设置，所以地图开始时再应用一次。
+local FLIGHT_MAX_HEIGHT = 100000
+
+local function applyFlightHeightLimits()
+    pcall(setAircraftMaxHeight, FLIGHT_MAX_HEIGHT)
+    pcall(setJetpackMaxHeight, FLIGHT_MAX_HEIGHT)
+end
+
+applyFlightHeightLimits()
+
+addEventHandler('onClientResourceStart', root, function(started)
+    if started == resourceRoot then
+        return
+    end
+    if getResourceInfo(started, 'type') == 'map' then
+        setTimer(applyFlightHeightLimits, 100, 1)
+    end
+end)
+
 function RST.isGameplayActive()
     return RST.phase == 'playing'
         and RST.mode == 'playing'

@@ -652,6 +652,14 @@ local ENABLED = true
 - F2 →「隐藏所有 GUI」时，CEF 聊天框和原生 chatbox 一起隐藏并禁止输入
 - 右下角显示构建日期和 git hash
 
+## 飞行高度
+
+- 飞机 / 直升机默认高度上限已解除
+- 喷气背包默认高度上限已解除
+- 客户端统一设置为 `100000`
+- 地图 resource 在启动时如果重新设置了更低的上限，客户端会在地图启动后再次应用
+- 常量在 `client/main.lua` 的 `FLIGHT_MAX_HEIGHT`
+
 ## Rewind
 
 - 客户端本地记录最近 8 秒
