@@ -33,8 +33,6 @@ local cursorAlways = false
 local freeCursor = false
 local hudHidden = false
 local devtoolsOpen = false
-local chatEdit = nil
-local syncChatEdit
 local lastCursorToggleAt = 0
 
 RST = {
@@ -654,9 +652,6 @@ local function applyState(state)
         chatOpen = false
         RST.chatOpen = false
         dispatch('chat', { open = false })
-        if syncChatEdit then
-            syncChatEdit()
-        end
     end
 
     if helpOpen and (phase ~= 'playing' or voteActive) then
@@ -714,86 +709,26 @@ local function applyState(state)
         playUiSound('confirm')
     end
 end
-local function setChatOpen(open)
-    open = open == true
-    if open == chatOpen then
-        return
-    end
-    if open and (phase ~= 'playing' or menuOpen or voteActive or readyWaiting) then
+local function syncChatState()
+    local active = isChatBoxInputActive() == true
+    if active == chatOpen then
         return
     end
 
-    chatOpen = open
-    RST.chatOpen = open
-    dispatch('chat', { open = open })
-    applyInteractive()
-    if syncChatEdit then
-        syncChatEdit()
-    end
-    playUiSound('click')
-end
+    chatOpen = active
+    RST.chatOpen = active
+    dispatch('chat', { open = active })
 
-local function ensureChatEdit()
-    if isElement(chatEdit) then
-        return
-    end
-
-    local _, screenHeight = guiGetScreenSize()
-    local panelHeight = math.min(screenHeight * 0.38, 380)
-    chatEdit = guiCreateEdit(24, 126 + panelHeight + 8, 400, 30, '', false)
-    if not chatEdit then
-        outputDebugString('[rst_ui] guiCreateEdit failed', 1)
-        return
-    end
-
-    guiSetFont(chatEdit, 'default-bold')
-    guiSetAlpha(chatEdit, 0.96)
-    guiSetAlwaysOnTop(chatEdit, true)
-    guiEditSetMaxLength(chatEdit, 160)
-    pcall(guiSetProperty, chatEdit, 'NormalTextColour', 'FF0B1524')
-    pcall(guiSetProperty, chatEdit, 'ActiveTextColour', 'FF0B1524')
-
-    addEventHandler('onClientGUIAccepted', chatEdit, function()
-        local text = tostring(guiEditGetText(chatEdit) or '')
-        text = text:gsub('^%s+', ''):gsub('%s+$', '')
-        if text ~= '' then
-            triggerServerEvent('rst:ui:action', localPlayer, toJSON({
-                action = 'chat:send',
-                text = text,
-            }))
-        end
-        setChatOpen(false)
-    end)
-
-    guiSetVisible(chatEdit, false)
-end
-
-syncChatEdit = function()
-    ensureChatEdit()
-    if not isElement(chatEdit) then
-        return
-    end
-
-    if chatOpen then
-        guiEditSetText(chatEdit, '')
-        guiSetVisible(chatEdit, true)
-        guiBringToFront(chatEdit)
-        guiSetInputEnabled(true)
-        guiFocus(chatEdit)
-        showCursor(true)
+    if active then
         focusBrowser(nil)
+        showCursor(true)
+    elseif interactive then
+        focusBrowser(browser)
     else
-        guiSetVisible(chatEdit, false)
-        guiEditSetText(chatEdit, '')
+        focusBrowser(nil)
     end
+    updateCursor()
 end
-
-addEventHandler('onClientKey', root, function(key, press)
-    if chatOpen and press and tostring(key):lower() == 'escape' then
-        setChatOpen(false)
-        cancelEvent()
-    end
-end)
 
 local function setHelpOpen(open)    open = open == true
     if open == helpOpen then
@@ -817,9 +752,6 @@ local function setMenuOpen(open)
     end
     if open and phase ~= 'playing' then
         return
-    end
-    if open and chatOpen then
-        setChatOpen(false)
     end
     if open and helpOpen then
         setHelpOpen(false)
@@ -859,6 +791,8 @@ local function render()
         resizeBrowser(browser, screenW, screenH)
         applyUiScale()
     end
+
+    syncChatState()
 
     -- CEF 有时会抢回键盘焦点；非交互状态下立即释放，bindKey 才能收到 F1/F2/T
     if not interactive and browser and isElement(browser) then
@@ -1002,8 +936,6 @@ addEventHandler('rst:ui:action', root, function(json)
         applyInteractive()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
-    elseif data.action == 'chat:close' then
-        setChatOpen(false)
     elseif data.action == 'help:open' then
         setHelpOpen(true)
     elseif data.action == 'help:close' then
@@ -1154,7 +1086,6 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
         dispatch('countdown', { active = false })
     end
 
-    setChatOpen(false)
     setHelpOpen(false)
 end)
 
@@ -1303,17 +1234,6 @@ bindUiKey('F2', function()
     setMenuOpen(not menuOpen)
 end)
 
-bindUiKey('T', function()
-    if chatOpen then
-        return
-    end
-    if phase ~= 'playing' or menuOpen or voteActive or helpOpen or readyWaiting then
-        return
-    end
-    setChatOpen(true)
-end)
-
--- 观战自由视角：鼠标转向，WASD 平移，空格 / Ctrl 升降，鼠标左右键切换跟踪玩家
 bindUiKey('mouse1', function()
     cycleSpectate(1)
 end)
@@ -1334,9 +1254,6 @@ bindUiKey('F1', function()
     end
     if menuOpen then
         setMenuOpen(false)
-    end
-    if chatOpen then
-        setChatOpen(false)
     end
     setHelpOpen(true)
 end)
@@ -1413,10 +1330,6 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     end
 
     stopSpectate()
-    if isElement(chatEdit) then
-        destroyElement(chatEdit)
-        chatEdit = nil
-    end
     showCursor(false)
     guiSetInputEnabled(false)
     toggleAllControls(true, true, false)
@@ -1429,8 +1342,8 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     removeEventHandler('onClientRender', root, render)
 end)
 
--- 用 CEF 聊天替代原生聊天：隐藏原生聊天并屏蔽原生输入
-showChat(false, true)
+-- 原生 chatbox 只负责 MTA 默认输入，聊天记录由 CEF 渲染
+showChat(true, false)
 
 -- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
 setNativeHudVisible(false)

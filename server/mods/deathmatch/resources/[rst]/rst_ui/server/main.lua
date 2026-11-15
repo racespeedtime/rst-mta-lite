@@ -573,8 +573,74 @@ actions['chat:send'] = function(player, session, data)
     })
 end
 
-addEvent('rst:ui:action', true)
-addEventHandler('rst:ui:action', root, function(json)
+-- 原生 chatbox 只负责输入；消息取消原生广播，统一进 CEF 聊天记录
+addEventHandler('onPlayerChat', root, function(message, messageType)
+    local player = source
+    local session = Sessions[player]
+    if not session or not session.authed then
+        cancelEvent()
+        return
+    end
+
+    local text = tostring(message or '')
+    if messageType ~= 0 or text:sub(1, 1) == '/' then
+        cancelEvent()
+        return
+    end
+
+    text = text:gsub('[\r\n\t]', ' ')
+    text = text:gsub('^%s+', ''):gsub('%s+$', '')
+    if #text == 0 then
+        cancelEvent()
+        return
+    end
+
+    local charCount = 0
+    for i = 1, #text do
+        local byte = text:byte(i)
+        if byte < 0x80 or byte >= 0xC0 then
+            charCount = charCount + 1
+        end
+    end
+    if charCount > 160 then
+        local kept, count = 0, 0
+        for i = 1, #text do
+            local byte = text:byte(i)
+            if byte < 0x80 or byte >= 0xC0 then
+                count = count + 1
+                if count > 160 then
+                    kept = i - 1
+                    break
+                end
+            end
+        end
+        if kept > 0 then
+            text = text:sub(1, kept)
+        end
+    end
+
+    local time = now()
+    if time - (session.lastChatAt or 0) < 1 then
+        cancelEvent()
+        return
+    end
+    session.lastChatAt = time
+
+    cancelEvent()
+    local name = getPlayerName(player) or 'player'
+    local room = session.roomId and Rooms.get(session.roomId)
+    local team = room and room.teamOf[player] or nil
+    outputServerLog('[CHAT] ' .. name .. ': ' .. text)
+    broadcastChat({
+        kind = 'player',
+        name = name,
+        team = team,
+        text = text,
+        time = time,
+    })
+end)
+
+addEvent('rst:ui:action', true)addEventHandler('rst:ui:action', root, function(json)
     local player = client or source
     local session = Sessions[player]
     if not session or not isElement(player) then
