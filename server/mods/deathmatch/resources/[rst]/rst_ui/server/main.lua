@@ -308,46 +308,6 @@ actions['auth:login'] = function(player, session, data)
     end)
 end
 
-actions['stage:select'] = function(player, session, data)
-    if not session.authed or session.roomId then
-        return
-    end
-
-    local room = Rooms.get(tostring(data.room or ''))
-    if not room then
-        notify(player, '舞台不存在')
-        return
-    end
-
-    local mode, _, err = Rooms.join(player, room.id)
-    if not mode then
-        notify(player, err or '加入舞台失败')
-        return
-    end
-
-    session.roomId = room.id
-    session.mode = mode
-    notify(player, mode == 'spectating' and '进入观战模式' or '已加入比赛')
-    broadcastState()
-end
-
-actions['stage:refresh'] = function(player)
-    pushState(player)
-end
-
-actions['stage:leave'] = function(player, session)
-    if not session.roomId then
-        return
-    end
-
-    Rooms.leave(player)
-    session.roomId = nil
-    session.mode = nil
-    setElementDimension(player, 0)
-    notify(player, '已离开舞台')
-    broadcastState()
-end
-
 actions['vote:start'] = function(player, session)
     if not session.roomId then
         return

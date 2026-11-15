@@ -134,7 +134,7 @@ function respawn(): void {
           <dd>{{ ui.playerName }}</dd>
         </div>
         <div>
-          <dt><IconFlag class="icon icon--sm" />舞台</dt>
+          <dt><IconFlag class="icon icon--sm" />服务器</dt>
           <dd>{{ ui.room?.name || '-' }}</dd>
         </div>
         <div>
