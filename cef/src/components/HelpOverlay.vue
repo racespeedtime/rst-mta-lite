@@ -75,6 +75,10 @@ onUnmounted(() => {
               <span>游戏内临时显示 / 隐藏自由光标</span>
             </li>
             <li>
+              <span class="help__keys"><kbd>Tab</kbd></span>
+              <span>按住查看全服玩家列表；不显示鼠标，不暂停游戏</span>
+            </li>
+            <li>
               <span class="help__keys"><kbd>Y</kbd></span>
               <span>长按倒带最近 8 秒；松开后冻结 0.5 秒再继续</span>
             </li>

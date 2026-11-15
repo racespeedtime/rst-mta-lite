@@ -46,6 +46,8 @@ local function initSession(player)
         mapEnteredAtMs = nil,
         lastAuthAt = 0,
         lastChatAt = 0,
+        lastScoreboardAt = 0,
+        fps = 0,
     }
 end
 
@@ -715,6 +717,111 @@ addEventHandler('rst:ui:requestState', root, function()
         initSession(player)
     end
     pushState(player)
+end)
+
+-- 客户端上报 FPS；MTA 服务端没有直接读取玩家 FPS 的接口
+addEvent('rst:scoreboard:fps', true)
+addEventHandler('rst:scoreboard:fps', root, function(fps)
+    local player = client or source
+    local session = Sessions[player]
+    if not session then
+        return
+    end
+    fps = tonumber(fps)
+    if not fps then
+        return
+    end
+    session.fps = math.max(0, math.min(1000, math.floor(fps)))
+end)
+
+local function listHas(list, value)
+    for _, item in ipairs(list) do
+        if item == value then
+            return true
+        end
+    end
+    return false
+end
+
+local function scoreboardStatus(player, session)
+    if not session or not session.authed then
+        return '未登录', 'auth'
+    end
+    if not session.roomId then
+        return '大厅', 'lobby'
+    end
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return '大厅', 'lobby'
+    end
+
+    if room.vote or room.modeVote then
+        return '投票中', 'vote'
+    end
+    if listHas(room.spectators, player) then
+        if room.ob[player] then
+            return '纯观战', 'spectate'
+        end
+        if room.mode == 'competitive' and room.lives[player] == 0 then
+            return '淘汰观战', 'out'
+        end
+        return '观战', 'spectate'
+    end
+    if listHas(room.players, player) then
+        if room.waiting then
+            return '准备中', 'ready'
+        end
+        if room.mode == 'training' then
+            return '训练中', 'training'
+        end
+        if room.finished[player] then
+            return '已完赛', 'finished'
+        end
+        if isElement(player) and getElementHealth(player) <= 0 then
+            return '死亡', 'dead'
+        end
+        return '存活', 'alive'
+    end
+    return '大厅', 'lobby'
+end
+
+addEvent('rst:scoreboard:request', true)
+addEventHandler('rst:scoreboard:request', root, function()
+    local player = client or source
+    local session = Sessions[player]
+    if not isElement(player) or not session then
+        return
+    end
+
+    local time = now()
+    if time - (session.lastScoreboardAt or 0) < 0.5 then
+        return
+    end
+    session.lastScoreboardAt = time
+
+    local entries = {}
+    for _, target in ipairs(getElementsByType('player')) do
+        local targetSession = Sessions[target]
+        local status, statusKey = scoreboardStatus(target, targetSession)
+        entries[#entries + 1] = {
+            id = getElementID(target) or 0,
+            name = getPlayerName(target) or '?',
+            status = status,
+            statusKey = statusKey,
+            fps = targetSession and targetSession.fps or 0,
+            ping = getPlayerPing(target) or 0,
+            me = target == player,
+        }
+    end
+    table.sort(entries, function(a, b)
+        return a.id < b.id
+    end)
+
+    triggerClientEvent(player, 'rst:scoreboard:data', player, toJSON({
+        players = entries,
+        count = #entries,
+        serverName = getServerName() or 'rst-mta-lite',
+    }))
 end)
 
 -- 客户端完成一次 rewind 后扣命

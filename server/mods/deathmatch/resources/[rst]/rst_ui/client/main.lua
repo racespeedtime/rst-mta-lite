@@ -23,6 +23,8 @@ local chatOpen = false
 local mapDetailsOpen = false
 local mapPoolOpen = false
 local recordsOpen = false
+local scoreboardOpen = false
+local scoreboardTimer = nil
 local helpOpen = false
 local voteActive = false
 local readyWaiting = false
@@ -201,6 +203,36 @@ end
 
 RST.dispatch = dispatch
 
+local function requestScoreboard()
+    triggerServerEvent('rst:scoreboard:request', localPlayer)
+end
+
+local function closeScoreboard()
+    if not scoreboardOpen then
+        return
+    end
+    scoreboardOpen = false
+    if scoreboardTimer then
+        killTimer(scoreboardTimer)
+        scoreboardTimer = nil
+    end
+    dispatch('scoreboard', { open = false })
+end
+
+local function openScoreboard()
+    if scoreboardOpen or phase ~= 'playing' or interactive then
+        return
+    end
+    scoreboardOpen = true
+    dispatch('scoreboard', { open = true })
+    requestScoreboard()
+    scoreboardTimer = setTimer(function()
+        if scoreboardOpen then
+            requestScoreboard()
+        end
+    end, 1000, 0)
+end
+
 -- ---------------------------------------------------------------------------
 -- 音效
 -- ---------------------------------------------------------------------------
@@ -254,6 +286,9 @@ end
 
 local function setInteractive(enabled)
     enabled = enabled == true
+    if enabled and scoreboardOpen then
+        closeScoreboard()
+    end
 
     if enabled == interactive then
         -- 状态没有变化，也要把输入副作用重新落到当前帧。
@@ -741,6 +776,9 @@ local function applyState(state)
     RST.rewindLives = tonumber(state.lives)
     disableMotionBlur()
     setChatSuppressed(phase ~= 'playing' or voteActive or readyWaiting)
+    if scoreboardOpen and (phase ~= 'playing' or interactive or voteActive or readyWaiting) then
+        closeScoreboard()
+    end
 
     if phase ~= 'playing' and menuOpen then
         menuOpen = false
@@ -1020,9 +1058,38 @@ addEventHandler('onClientMouseWheel', root, function(delta)
     end
 end)
 
+addEventHandler('onClientKey', root, function(button, press)
+    if tostring(button):lower() ~= 'tab' then
+        return
+    end
+    if press then
+        if isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
+            return
+        end
+        if phase ~= 'playing' or interactive or voteActive or readyWaiting then
+            return
+        end
+        cancelEvent()
+        openScoreboard()
+    else
+        closeScoreboard()
+    end
+end)
+
 -- CEF 是 dxDrawImage 绘制的，不是 GUI 元素，onClientMouseWheel 在部分客户端不会触发；
 -- 用 onClientKey 的滚轮事件补充。
 addEventHandler('onClientKey', root, function(button, press)
+    if scoreboardOpen then
+        if press and button == 'mouse_wheel_up' then
+            dispatch('scoreboardScroll', { delta = 1 })
+            cancelEvent()
+        elseif press and button == 'mouse_wheel_down' then
+            dispatch('scoreboardScroll', { delta = -1 })
+            cancelEvent()
+        end
+        return
+    end
+
     if not press or not interactive or not browserReady then
         return
     end
@@ -1046,6 +1113,7 @@ addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
 addEvent('rst:ui:maps', true)
 addEvent('rst:ui:records', true)
+addEvent('rst:scoreboard:data', true)
 addEvent('rst:ui:countdown', true)
 addEvent('rst:ui:lives', true)
 
@@ -1186,6 +1254,13 @@ addEventHandler('rst:ui:records', root, function(json)
     local data = fromJSON(json or '')
     if type(data) == 'table' then
         dispatch('recordsPage', data)
+    end
+end)
+
+addEventHandler('rst:scoreboard:data', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' and scoreboardOpen then
+        dispatch('scoreboard', data)
     end
 end)
 
@@ -1561,6 +1636,25 @@ end)
 
 -- 原生 chatbox 只负责 MTA 默认输入，聊天记录由 CEF 渲染
 showChat(true, false)
+
+-- 上报本机 FPS 给计分板；用渲染帧计数，避免依赖客户端的 FPS 查询接口
+local fpsFrames = 0
+local fpsWindowStart = getTickCount()
+addEventHandler('onClientRender', root, function()
+    fpsFrames = fpsFrames + 1
+end)
+
+setTimer(function()
+    if not isElement(localPlayer) then
+        return
+    end
+    local nowTick = getTickCount()
+    local elapsed = nowTick - fpsWindowStart
+    local fps = elapsed > 0 and math.floor(fpsFrames * 1000 / elapsed) or 0
+    fpsFrames = 0
+    fpsWindowStart = nowTick
+    triggerServerEvent('rst:scoreboard:fps', localPlayer, fps)
+end, 2000, 0)
 
 -- 进入服务器时恢复所有玩家头顶名字牌和界面显示设置
 applyVisibility()

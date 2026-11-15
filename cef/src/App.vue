@@ -12,6 +12,7 @@ import HelpOverlay from '@/components/HelpOverlay.vue'
 import MapDetailsModal from '@/components/MapDetailsModal.vue'
 import MapPoolModal from '@/components/MapPoolModal.vue'
 import RecordsModal from '@/components/RecordsModal.vue'
+import ScoreboardPanel from '@/components/ScoreboardPanel.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
@@ -279,6 +280,10 @@ onMounted(() => {
       ui.records = payload
       ui.recordsLoading = false
     }),
+    onBridge('scoreboard', (payload) => {
+      if (payload.open !== undefined) ui.scoreboardOpen = payload.open
+      if (payload.players) ui.scoreboard = payload
+    }),
     onBridge('vehicle', (payload) => {
       ui.vehicle = payload.active ? payload : null
     }),
@@ -373,6 +378,7 @@ onUnmounted(() => {
     <MapDetailsModal v-if="ui.mapDetailsOpen" />
     <MapPoolModal v-if="ui.mapPoolOpen" />
     <RecordsModal v-if="ui.recordsOpen" />
+    <ScoreboardPanel v-if="ui.scoreboardOpen" />
     <BuildTag v-if="!ui.hudHidden && ui.showHud" />
     <ToastMessage :text="toast" />
   </div>

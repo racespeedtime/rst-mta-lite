@@ -196,6 +196,27 @@ export interface MapRecordsPage {
   items: MapRecordItem[]
 }
 
+export interface ScoreboardPlayer {
+  id: number
+  name: string
+  status: string
+  statusKey: string
+  fps: number
+  ping: number
+  me: boolean
+}
+
+export interface ScoreboardPayload {
+  open?: boolean
+  players?: ScoreboardPlayer[]
+  count?: number
+  serverName?: string
+}
+
+export interface ScoreboardScrollPayload {
+  delta: number
+}
+
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -312,4 +333,6 @@ export type BridgeEventMap = {
   cursor: CursorPayload
   mapsPage: MapPoolPage
   recordsPage: MapRecordsPage
+  scoreboard: ScoreboardPayload
+  scoreboardScroll: ScoreboardScrollPayload
 }
