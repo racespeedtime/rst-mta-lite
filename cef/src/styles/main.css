@@ -100,6 +100,27 @@ button:disabled {
   transform: translate(-50%, 10px);
 }
 
+.modal-enter-active,
+.modal-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.modal-enter-active :is(.map-detail__panel, .map-pool__panel, .records__panel),
+.modal-leave-active :is(.map-detail__panel, .map-pool__panel, .records__panel) {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.modal-enter-from,
+.modal-leave-to {
+  opacity: 0;
+}
+
+.modal-enter-from :is(.map-detail__panel, .map-pool__panel, .records__panel),
+.modal-leave-to :is(.map-detail__panel, .map-pool__panel, .records__panel) {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+}
+
 /* ------------------------------------------------------------------------- */
 /* 浅色主题                                                                   */
 /* ------------------------------------------------------------------------- */
@@ -140,6 +161,7 @@ html[data-theme='light'] .app-root :is(
   .competition,
   .hud__player,
   .hud .room,
+  .track,
   .vote__panel,
   .mode-vote__panel,
   .scoreboard,
@@ -151,17 +173,9 @@ html[data-theme='light'] .app-root :is(
   box-shadow: var(--rst-shadow);
 }
 
-html[data-theme='light'] .app-root .track {
-  border-color: rgba(17, 24, 39, 0.1) !important;
-  background: rgba(255, 255, 255, 0.14) !important;
-  color: var(--rst-text);
-  box-shadow: none;
-}
-
 html[data-theme='light'] .app-root .track__map,
 html[data-theme='light'] .app-root .track__by {
   color: var(--rst-text) !important;
-  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 4px rgba(255, 255, 255, 0.8);
 }
 
 html[data-theme='light'] .app-root .track__by {
@@ -170,7 +184,6 @@ html[data-theme='light'] .app-root .track__by {
 
 html[data-theme='light'] .app-root .track .icon {
   color: var(--rst-muted);
-  filter: drop-shadow(0 1px 1px rgba(255, 255, 255, 0.9));
 }
 
 html[data-theme='light'] .app-root :is(

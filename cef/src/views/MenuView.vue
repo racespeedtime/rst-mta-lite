@@ -33,7 +33,8 @@ const THEME_MODES: { value: ThemeMode; label: string }[] = [
   { value: 'light', label: '浅色' },
   { value: 'system', label: '跟随系统' },
 ]
-const ACCENT_PRESETS = ['var(--rst-accent)', '#8b7cff', '#7ee2a8', '#ffd479', '#ff8fab', '#ff8a5c', '#5eead4', '#f472b6']
+const ACCENT_PRESETS = ['#58c8ff', '#8b7cff', '#7ee2a8', '#ffd479', '#ff8fab', '#ff8a5c', '#5eead4', '#f472b6']
+const MENU_LEAVE_DELAY_MS = 190
 const roomRemainingMs = computed(() => {
   const base = ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000
   const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
@@ -194,20 +195,27 @@ function warpPosition(x: number, y: number, z: number): string {
 }
 
 function openMapPool(): void {
-  ui.mapPoolOpen = true
   emitAction('menu:close')
+  window.setTimeout(() => {
+    ui.mapPoolOpen = true
+  }, MENU_LEAVE_DELAY_MS)
 }
 
 function openRecords(): void {
-  ui.recordsOpen = true
   emitAction('menu:close')
+  window.setTimeout(() => {
+    ui.recordsOpen = true
+  }, MENU_LEAVE_DELAY_MS)
 }
 
 function openMapDetails(): void {
   if (!ui.room) return
-  ui.mapDetails = ui.room.mapDetails || null
-  ui.mapDetailsOpen = true
+  const details = ui.room.mapDetails || null
   emitAction('menu:close')
+  window.setTimeout(() => {
+    ui.mapDetails = details
+    ui.mapDetailsOpen = true
+  }, MENU_LEAVE_DELAY_MS)
 }
 
 function openHelp(): void {

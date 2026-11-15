@@ -407,9 +407,15 @@ onUnmounted(() => {
       <HelpOverlay v-if="ui.helpOpen" />
     </template>
     <AuthView v-else />
-    <MapDetailsModal v-if="ui.mapDetailsOpen" />
-    <MapPoolModal v-if="ui.mapPoolOpen" />
-    <RecordsModal v-if="ui.recordsOpen" />
+    <Transition name="modal">
+      <MapDetailsModal v-if="ui.mapDetailsOpen" />
+    </Transition>
+    <Transition name="modal">
+      <MapPoolModal v-if="ui.mapPoolOpen" />
+    </Transition>
+    <Transition name="modal">
+      <RecordsModal v-if="ui.recordsOpen" />
+    </Transition>
     <ScoreboardPanel v-if="ui.scoreboardOpen" />
     <BuildTag v-if="!ui.hudHidden && ui.showHud" />
     <ToastMessage :items="toasts" />
