@@ -76,7 +76,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>Y</kbd></span>
-              <span>长按倒带最近 8 秒</span>
+              <span>长按倒带最近 8 秒；松开后冻结 0.5 秒再继续</span>
             </li>
             <li>
               <span class="help__keys"><kbd>GO</kbd></span>

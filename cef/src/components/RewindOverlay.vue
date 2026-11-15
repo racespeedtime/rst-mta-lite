@@ -22,7 +22,7 @@ const progressWidth = computed(
     <div class="rewind__track">
       <div class="rewind__fill" :style="{ width: progressWidth }" />
     </div>
-    <p class="rewind__hint">松开 Y 继续</p>
+    <p class="rewind__hint">松开 Y 后 0.5 秒继续</p>
   </div>
 </template>
 

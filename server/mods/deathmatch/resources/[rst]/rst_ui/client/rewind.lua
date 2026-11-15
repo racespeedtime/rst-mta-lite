@@ -10,6 +10,7 @@
 local HISTORY_SECONDS = 8
 local SAMPLE_INTERVAL_MS = 50
 local HOLD_DELAY_MS = 250
+local RELEASE_FREEZE_MS = 500
 
 local samples = {}
 local lastSampleAt = 0
@@ -17,6 +18,8 @@ local lastVehicle = nil
 local holding = false
 local holdTimer = nil
 local active = false
+local releaseFreezing = false
+local releaseTimer = nil
 local activatedAt = 0
 local currentSampleTime = nil
 local captureSample
@@ -148,6 +151,11 @@ local function stopRewind()
     end
 
     active = false
+    releaseFreezing = false
+    if releaseTimer then
+        killTimer(releaseTimer)
+        releaseTimer = nil
+    end
     removeEventHandler('onClientRender', root, rewindRender)
 
     if isElement(frozenElement) then
@@ -179,6 +187,27 @@ local function stopRewind()
 end
 
 RST.stopRewind = stopRewind
+
+-- 松开 Y 后先冻结在松开瞬间的倒带位置，给玩家 500ms 反应时间再恢复操作
+local function releaseRewind()
+    if not active or releaseFreezing then
+        return
+    end
+
+    releaseFreezing = true
+    removeEventHandler('onClientRender', root, rewindRender)
+
+    if isElement(frozenElement) then
+        setElementFrozen(frozenElement, true)
+        setElementVelocity(frozenElement, 0, 0, 0)
+    end
+
+    releaseTimer = setTimer(function()
+        releaseTimer = nil
+        releaseFreezing = false
+        stopRewind()
+    end, RELEASE_FREEZE_MS, 1)
+end
 
 function RST.resetRewind()
     if active then
@@ -401,7 +430,7 @@ addEventHandler('onClientKey', root, function(button, press)
             holdTimer = nil
         end
         if active then
-            stopRewind()
+            releaseRewind()
         end
         return
     end
