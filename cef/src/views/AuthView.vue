@@ -30,14 +30,6 @@ watch(
   { immediate: true },
 )
 
-function switchMode(next: AuthMode): void {
-  if (ui.busy) return
-  if (next === 'register' && ui.registered === true) return
-  if (next === 'login' && ui.registered === false) return
-  mode.value = next
-  ui.authError = ''
-}
-
 function submit(): void {
   if (ui.busy) return
   if (!password.value) {
@@ -96,27 +88,6 @@ function onKeydown(event: KeyboardEvent): void {
           <strong class="auth__identity-name">{{ ui.playerName }}</strong>
         </div>
         <small class="auth__identity-hint">账号名使用当前游戏昵称</small>
-      </div>
-
-      <div class="auth__tabs">
-        <button
-          v-if="ui.registered !== false"
-          type="button"
-          :class="{ 'is-active': mode === 'login' }"
-          :disabled="ui.busy"
-          @click="switchMode('login')"
-        >
-          登录
-        </button>
-        <button
-          v-if="ui.registered !== true"
-          type="button"
-          :class="{ 'is-active': mode === 'register' }"
-          :disabled="ui.busy"
-          @click="switchMode('register')"
-        >
-          注册
-        </button>
       </div>
 
       <label class="auth__label" for="rst-password">{{ mode === 'login' ? '密码' : '设置密码' }}</label>
@@ -382,33 +353,6 @@ function onKeydown(event: KeyboardEvent): void {
   background: rgba(255, 92, 92, 0.1);
   color: var(--rst-red);
   font-size: 12px;
-}
-
-.auth__tabs {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 4px;
-  padding: 4px;
-  border: 1px solid var(--rst-border);
-  border-radius: 10px;
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.auth__tabs button {
-  padding: 8px 10px;
-  border-radius: 7px;
-  color: var(--rst-muted);
-  font-size: 12px;
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.auth__tabs button:hover:not(:disabled) {
-  color: var(--rst-text);
-}
-
-.auth__tabs button.is-active {
-  color: var(--rst-text);
-  background: rgba(var(--rst-accent-rgb), 0.13);
 }
 
 .auth__submit {
