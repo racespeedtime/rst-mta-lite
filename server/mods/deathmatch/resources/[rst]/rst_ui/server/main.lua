@@ -583,8 +583,13 @@ addEventHandler('onPlayerChat', root, function(message, messageType)
     end
 
     local text = tostring(message or '')
-    if messageType ~= 0 or text:sub(1, 1) == '/' then
+    if messageType ~= 0 then
         cancelEvent()
+        return
+    end
+
+    -- 指令交给 MTA 原生 command handler，不在这里取消
+    if text:sub(1, 1) == '/' then
         return
     end
 
