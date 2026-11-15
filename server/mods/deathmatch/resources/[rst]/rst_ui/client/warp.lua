@@ -209,6 +209,9 @@ local function teleportTo(warp)
     if vehicle then
         applyNitro(vehicle, state)
         pcall(setVehicleNitroActivated, vehicle, false)
+        if state.damage then
+            RST.applyVehicleDamage(vehicle, state.damage)
+        end
     end
 
     setElementVelocity(target, 0, 0, 0)
@@ -272,6 +275,7 @@ function RST.saveWarp()
             health = getElementHealth(target),
             playerHealth = getElementHealth(localPlayer),
             armor = getPedArmor(localPlayer) or 0,
+            damage = vehicle and RST.captureVehicleDamage(vehicle) or nil,
             nitroLevel = nitroLevel,
             nitroCount = nitroCount,
             nitroActive = nitroActive,

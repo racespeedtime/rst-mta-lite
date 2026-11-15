@@ -29,6 +29,122 @@ local currentVX, currentVY, currentVZ = 0, 0, 0
 local currentNitroLevel, currentNitroCount, currentNitroActive
 local appliedNitroLevel, appliedNitroCount
 local currentHealth, appliedHealth
+local currentDamage, appliedDamage
+
+local PANEL_COUNT = 7
+local DOOR_COUNT = 6
+local LIGHT_COUNT = 4
+
+function RST.captureVehicleDamage(vehicle)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' then
+        return nil
+    end
+
+    local damage = {
+        panels = {},
+        doors = {},
+        lights = {},
+        wheels = {},
+    }
+
+    for panel = 0, PANEL_COUNT - 1 do
+        local ok, state = pcall(getVehiclePanelState, vehicle, panel)
+        if ok and type(state) == 'number' then
+            damage.panels[panel] = state
+        end
+    end
+    for door = 0, DOOR_COUNT - 1 do
+        local ok, state = pcall(getVehicleDoorState, vehicle, door)
+        if ok and type(state) == 'number' then
+            damage.doors[door] = state
+        end
+    end
+    for light = 0, LIGHT_COUNT - 1 do
+        local ok, state = pcall(getVehicleLightState, vehicle, light)
+        if ok and type(state) == 'number' then
+            damage.lights[light] = state
+        end
+    end
+    local ok, frontLeft, rearLeft, frontRight, rearRight =
+        pcall(getVehicleWheelStates, vehicle)
+    if ok then
+        damage.wheels = { frontLeft, rearLeft, frontRight, rearRight }
+    end
+
+    return damage
+end
+
+function RST.applyVehicleDamage(vehicle, damage)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' or type(damage) ~= 'table' then
+        return
+    end
+
+    for panel = 0, PANEL_COUNT - 1 do
+        local state = damage.panels and damage.panels[panel]
+        if type(state) == 'number' then
+            pcall(setVehiclePanelState, vehicle, panel, state)
+        end
+    end
+    for door = 0, DOOR_COUNT - 1 do
+        local state = damage.doors and damage.doors[door]
+        if type(state) == 'number' then
+            pcall(setVehicleDoorState, vehicle, door, state)
+        end
+    end
+    for light = 0, LIGHT_COUNT - 1 do
+        local state = damage.lights and damage.lights[light]
+        if type(state) == 'number' then
+            pcall(setVehicleLightState, vehicle, light, state)
+        end
+    end
+
+    local wheels = damage.wheels
+    if type(wheels) == 'table' and #wheels == 4 then
+        pcall(setVehicleWheelStates, vehicle, wheels[1], wheels[2], wheels[3], wheels[4])
+    end
+end
+
+local function damageEqual(left, right)
+    if left == right then
+        return true
+    end
+    if type(left) ~= 'table' or type(right) ~= 'table' then
+        return false
+    end
+
+    for panel = 0, PANEL_COUNT - 1 do
+        if left.panels[panel] ~= right.panels[panel] then
+            return false
+        end
+    end
+    for door = 0, DOOR_COUNT - 1 do
+        if left.doors[door] ~= right.doors[door] then
+            return false
+        end
+    end
+    for light = 0, LIGHT_COUNT - 1 do
+        if left.lights[light] ~= right.lights[light] then
+            return false
+        end
+    end
+    for index = 1, 4 do
+        if left.wheels[index] ~= right.wheels[index] then
+            return false
+        end
+    end
+    return true
+end
+
+local function applyDamageState(vehicle, damage)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' or type(damage) ~= 'table' then
+        return
+    end
+    if appliedDamage and damageEqual(appliedDamage, damage) then
+        return
+    end
+    RST.applyVehicleDamage(vehicle, damage)
+    appliedDamage = damage
+end
 
 local rewindRender
 
@@ -87,11 +203,13 @@ captureSample = function()
 
     local nitroLevel, nitroCount, nitroActive
     local health
+    local damage
     if vehicle and isElement(vehicle) then
         nitroLevel = getVehicleNitroLevel(vehicle)
         nitroCount = getVehicleNitroCount(vehicle)
         nitroActive = isVehicleNitroActivated(vehicle)
         health = getElementHealth(vehicle)
+        damage = RST.captureVehicleDamage(vehicle)
     end
 
     samples[#samples + 1] = {
@@ -109,6 +227,7 @@ captureSample = function()
         nitroCount = nitroCount,
         nitroActive = nitroActive,
         health = health,
+        damage = damage,
     }
 
     local cutoff = now() - HISTORY_SECONDS * 1000
@@ -167,6 +286,7 @@ local function stopRewind()
         if getElementType(frozenElement) == 'vehicle' then
             pcall(setVehicleNitroActivated, frozenElement, currentNitroActive == true)
             applyHealthState(frozenElement, currentHealth)
+            applyDamageState(frozenElement, currentDamage)
             if type(currentHealth) == 'number' then
                 triggerServerEvent('rst:rewind:health', localPlayer, currentHealth)
             end
@@ -182,6 +302,8 @@ local function stopRewind()
     appliedNitroLevel = nil
     appliedNitroCount = nil
     appliedHealth = nil
+    appliedDamage = nil
+    currentDamage = nil
     preserveHistory(currentSampleTime)
     currentSampleTime = nil
 
@@ -271,6 +393,7 @@ local function startRewind()
     currentNitroCount = latest.nitroCount
     currentNitroActive = latest.nitroActive
     currentHealth = latest.health
+    currentDamage = latest.damage
     currentSampleTime = latest.t
 
     frozenElement = getPedOccupiedVehicle(localPlayer) or localPlayer
@@ -280,8 +403,10 @@ local function startRewind()
         pcall(setVehicleNitroActivated, frozenElement, false)
     end
 
+    appliedDamage = nil
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
     applyHealthState(frozenElement, currentHealth)
+    applyDamageState(frozenElement, currentDamage)
     setElementFrozen(frozenElement, true)
     setElementVelocity(frozenElement, 0, 0, 0)
     -- 使用 GTA 原生追车相机；setCameraMatrix 会 detach 相机并破坏雷达中心/朝向
@@ -331,9 +456,11 @@ rewindRender = function()
         currentNitroCount = first.nitroCount
         currentNitroActive = first.nitroActive
         currentHealth = first.health
+        currentDamage = first.damage
         currentSampleTime = first.t
         applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
         applyHealthState(frozenElement, currentHealth)
+        applyDamageState(frozenElement, currentDamage)
         stopRewind()
         return
     end
@@ -393,8 +520,11 @@ rewindRender = function()
         currentHealth = nil
     end
 
+    currentDamage = b.damage or a.damage
+
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
     applyHealthState(frozenElement, currentHealth)
+    applyDamageState(frozenElement, currentDamage)
 
     if RST.dispatch and now() - lastDispatchAt >= 100 then
         lastDispatchAt = now()
