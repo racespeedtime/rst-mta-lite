@@ -524,6 +524,23 @@ local function finishPlayer(room, player, time)
     stateChanged()
 end
 
+-- Hunter 终点 pickup 命中的瞬间直接判定完赛，不再只依赖坐标半径
+function Rooms.hunterFinish(player)
+    local room = Rooms.playerRoom(player)
+    if not room or not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+        return false
+    end
+    if not contains(room.players, player) or not room.playerStartedAtMs[player] then
+        return false
+    end
+    if room.finished[player] then
+        return false
+    end
+
+    finishPlayer(room, player, now())
+    return true
+end
+
 local function finishRace(room)
     room.raceFinal = true
     room.resultsUntil = now() + (config.raceResultSeconds or 8)

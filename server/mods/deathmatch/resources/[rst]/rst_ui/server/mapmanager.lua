@@ -168,6 +168,9 @@ function MapManager.hitPickup(player, pickupId)
             pcall(setElementModel, vehicle, pickup.vehicle)
             setElementHealth(vehicle, health)
         end
+        if pickup.vehicle == 425 and Rooms and Rooms.hunterFinish then
+            Rooms.hunterFinish(player)
+        end
     end
 
     if respawn >= 50 then
