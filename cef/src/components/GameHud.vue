@@ -344,7 +344,7 @@ const gameModeLabel = computed(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  color: rgba(200, 219, 241, 0.72);
+  color: var(--rst-text);
   font-weight: 600;
 }
 
