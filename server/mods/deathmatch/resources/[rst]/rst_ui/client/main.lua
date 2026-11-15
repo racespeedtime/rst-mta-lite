@@ -1075,12 +1075,12 @@ local function injectBrowserWheel(delta)
     end
     lastBrowserWheelAt = nowTick
 
-    -- 确保滚轮落在当前鼠标位置下的 CEF 元素上
+    -- 不走 CEF 原生注入，直接把滚轮和光标位置交给页面处理，
+    -- 避免浏览器焦点/滚动目标不一致导致菜单滚轮失效。
     local cursorX, cursorY = getCursorPosition()
     if cursorX then
-        injectBrowserMouseMove(browser, cursorX, cursorY)
+        dispatch('wheel', { x = cursorX, y = cursorY, delta = delta })
     end
-    injectBrowserMouseWheel(browser, delta, 0)
 end
 
 addEventHandler('onClientClick', root, function(button, state, absoluteX, absoluteY)
@@ -1117,6 +1117,46 @@ addEventHandler('onClientKey', root, function(button, press)
         openScoreboard()
     else
         closeScoreboard()
+    end
+end)
+
+addEventHandler('onClientKey', root, function(button, press)
+    if not press or tostring(button):lower() ~= 'escape' then
+        return
+    end
+    if phase ~= 'playing' or isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
+        return
+    end
+
+    local handled = false
+    if scoreboardOpen then
+        closeScoreboard()
+        handled = true
+    elseif mapDetailsOpen then
+        mapDetailsOpen = false
+        dispatch('mapdetails', { open = false })
+        applyInteractive()
+        handled = true
+    elseif mapPoolOpen then
+        mapPoolOpen = false
+        dispatch('mappool', { open = false })
+        applyInteractive()
+        handled = true
+    elseif recordsOpen then
+        recordsOpen = false
+        dispatch('recordsmodal', { open = false })
+        applyInteractive()
+        handled = true
+    elseif helpOpen then
+        setHelpOpen(false)
+        handled = true
+    elseif menuOpen then
+        setMenuOpen(false)
+        handled = true
+    end
+
+    if handled then
+        cancelEvent()
     end
 end)
 

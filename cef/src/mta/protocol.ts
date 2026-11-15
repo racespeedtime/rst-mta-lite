@@ -217,6 +217,12 @@ export interface ScoreboardScrollPayload {
   delta: number
 }
 
+export interface WheelPayload {
+  x: number
+  y: number
+  delta: number
+}
+
 export interface WarpPoint {
   id: number
   index: number
@@ -352,5 +358,6 @@ export type BridgeEventMap = {
   recordsPage: MapRecordsPage
   scoreboard: ScoreboardPayload
   scoreboardScroll: ScoreboardScrollPayload
+  wheel: WheelPayload
   warps: WarpsPayload
 }
