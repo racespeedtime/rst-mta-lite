@@ -310,6 +310,12 @@ onMounted(() => {
 
   document.addEventListener('click', onAnyClick, true)
   document.addEventListener('keydown', onCursorKeydown)
+
+  // 名字牌显示偏好保存在本机 CEF，仅影响当前客户端
+  const savedNametags = window.localStorage.getItem('rst.nametags')
+  ui.nametagsVisible = savedNametags !== '0'
+  emitAction('nametags:set', { visible: ui.nametagsVisible })
+
   emitToLua('ready')
 })
 

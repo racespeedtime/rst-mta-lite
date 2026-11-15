@@ -47,6 +47,7 @@ export const ui = reactive({
   mapPoolLoading: false,
   mapPoolRequestId: 0,
   mapPool: null as MapPoolPage | null,
+  nametagsVisible: true,
   recordsOpen: false,
   recordsLoading: false,
   recordsRequestId: 0,

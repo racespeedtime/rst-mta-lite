@@ -104,6 +104,12 @@ function toggleHud(): void {
   emitAction('hud:toggle')
 }
 
+function toggleNametags(): void {
+  ui.nametagsVisible = !ui.nametagsVisible
+  window.localStorage.setItem('rst.nametags', ui.nametagsVisible ? '1' : '0')
+  emitAction('nametags:set', { visible: ui.nametagsVisible })
+}
+
 function setCursor(mode: 'auto' | 'always'): void {
   emitAction('cursor:set', { mode })
 }
@@ -291,6 +297,18 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>操作帮助</strong>
             <small>查看全部快捷键</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="toggleNametags">
+          <span class="menu-action__icon">
+            <IconEye v-if="ui.nametagsVisible" class="icon" />
+            <IconEyeOff v-else class="icon" />
+          </span>
+          <span class="menu-action__text">
+            <strong>{{ ui.nametagsVisible ? '隐藏玩家名字牌' : '显示玩家名字牌' }}</strong>
+            <small>仅影响自己看到的其他玩家</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

@@ -37,6 +37,7 @@ local cursorAlways = false
 local freeCursor = false
 local hudHidden = false
 local chatSuppressed = false
+local nametagsVisible = true
 local devtoolsOpen = false
 local lastCursorToggleAt = 0
 
@@ -115,10 +116,10 @@ local function setNativeHudVisible(visible)
     end
 end
 
--- 确保其他玩家头顶名字可见；CEF HUD 不负责 3D 名字牌
-local function ensurePlayerNametags()
+-- 确保其他玩家头顶名字可见；仅影响当前客户端
+local function applyPlayerNametags()
     for _, player in ipairs(getElementsByType('player')) do
-        pcall(setPlayerNametagShowing, player, true)
+        pcall(setPlayerNametagShowing, player, nametagsVisible)
     end
 end
 
@@ -1068,6 +1069,9 @@ addEventHandler('rst:ui:action', root, function(json)
     elseif data.action == 'recordsmodal' then
         recordsOpen = data.open == true
         applyInteractive()
+    elseif data.action == 'nametags:set' then
+        nametagsVisible = data.visible == true
+        applyPlayerNametags()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
     elseif data.action == 'menu:open' then
@@ -1220,13 +1224,13 @@ end)
 
 addEventHandler('onClientElementStreamIn', root, function()
     if getElementType(source) == 'player' then
-        pcall(setPlayerNametagShowing, source, true)
+        pcall(setPlayerNametagShowing, source, nametagsVisible)
     end
 end)
 
 addEventHandler('onClientPlayerSpawn', localPlayer, function()
     disableMotionBlur()
-    ensurePlayerNametags()
+    applyPlayerNametags()
     if not RST.countdownActive and not RST.readyWaiting then
         setSpawnControlLock(false)
     end
@@ -1528,8 +1532,8 @@ end)
 showChat(true, false)
 
 -- 进入服务器时恢复所有玩家头顶名字牌
-ensurePlayerNametags()
-addEventHandler('onClientResourceStart', resourceRoot, ensurePlayerNametags)
+applyPlayerNametags()
+addEventHandler('onClientResourceStart', resourceRoot, applyPlayerNametags)
 
 -- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
 setNativeHudVisible(false)
