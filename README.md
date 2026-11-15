@@ -2,8 +2,6 @@
 
 轻量 MTA:SA 竞速服务器。服务端使用 MTA Lua，客户端界面使用 CEF + Vue 3 + TypeScript + Vite。
 
-DeathMatch 是竞速模式：随机出生点、对应车辆、无默认氮气。
-
 ## License 与地图版权
 
 本项目代码和文档使用 **MIT License**，见 [LICENSE](LICENSE)。
