@@ -433,7 +433,7 @@ local function freecamRender()
         return
     end
 
-    if interactive or chatOpen or menuOpen or isMTAWindowActive() or isMainMenuActive() then
+    if interactive or chatOpen or menuOpen or isMTAWindowActive() or isMainMenuActive() or isConsoleActive() then
         mouseLookReady = false
         if mouseResumeTimer then
             killTimer(mouseResumeTimer)
