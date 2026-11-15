@@ -204,12 +204,6 @@ function onCursorKeydown(event: KeyboardEvent): void {
     return
   }
 
-  if (event.key === 'F2') {
-    event.preventDefault()
-    emitAction(ui.menuOpen ? 'menu:close' : 'menu:open')
-    return
-  }
-
   if (event.key === 'Escape' && !ui.chatOpen) {
     let handled = false
     if (ui.mapDetailsOpen) {
@@ -405,7 +399,9 @@ onUnmounted(() => {
         <RewindOverlay v-if="ui.rewind.active" />
         <ChatPanel v-if="ui.showChat" />
       </template>
-      <MenuView v-if="ui.menuOpen" />
+      <Transition name="menu">
+        <MenuView v-if="ui.menuOpen" />
+      </Transition>
       <VoteView v-if="ui.vote?.active" />
       <ModeVoteView v-if="ui.modeVote?.active" />
       <HelpOverlay v-if="ui.helpOpen" />

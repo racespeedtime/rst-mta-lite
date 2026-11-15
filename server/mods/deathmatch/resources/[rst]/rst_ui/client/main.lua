@@ -1123,6 +1123,7 @@ end)
 -- 部分客户端会把一次滚轮同时上报成 up/down 两个方向；只取这一对里的第一个方向。
 local lastWheelDirection = 0
 local lastWheelEventAt = 0
+local lastF2At = 0
 local function handleWheelDirection(direction)
     local nowTick = getTickCount()
     if lastWheelDirection ~= 0
@@ -1209,6 +1210,22 @@ addEventHandler('onClientKey', root, function(button, press)
     if handled then
         cancelEvent()
     end
+end)
+
+addEventHandler('onClientKey', root, function(button, press)
+    if not press or tostring(button):lower() ~= 'f2' then
+        return
+    end
+    if phase ~= 'playing' or isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
+        return
+    end
+    local nowTick = getTickCount()
+    if nowTick - lastF2At < 200 then
+        return
+    end
+    lastF2At = nowTick
+    cancelEvent()
+    setMenuOpen(not menuOpen)
 end)
 
 -- CEF 是 dxDrawImage 绘制的，不是 GUI 元素，onClientMouseWheel 在部分客户端不会触发；
@@ -1674,13 +1691,6 @@ local function bindUiKey(key, handler)
         outputDebugString('[rst_ui] bindKey failed: ' .. tostring(key), 1)
     end
 end
-
-bindUiKey('F2', function()
-    if phase ~= 'playing' then
-        return
-    end
-    setMenuOpen(not menuOpen)
-end)
 
 bindUiKey('mouse1', function()
     cycleSpectate(1)

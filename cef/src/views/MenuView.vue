@@ -612,7 +612,27 @@ function respawn(): void {
   align-items: center;
   justify-content: center;
   background: radial-gradient(circle at 50% 28%, rgba(20, 40, 70, 0.45), rgba(3, 6, 11, 0.76));
-  animation: menu-fade 0.16s ease-out;
+}
+
+.menu-enter-active,
+.menu-leave-active {
+  transition: opacity 0.18s ease;
+}
+
+.menu-enter-active .menu-panel,
+.menu-leave-active .menu-panel {
+  transition: opacity 0.18s ease, transform 0.18s ease;
+}
+
+.menu-enter-from,
+.menu-leave-to {
+  opacity: 0;
+}
+
+.menu-enter-from .menu-panel,
+.menu-leave-to .menu-panel {
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
 }
 
 .menu-panel {
@@ -1119,16 +1139,5 @@ function respawn(): void {
   text-align: center;
   font-size: 10px;
   color: var(--rst-muted);
-}
-
-@keyframes menu-fade {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
 }
 </style>
