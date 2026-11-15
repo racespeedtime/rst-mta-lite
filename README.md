@@ -4,33 +4,257 @@
 
 DeathMatch 是竞速模式：随机出生点、对应车辆、无默认氮气。
 
-## 运行
+## 从零部署
+
+这个仓库是**源码仓库**，不包含 MTA 服务端本体、地图 zip、运行时数据库、日志和 CEF 构建产物。克隆后需要手动补齐这些文件。
+
+### 0. 环境依赖
+
+| 依赖 | 要求 | 用途 |
+| --- | --- | --- |
+| Windows | Windows 10/11 x64 | MTA 服务端 / 客户端 |
+| Git | 任意较新版本 | 克隆仓库 |
+| Node.js | 22 LTS 或兼容版本 | 构建 CEF UI |
+| pnpm | 10.x | 安装 / 构建前端 |
+| MTA:SA Server | 1.6 | 服务端运行时 |
+| MTA:SA Client | 1.6 | 玩家客户端 |
+| GTA: San Andreas | 1.0 | MTA 客户端依赖 |
+
+正常开服不需要 MySQL、Redis、Python。
+
+### 1. 克隆仓库
 
 ```bash
-# UI
-cd cef
-pnpm install
-pnpm build
-
-# 服务端
-server/MTA Server.exe
+git clone git@github.com:racespeedtime/rst-mta-lite.git
+cd rst-mta-lite
 ```
 
-- 服务端端口：`22003`
-- 只启动 `rst_ui`
-- UI 构建产物在 `server/mods/deathmatch/resources/[rst]/rst_ui/ui/`，不入库
-- 地图资源放在 `server/mods/deathmatch/resources/`，不入库
-
-### 地图 ACL
-
-`rst_ui` 需要启动地图资源和读取原生地图 XML：
+没有 SSH key 时用 HTTPS：
 
 ```bash
-# 停止服务器后运行
+git clone https://github.com/racespeedtime/rst-mta-lite.git
+```
+
+### 2. 手动安装 MTA 服务端
+
+从 MTA 官网下载 **MTA:SA Server 1.6**：
+
+```text
+https://multitheftauto.com/
+```
+
+解压后把服务端文件合并到仓库的 `server/`：
+
+```text
+rst-mta-lite/
+  server/
+    MTA Server.exe          ← 手动补充
+    mods/
+      deathmatch/
+        mtaserver.conf      ← 手动补充/修改
+        acl.xml             ← 服务端生成或手动配置
+        resources/
+          [rst]/
+            rst_ui/         ← 仓库自带
+```
+
+注意：
+
+- `server/` 整体在 `.gitignore` 中，除了 `server/mods/deathmatch/resources/[rst]/`。
+- 不要把服务端压缩包直接覆盖掉仓库里的 `[rst]/rst_ui`。
+- `MTA Server.exe`、`mods/deathmatch` 核心文件、`mtaserver.conf`、`acl.xml` 都需要本地准备。
+
+### 3. 补地图资源
+
+仓库不包含地图本体。地图 zip 由维护者上传网盘，下载后直接放进：
+
+```text
+server/mods/deathmatch/resources/
+```
+
+MTA 支持 zip resource，**不需要解压**：
+
+```text
+resources/
+  superieur.zip
+  atlas.zip
+  silent-hill.zip
+```
+
+补齐 MTA 服务端、构建好 CEF UI 后，地图本体就是“放进 resources 即用”。
+
+要求：
+
+- zip 根目录直接有 `meta.xml`
+- 资源名就是 zip 文件名去掉 `.zip`
+- 不要同时保留同名解压目录和 zip
+- 不要把 `manifest.json` / `download.log` 放进 resources
+
+截至 **2026-11-15**，mtavault DM/HDM 元数据共 **4509 张**；地图 zip 作为独立备份包，不进入 Git。地图包由维护者上传网盘，README 不包含网盘地址。
+
+本地开发环境当前安装了 4 张地图用于验证；全新克隆仓库时地图池是 **0 张**，必须先补地图才能开局。
+
+没有地图时服务器仍能启动，但地图池为空，无法开局。
+
+### 4. 构建 CEF UI
+
+仓库不包含 `ui/` 构建产物，必须本地构建：
+
+```bash
+# 第一次使用 pnpm 时
+corepack enable
+corepack prepare pnpm@10 --activate
+
+cd cef
+pnpm install --frozen-lockfile
+pnpm build
+```
+
+输出：
+
+```text
+server/mods/deathmatch/resources/[rst]/rst_ui/ui/
+```
+
+没有这个目录时，进入服务器可能只看到空白 CEF 页面。
+
+### 5. 配置服务端
+
+编辑：
+
+```text
+server/mods/deathmatch/mtaserver.conf
+```
+
+至少确认：
+
+```xml
+<serverport>22003</serverport>
+<httpport>22005</httpport>
+<maxplayers>32</maxplayers>
+
+<!-- 启动核心资源 -->
+<resource src="rst_ui" startup="1" protected="0"/>
+```
+
+`rst_ui` 必须设为 `startup="1"`，否则服务器启动后没有比赛逻辑。
+
+脚本启动时会统一设置：
+
+```lua
+setFPSLimit(60)
+```
+
+### 6. 配置地图 ACL
+
+`rst_ui` 需要启动 / 停止地图 resource，并读取地图 XML：
+
+- `function.startResource`
+- `function.stopResource`
+- `function.xmlLoadFile`
+
+这些权限写在 `rst_ui/meta.xml` 的 `<aclrequest>` 中。
+
+方式一：在 MTA 管理面板批准 `rst_ui` 的 ACL 请求。
+
+方式二：停止服务器后运行：
+
+```bash
 node tools/setup-map-acl.mjs
 ```
 
-也可以在 MTA 管理面板批准 `rst_ui/meta.xml` 里的 `aclrequest`。
+如果脚本提示找不到 `raceACLGroup`，需要在 `acl.xml` 中手动把：
+
+```xml
+<object name="resource.rst_ui"></object>
+```
+
+加入拥有上述权限的 ACL group，然后重启服务器。
+
+### 7. 可选：安装 mtavault 元数据 seed
+
+正常首次启动会自动从：
+
+```text
+server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json
+```
+
+导入 SQLite。
+
+也可以提前安装只读 seed DB：
+
+```bash
+node tools/mtavault/install-mapmeta-db.mjs
+```
+
+目标：
+
+```text
+server/mods/deathmatch/databases/global/rst_ui_mapmeta.db
+```
+
+### 8. 启动服务端
+
+```powershell
+cd server
+.\MTA Server.exe
+```
+
+首次启动会自动创建：
+
+```text
+server/mods/deathmatch/databases/
+server/mods/deathmatch/logs/
+server-id.keys
+```
+
+日志：
+
+```text
+server/mods/deathmatch/logs/server.log
+```
+
+看到下面两行说明正常：
+
+```text
+Resources: N loaded, 0 failed
+Server started and is ready to accept connections!
+```
+
+### 9. 客户端连接
+
+安装：
+
+- [MTA:SA Client 1.6](https://multitheftauto.com/)
+- GTA: San Andreas 1.0（MTA 客户端依赖）
+
+连接：
+
+```text
+mtasa://127.0.0.1:22003
+```
+
+远程服务器把 IP 换成公网地址，并放行：
+
+- UDP `22003` 游戏端口
+- TCP `22005` HTTP 端口
+
+登录、注册或游客进入后会自动加入唯一比赛舞台。
+
+### 仓库里有什么 / 需要手动补什么
+
+| 内容 | 是否在 Git | 说明 |
+| --- | --- | --- |
+| `cef/` 前端源码 | 是 | 需要 `pnpm build` |
+| `rst_ui/` Lua / CEF 页面 | 是 | UI 构建产物 `ui/` 除外 |
+| `mapmeta-catalog.json` | 是 | 首次启动导入 SQLite |
+| `mapmeta` seed DB | 是 | 可选 |
+| `MTA Server.exe` | 否 | 手动安装 MTA 服务端 |
+| `mods/deathmatch` 核心 | 否 | 手动安装 MTA 服务端 |
+| `mtaserver.conf` / `acl.xml` | 否 | 本地配置 |
+| 地图 zip | 否 | 从网盘/备份补充 |
+| `map-cache` / `databases` / `logs` | 否 | 运行时生成 |
+| `rst_ui/ui/` | 否 | `pnpm build` 生成 |
 
 ## 玩法
 
