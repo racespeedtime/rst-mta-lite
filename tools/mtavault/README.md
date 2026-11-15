@@ -18,6 +18,28 @@ server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json
 
 服务端首次启动时把 catalog 导入 SQLite 的 `map_meta` 表；之后 `MapRegistry.get()` 按地图 resource 懒查询，不再读大 JSON。
 
+仓库还带一份只读 seed DB：
+
+```text
+tools/mtavault/seed/rst_ui_mapmeta.db
+```
+
+安装到 MTA 运行目录：
+
+```bash
+node tools/mtavault/install-mapmeta-db.mjs
+# 已存在时覆盖
+node tools/mtavault/install-mapmeta-db.mjs --force
+```
+
+目标：
+
+```text
+server/mods/deathmatch/databases/global/rst_ui_mapmeta.db
+```
+
+这个 DB 只包含 mtavault 公开元数据，不包含账号/玩家记录。运行时数据库仍然被 `.gitignore` 忽略，仓库只保留 seed。
+
 当前抓取结果：
 
 ```text

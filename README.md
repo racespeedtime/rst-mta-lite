@@ -224,6 +224,7 @@ server/                      MTA 服务端运行时
     mapmeta-catalog.json     mtavault DM/HDM 元数据快照（首次导入 SQLite）
     covers/                  地图封面
 tools/mtavault/              mtavault 抓取 / 扫描
+tools/mtavault/seed/         只读地图元数据 seed DB
 tools/setup-map-acl.mjs      地图 ACL 设置
 ```
 
