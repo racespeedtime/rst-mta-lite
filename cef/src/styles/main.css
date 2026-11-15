@@ -108,8 +108,8 @@ button:disabled {
   color-scheme: light;
   --rst-text: #111827;
   --rst-muted: #4b5563;
-  --rst-panel: rgba(255, 255, 255, 0.96);
-  --rst-panel-soft: rgba(255, 255, 255, 0.82);
+  --rst-panel: #ffffff;
+  --rst-panel-soft: rgba(255, 255, 255, 0.92);
   --rst-border: rgba(17, 24, 39, 0.12);
   --rst-shadow: 0 24px 60px rgba(22, 32, 48, 0.16);
   --rst-gold: #805400;
@@ -147,7 +147,7 @@ html[data-theme='light'] .app-root :is(
   .maptimer
 ) {
   border-color: var(--rst-border) !important;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(242, 245, 249, 0.95)) !important;
+  background: linear-gradient(160deg, #ffffff, #f3f6fa) !important;
   color: var(--rst-text) !important;
   box-shadow: var(--rst-shadow);
 }
@@ -254,6 +254,20 @@ html[data-theme='light'] .app-root .chat__name {
   color: var(--rst-text) !important;
   font-weight: 600;
   text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+html[data-theme='light'] .app-root .chat__text,
+html[data-theme='light'] .app-root .chat__text--native {
+  color: var(--rst-text) !important;
+  opacity: 1 !important;
+}
+
+html[data-theme='light'] .app-root .chat__text--system {
+  color: var(--rst-gold) !important;
+}
+
+html[data-theme='light'] .app-root .chat__time {
+  color: var(--rst-muted) !important;
 }
 
 html[data-theme='light'] .app-root .scoreboard__status,
