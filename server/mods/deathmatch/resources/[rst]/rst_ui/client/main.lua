@@ -18,16 +18,14 @@ local phase = 'auth'
 local mode = 'playing'
 local menuOpen = false
 local chatOpen = false
+local mapDetailsOpen = false
 local helpOpen = false
 local voteActive = false
 local readyWaiting = false
 local interactive = false
+local setSpawnControlLock
 local cachedState = nil
-local spectateTarget = nil
 local spectateName = ''
-local spectatorFallback = false
-local spectatorFallbackVehicle = nil
-local spectateTimer = nil
 local countdownTimer = nil
 local countdownVehicle = nil
 local controlLocked = false
@@ -190,6 +188,7 @@ local function isForcedCursor()
     return phase ~= 'playing'
         or menuOpen
         or chatOpen
+        or mapDetailsOpen
         or helpOpen
         or voteActive
         or readyWaiting
@@ -205,6 +204,9 @@ local function updateCursor()
     local visible = forced or (optional and (cursorAlways or freeCursor))
 
     setInteractive(visible)
+    if controlLocked then
+        setSpawnControlLock(true)
+    end
     dispatch('cursor', {
         mode = cursorAlways and 'always' or 'auto',
         visible = visible,
@@ -235,8 +237,8 @@ end
 
 -- 倒计时/准备阶段双保险：服务端冻结之外，本地也锁输入和载具。
 -- 服务端 freeze 偶尔会被载具同步覆盖，单靠服务端会出现倒计时能挪车。
-local function setSpawnControlLock(locked)
-    if locked == controlLocked then
+setSpawnControlLock = function(locked)
+    if not locked and not controlLocked then
         return
     end
     controlLocked = locked
@@ -264,8 +266,14 @@ local function setSpawnControlLock(locked)
 end
 
 -- ---------------------------------------------------------------------------
--- 观战相机
+-- 观战自由视角
 -- ---------------------------------------------------------------------------
+
+local freecamActive = false
+local freecamX, freecamY, freecamZ = 0, 0, 0
+local freecamYaw, freecamPitch = 0, 0
+local freecamLastTick = 0
+local freecamVehicle = nil
 
 local function setSpectateName(name)
     name = name or ''
@@ -276,171 +284,118 @@ local function setSpectateName(name)
     dispatch('spectate', { name = name })
 end
 
-local function leaveSpectatorFallback()
-    if not spectatorFallback then
-        return
-    end
-    spectatorFallback = false
-    if isElement(spectatorFallbackVehicle) then
-        setElementAlpha(spectatorFallbackVehicle, 255)
-    end
-    spectatorFallbackVehicle = nil
-    if isElement(localPlayer) then
-        setElementAlpha(localPlayer, 255)
-    end
-end
-
-local function enterSpectatorFallback()
-    if spectatorFallback then
+local function freecamRender()
+    if not freecamActive then
         return
     end
 
-    spectatorFallback = true
-    spectatorFallbackVehicle = getPedOccupiedVehicle(localPlayer)
+    local now = getTickCount()
+    local dt = math.min(0.1, math.max(0, (now - freecamLastTick) / 1000))
+    freecamLastTick = now
 
-    -- 没有其他玩家可跟随时保持当前镜头，并隐藏自己的角色，避免看起来像“出生了”
-    local px, py, pz, tx, ty, tz = getCameraMatrix()
-    if not px or not tx then
-        local x, y, z = getElementPosition(localPlayer)
-        px, py, pz = x, y, z + 8
-        tx, ty, tz = x, y, z
-    end
-    setCameraMatrix(px, py, pz, tx, ty, tz)
-
-    if isElement(localPlayer) then
-        setElementAlpha(localPlayer, 0)
-    end
-    if isElement(spectatorFallbackVehicle) then
-        setElementAlpha(spectatorFallbackVehicle, 0)
-    end
-end
-
-local function stopSpectate()
-    if spectateTimer then
-        killTimer(spectateTimer)
-        spectateTimer = nil
-    end
-    leaveSpectatorFallback()
-    spectateTarget = nil
-    setSpectateName('')
-    if isElement(localPlayer) then
-        setCameraTarget(localPlayer)
-    end
-end
-
-local function getSpectatePlayers()
-    local dimension = getElementDimension(localPlayer)
-    local players = {}
-
-    for _, player in ipairs(getElementsByType('player')) do
-        if
-            player ~= localPlayer
-            and getElementDimension(player) == dimension
-            and getElementHealth(player) > 0
-        then
-            players[#players + 1] = player
-        end
-    end
-
-    -- 固定排序，保证左右键循环顺序稳定
-    table.sort(players, function(a, b)
-        return (getPlayerName(a) or '') < (getPlayerName(b) or '')
-    end)
-
-    return players
-end
-
-local function setSpectateTarget(target)
-    spectateTarget = target
-    if isElement(target) then
-        leaveSpectatorFallback()
-        setCameraTarget(target)
-        setSpectateName(getPlayerName(target) or '')
-    else
-        setSpectateName('')
-    end
-end
-
-local function updateSpectateTarget()
-    if mode ~= 'spectating' or phase ~= 'playing' then
+    if interactive or chatOpen or menuOpen then
         return
     end
 
-    local players = getSpectatePlayers()
-    if #players == 0 then
-        spectateTarget = nil
-        setSpectateName('等待其他玩家')
-        enterSpectatorFallback()
-        return
+    local turn = 90 * dt
+    if getKeyState('arrowleft') then
+        freecamYaw = freecamYaw - turn
+    end
+    if getKeyState('arrowright') then
+        freecamYaw = freecamYaw + turn
+    end
+    if getKeyState('arrowup') then
+        freecamPitch = math.min(85, freecamPitch + turn)
+    end
+    if getKeyState('arrowdown') then
+        freecamPitch = math.max(-85, freecamPitch - turn)
     end
 
-    leaveSpectatorFallback()
+    local yaw = math.rad(freecamYaw)
+    local pitch = math.rad(freecamPitch)
+    local fx = math.cos(pitch) * math.cos(yaw)
+    local fy = math.cos(pitch) * math.sin(yaw)
+    local fz = math.sin(pitch)
+    local rx, ry = -math.sin(yaw), math.cos(yaw)
 
-    local valid = false
-    if spectateTarget and isElement(spectateTarget) then
-        for _, player in ipairs(players) do
-            if player == spectateTarget then
-                valid = true
-                break
-            end
-        end
+    local speed = (getKeyState('lshift') and 55 or 24) * dt
+    if getKeyState('w') then
+        freecamX, freecamY, freecamZ = freecamX + fx * speed, freecamY + fy * speed, freecamZ + fz * speed
+    end
+    if getKeyState('s') then
+        freecamX, freecamY, freecamZ = freecamX - fx * speed, freecamY - fy * speed, freecamZ - fz * speed
+    end
+    if getKeyState('a') then
+        freecamX, freecamY = freecamX - rx * speed, freecamY - ry * speed
+    end
+    if getKeyState('d') then
+        freecamX, freecamY = freecamX + rx * speed, freecamY + ry * speed
+    end
+    if getKeyState('space') then
+        freecamZ = freecamZ + speed
+    end
+    if getKeyState('lctrl') then
+        freecamZ = freecamZ - speed
     end
 
-    if not valid then
-        spectateTarget = players[1]
-    end
-
-    setCameraTarget(spectateTarget)
-    setSpectateName(getPlayerName(spectateTarget) or '')
+    setCameraMatrix(freecamX, freecamY, freecamZ, freecamX + fx * 8, freecamY + fy * 8, freecamZ + fz * 8)
 end
 
 local function startSpectate()
-    updateSpectateTarget()
-
-    if not spectateTimer then
-        spectateTimer = setTimer(function()
-            if phase ~= 'playing' or mode ~= 'spectating' then
-                stopSpectate()
-                return
-            end
-            updateSpectateTarget()
-        end, 2000, 0)
-    end
-end
-
-local function switchSpectate(direction)
-    if mode ~= 'spectating' or phase ~= 'playing' then
+    if freecamActive then
         return
     end
 
-    local players = getSpectatePlayers()
-    if #players == 0 then
-        return
+    freecamActive = true
+    freecamVehicle = getPedOccupiedVehicle(localPlayer)
+
+    local px, py, pz, tx, ty, tz = getCameraMatrix()
+    if not px or not tx then
+        px, py, pz = getElementPosition(localPlayer)
+        tx, ty, tz = px, py, pz + 1
     end
 
-    local current = 0
-    for index, player in ipairs(players) do
-        if player == spectateTarget then
-            current = index
-            break
-        end
-    end
-
-    local targetIndex
-    if current == 0 then
-        targetIndex = direction > 0 and 1 or #players
+    freecamX, freecamY, freecamZ = px, py, pz + 2.5
+    local dx, dy, dz = tx - px, ty - py, tz - freecamZ
+    if math.abs(dx) + math.abs(dy) > 0.001 then
+        freecamYaw = math.deg(math.atan2(dy, dx))
     else
-        targetIndex = current + direction
-        if targetIndex > #players then
-            targetIndex = 1
-        elseif targetIndex < 1 then
-            targetIndex = #players
-        end
+        freecamYaw = 0
+    end
+    freecamPitch = math.deg(math.atan2(dz, math.sqrt(dx * dx + dy * dy)))
+    freecamPitch = math.max(-85, math.min(85, freecamPitch))
+    freecamLastTick = getTickCount()
+
+    if isElement(localPlayer) then
+        setElementAlpha(localPlayer, 0)
+        setElementFrozen(localPlayer, true)
+    end
+    if isElement(freecamVehicle) then
+        setElementAlpha(freecamVehicle, 0)
     end
 
-    setSpectateTarget(players[targetIndex])
+    setSpectateName('自由视角')
+    addEventHandler('onClientRender', root, freecamRender)
 end
 
+local function stopSpectate()
+    if not freecamActive then
+        return
+    end
+
+    freecamActive = false
+    removeEventHandler('onClientRender', root, freecamRender)
+
+    if isElement(freecamVehicle) then
+        setElementAlpha(freecamVehicle, 255)
+    end
+    freecamVehicle = nil
+    if isElement(localPlayer) then
+        setElementAlpha(localPlayer, 255)
+        setElementFrozen(localPlayer, false)
+    end
+    setSpectateName('')
+end
 -- ---------------------------------------------------------------------------
 -- 状态机
 -- ---------------------------------------------------------------------------
@@ -630,6 +585,20 @@ local function render()
         dxDrawRectangle(0, 0, screenW, screenH, tocolor(70, 140, 255, 45))
     end
 
+    -- 倒计时/准备阶段每帧压住载具，防止地图脚本或同步把 freeze 状态冲掉
+    if controlLocked then
+        local vehicle = getPedOccupiedVehicle(localPlayer)
+        if isElement(vehicle) then
+            setElementVelocity(vehicle, 0, 0, 0)
+            if not isElementFrozen(vehicle) then
+                setElementFrozen(vehicle, true)
+            end
+        end
+        if isElement(localPlayer) and not isElementFrozen(localPlayer) then
+            setElementFrozen(localPlayer, true)
+        end
+    end
+
     dxDrawImage(0, 0, screenW, screenH, browser, 0, 0, 0, tocolor(255, 255, 255, 255), false)
 end
 
@@ -737,6 +706,9 @@ addEventHandler('rst:ui:action', root, function(json)
 
     if data.action == 'sound' then
         playUiSound(tostring(data.name or 'click'))
+    elseif data.action == 'mapdetails' then
+        mapDetailsOpen = data.open == true
+        applyInteractive()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
     elseif data.action == 'chat:close' then
@@ -1040,20 +1012,7 @@ bindUiKey('T', function()
     setChatOpen(true)
 end)
 
--- 观战：左键下一位、右键上一位
-bindUiKey('mouse1', function()
-    if phase ~= 'playing' or mode ~= 'spectating' or interactive then
-        return
-    end
-    switchSpectate(1)
-end)
-
-bindUiKey('mouse2', function()
-    if phase ~= 'playing' or mode ~= 'spectating' or interactive then
-        return
-    end
-    switchSpectate(-1)
-end)
+-- 观战自由视角：WASD 平移，空格 / Ctrl 升降，方向键转向
 
 bindUiKey('F1', function()
     if phase ~= 'playing' then

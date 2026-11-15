@@ -73,7 +73,7 @@ const gameModeLabel = computed(() => {
     <div v-if="spectating" class="spectate">
       <IconEye class="icon icon--sm" />
       <span>{{ spectateLabel }}<span v-if="ui.spectateName"> · {{ ui.spectateName }}</span></span>
-      <span class="spectate__hint">左键下一位 · 右键上一位</span>
+      <span class="spectate__hint">WASD 移动 · 空格 / Ctrl 升降 · 方向键转向</span>
     </div>
 
     <div class="hud__hints">

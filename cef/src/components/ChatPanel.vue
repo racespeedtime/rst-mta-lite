@@ -155,7 +155,7 @@ onMounted(() => scrollToBottom(true))
         v-model="draft"
         maxlength="160"
         autocomplete="off"
-        placeholder="输入消息…"
+        placeholder="输入消息，/ 开头为指令…"
         @keydown.enter.prevent="send"
         @keydown.esc.prevent="close"
       />

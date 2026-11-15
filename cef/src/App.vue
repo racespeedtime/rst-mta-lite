@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, onUnmounted, ref } from 'vue'
+import { onMounted, onUnmounted, ref, watch } from 'vue'
 
 import GameHud from '@/components/GameHud.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
@@ -161,6 +161,13 @@ function onCursorKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
+  watch(
+    () => ui.mapDetailsOpen,
+    (open) => {
+      emitAction('mapdetails', { open })
+    },
+  )
+
   offs.push(
     onBridge('state', applyState),
     onBridge('menu', (payload) => {

@@ -451,6 +451,18 @@ actions['ob:race'] = function(player, session)
     broadcastState()
 end
 
+actions['respawn'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local ok, err = Rooms.respawn(player)
+    if not ok then
+        notify(player, err or '重生失败')
+    end
+    broadcastState()
+end
+
 actions['chat:send'] = function(player, session, data)
     if not session.authed then
         return
@@ -460,6 +472,29 @@ actions['chat:send'] = function(player, session, data)
     text = text:gsub('[\r\n\t]', ' ')
     text = text:gsub('^%s+', ''):gsub('%s+$', '')
     if #text == 0 then
+        return
+    end
+
+    -- CEF 聊天拦截了原生 chatbox，所以 / 开头统一按指令处理
+    if text:sub(1, 1) == '/' then
+        local commandLine = text:sub(2):gsub('^%s+', ''):gsub('%s+$', '')
+        local command, args = commandLine:match('^(%S+)%s*(.*)$')
+        if not command or #command == 0 then
+            notify(player, '请输入指令，例如 /help')
+            return
+        end
+
+        local time = now()
+        if time - (session.lastChatAt or 0) < 1 then
+            notify(player, '操作太快，请稍后再试')
+            return
+        end
+        session.lastChatAt = time
+
+        local ok = executeCommandHandler(command:lower(), player, args or '')
+        if not ok then
+            notify(player, '未知指令：/' .. command .. '。可用 /help 查看')
+        end
         return
     end
 
@@ -656,6 +691,10 @@ end)
 
 addEventHandler('onPlayerWasted', root, function()
     Rooms.handleDeath(source)
+end)
+
+addCommandHandler('help', function(player)
+    notify(player, '可用指令：/car [模型] · /help')
 end)
 
 -- 测试用：生成一辆带氮气的 Infernus

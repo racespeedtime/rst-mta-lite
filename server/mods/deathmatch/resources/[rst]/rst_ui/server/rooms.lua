@@ -1114,10 +1114,40 @@ function Rooms.returnToRace(player)
     return true, 'next-round'
 end
 
+-- 训练模式主动重生：回随机出生点并重新倒计时，不影响其他玩家
+function Rooms.respawn(player)
+    local room = Rooms.playerRoom(player)
+    if not room then
+        return false, '不在舞台里'
+    end
+    if room.mode ~= 'training' then
+        return false, '仅训练模式支持主动重生'
+    end
+    if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+        return false, '当前不能重生'
+    end
+    if not contains(room.players, player) then
+        return false, '观战者不能重生'
+    end
+
+    room.trainingReturns[player] = nil
+    room.trainingReturnsMs[player] = nil
+    room.trainingResults[player] = nil
+    room.finished[player] = nil
+    for index = #room.finishOrder, 1, -1 do
+        if room.finishOrder[index].player == player then
+            table.remove(room.finishOrder, index)
+        end
+    end
+
+    spawnPlayerInRoom(player, room, true)
+    stateChanged()
+    return true
+end
+
 function Rooms.all()
     return rooms
 end
-
 function Rooms.get(id)
     return rooms[id]
 end

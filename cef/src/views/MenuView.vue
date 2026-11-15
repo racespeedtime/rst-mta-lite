@@ -11,6 +11,7 @@ import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
 import IconMapPinned from '~icons/lucide/map-pinned'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
+import IconRotateCcw from '~icons/lucide/rotate-ccw'
 import IconSettings from '~icons/lucide/settings'
 import IconTrophy from '~icons/lucide/trophy'
 import IconUser from '~icons/lucide/user'
@@ -110,6 +111,11 @@ function leaveStage(): void {
   emitAction('stage:leave')
   emitAction('menu:close')
 }
+
+function respawn(): void {
+  emitAction('respawn')
+  emitAction('menu:close')
+}
 </script>
 
 <template>
@@ -205,6 +211,20 @@ function leaveStage(): void {
           <span class="menu-action__text">
             <strong>切换比赛模式</strong>
             <small>{{ modeVoteHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button
+          v-if="ui.gameMode === 'training' && ui.mode === 'playing'"
+          type="button"
+          class="menu-action"
+          @click="respawn"
+        >
+          <span class="menu-action__icon"><IconRotateCcw class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>重生</strong>
+            <small>回到随机出生点，重新 3 秒倒计时</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
