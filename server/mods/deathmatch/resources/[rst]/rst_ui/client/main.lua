@@ -115,6 +115,13 @@ local function setNativeHudVisible(visible)
     end
 end
 
+-- 确保其他玩家头顶名字可见；CEF HUD 不负责 3D 名字牌
+local function ensurePlayerNametags()
+    for _, player in ipairs(getElementsByType('player')) do
+        pcall(setPlayerNametagShowing, player, true)
+    end
+end
+
 -- 关闭速度/加速度引起的原生动态模糊
 local function disableMotionBlur()
     pcall(setBlurLevel, 0)
@@ -1211,8 +1218,15 @@ end)
 -- 本地玩家状态
 -- ---------------------------------------------------------------------------
 
+addEventHandler('onClientElementStreamIn', root, function()
+    if getElementType(source) == 'player' then
+        pcall(setPlayerNametagShowing, source, true)
+    end
+end)
+
 addEventHandler('onClientPlayerSpawn', localPlayer, function()
     disableMotionBlur()
+    ensurePlayerNametags()
     if not RST.countdownActive and not RST.readyWaiting then
         setSpawnControlLock(false)
     end
@@ -1512,6 +1526,10 @@ end)
 
 -- 原生 chatbox 只负责 MTA 默认输入，聊天记录由 CEF 渲染
 showChat(true, false)
+
+-- 进入服务器时恢复所有玩家头顶名字牌
+ensurePlayerNametags()
+addEventHandler('onClientResourceStart', resourceRoot, ensurePlayerNametags)
 
 -- 隐藏原生血条 / 武器等 HUD，保留雷达和准星
 setNativeHudVisible(false)

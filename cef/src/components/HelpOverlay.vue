@@ -100,7 +100,7 @@ onUnmounted(() => {
               <span>切换到上一位玩家</span>
             </li>
           </ul>
-          <p class="help__note">比赛进行中加入会先观战，下一回合自动加入比赛。</p>
+          <p class="help__note">观战时左上角会显示当前跟随的玩家名；其他玩家头顶也保留名字牌。竞技模式中途加入会先观战，下一回合参赛；训练模式可以直接重生。</p>
         </section>
 
         <section class="help__section">
