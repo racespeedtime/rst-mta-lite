@@ -131,6 +131,8 @@ HDM =   15
 合并 = 4509（HDM 同时带 DM 标签）
 ```
 
+这里说的是**元数据条数**，不是能下载到的数量：2026-11-16 实测 4509 条里 **4486 张**源站有文件，另 **23 张**只有元数据（`versions: 0`，下载端点返回 HTTP 500），清单见下面「已知：23 张源站缺文件」。
+
 ### 按需下载地图 zip（可选）
 
 ```bash
@@ -147,27 +149,79 @@ tools/mtavault/output/mapmeta.json
 
 行为：
 
-- 并发下载，默认 4 个 worker
-- 默认代理 `http://127.0.0.1:7890`
-- 先写 `.part`
-- 失败的 `.part` 会保留，下一次运行继续尝试
-- 支持 HTTP Range 时用 `curl -C -` 续传；源站不支持 Range 会自动从头下载
-- Python `zipfile` 校验完整性和 `meta.xml` / `.map`
-- 校验通过后才改名为正式 `.zip`
-- 记录 SHA-256 到 `manifest.json`
-- 已存在的有效 zip 自动跳过
+- 并发下载，默认 8 个 worker（范围 1-24）
+- 默认代理 `http://127.0.0.1:7890`，`--proxy off` 可直连
+- 先写 `.part`，校验通过后才原子改名为正式 `.zip`
+- 失败保留的 `.part` 下次会续传；源站不支持 Range 时自动关闭续传，不再每个文件白吃一次 `curl (33)`
+- 只依赖 Node 内置模块（`node:zlib` 解析 zip），**不需要 Python**
+- 校验 zip 结构和 `meta.xml` / `.map`；下载完成后逐条解压做 CRC 校验
+- 记录 SHA-256 到 `manifest.json`（临时文件 + rename 原子写，写入中断不会留下坏 JSON）
+- 已有 zip 默认只读中央目录快速校验；确实损坏时重命名为 `*.zip.bad-<时间戳>` 隔离，**不删除**
+- 失败按类型重试：网络抖动重试 3 次，404/410 与持续 5xx 记为 `unavailable`，不阻塞其它地图
+
+常用参数：
+
+| 参数 | 说明 |
+| --- | --- |
+| `--out <dir>` | 备份目录，等价于 `MAP_BACKUP_DIR` |
+| `--catalog <file>` | 指定 `mapmeta.json` |
+| `--concurrency <n>` | 并发数 1-24 |
+| `--proxy <url\|off>` | 代理，`off` 直连 |
+| `--max-time <秒>` | 单文件下载上限，默认 1800 |
+| `--only-missing` | 只补缺失文件，已有 zip 不校验、不改动、不重下 |
+| `--verify` | 只校验已有 zip |
+| `--verify --full` | 逐条解压做 CRC 全量校验 |
+| `--deep` | 已有 zip 额外核对 manifest 里的 sha256 |
 
 环境变量：
 
 ```bash
 set MAP_BACKUP_DIR=D:\maps\mtavault-dm-hdm
 set MAP_PROXY=http://127.0.0.1:7890
-set MAP_CONCURRENCY=4
-set PYTHON=C:\Python312\python.exe
+set MAP_CONCURRENCY=8
 node tools/mtavault/download-all-maps.mjs
 ```
 
-并发数范围 `1-16`。代理或源站不稳定时建议先用 3-4，确认速度后再提高。
+并发数范围 `1-24`。实测 16 左右吞吐最好，再往上反而下降；代理或源站不稳定时先用 4-8。
+
+日常补漏和体检：
+
+```bash
+node tools/mtavault/download-all-maps.mjs --only-missing
+node tools/mtavault/download-all-maps.mjs --verify
+```
+
+`manifest.json` 结构：`downloaded`（含 `bytes` / `sha256`）、`skipped`、`failed`（可重试）、`unavailable`（源站缺失，含 HTTP 状态和时间）。
+
+#### 已知：23 张源站缺文件
+
+2026-11-16 实测，下列地图在 mtavault 有元数据，但下载端点返回 HTTP 500（对应 `versions: 0`，即没有可下载的文件版本），不是本地漏下，也不是网络问题。源站补档后跑一次 `--only-missing` 就能自动补进来；新脚本会把它们记进 `manifest.json` 的 `unavailable`，不再混进 `failed` 反复重试。
+
+| slug | 地图 | 作者 | 元数据记录大小 |
+| --- | --- | --- | --- |
+| `acheron` | Acheron | Gabcho | 4.4 MB |
+| `accelera` | Accelera | YigithaN, Shahriar | 4.9 MB |
+| `breaking-outta-heights` | Breaking Outta Heights | Moamen, Bunta | 5 MB |
+| `coast-away` | Coast Away | iRaven | 5.1 MB |
+| `coliseum-of-teleport` | Coliseum Of Teleport | Sasuke | 51 KB |
+| `collective-of-plenty` | Collective Of Plenty | Nebla | 13.4 MB |
+| `existential-dread` | Existential Dread | Conquer | 7.2 MB |
+| `frostopia-2088` | Frostopia 2088 | Nebla | 13.6 MB |
+| `in-the-rain` | In The Rain | Straim | 8.9 MB |
+| `kls-cinnamon` | Cinnamon | KLS | 8 MB |
+| `lacrimosa` | Lacrimosa | Kanzy | 6.3 MB |
+| `mindblow` | Mindblow | beatZ, UnDeR | 11.1 MB |
+| `mona-lisa-overdrive` | Mona Lisa Overdrive | hUGAOXD, nX_ | — |
+| `98-octane` | 98 Octane | Canky | 3.8 MB |
+| `natlan` | Natlan | Nebla | 10.6 MB |
+| `no-escape` | No Escape | Sasuke | 45 KB |
+| `rain-ii` | Rain II | Straim | 5 MB |
+| `ronova` | Ronova | Nebla | 6.2 MB |
+| `skirk` | Skirk | Nebla | 7.2 MB |
+| `skilled-stuntplane-iii` | Skilled Stuntplane III | Gerc, Pablow | 9.8 MB |
+| `the-lost-kingdom` | The Lost Kingdom | Kalkbrenner | 22 MB |
+| `unstable-forwards` | Unstable Forwards | NaGaFo | 9.2 MB |
+| `wff-mowin-this-shit` | WFF Mowin This Shit (4/500) | Conquer | 37.3 MB |
 
 这些 zip 只下载到本机，**不随仓库提供，也不放进 Git**。下载和再分发前请确认作者授权与 mtavault 使用条款。
 
