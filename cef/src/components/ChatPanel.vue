@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref, watch } from 'vue'
 
-import IconMessageSquare from '~icons/lucide/message-square'
 import type { ChatEntry } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { formatClock } from '@/utils/format'
@@ -81,16 +80,6 @@ onMounted(() => scrollToBottom(true))
 
 <template>
   <section class="chat" :class="{ 'chat--open': ui.chatOpen }">
-    <header class="chat__head">
-      <span class="chat__title">
-        <IconMessageSquare class="icon icon--sm" />
-        聊天
-      </span>
-      <span class="chat__hint">
-        {{ ui.chatOpen ? 'Enter 发送 · Esc 取消 · 原生输入' : 'T 输入' }} · {{ ui.messages.length }}/{{ ui.chatLimit }}
-      </span>
-    </header>
-
     <div ref="listRef" class="chat__list" @scroll="onScroll">
       <p v-if="ui.messages.length === 0" class="chat__empty">按 T 发送第一条消息</p>
 
@@ -124,36 +113,28 @@ onMounted(() => scrollToBottom(true))
     >
       {{ unread }} 条新消息 ↓
     </button>
-
-    <div v-if="ui.chatOpen" class="chat__native-hint">
-      已启用原生输入框 · Enter 发送 · Esc 取消
-    </div>
   </section>
 </template>
 
 <style scoped>
 .chat {
   position: absolute;
-  top: 42%;
+  top: 36%;
   left: 24px;
   width: 400px;
   height: min(48vh, 380px);
   display: flex;
   flex-direction: column;
-  border: 1px solid var(--rst-border);
+  border: 0;
   border-radius: 14px;
-  background: linear-gradient(180deg, rgba(8, 14, 23, 0.72), rgba(6, 11, 19, 0.52));
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.24);
+  background: transparent;
+  box-shadow: none;
   overflow: hidden;
   pointer-events: none;
-  transition: background 0.16s ease, border-color 0.16s ease;
 }
 
 .chat--open {
   pointer-events: auto;
-  border-color: rgba(var(--rst-accent-rgb), 0.35);
-  background: linear-gradient(180deg, rgba(8, 14, 23, 0.94), rgba(6, 11, 19, 0.9));
-  box-shadow: 0 18px 46px rgba(0, 0, 0, 0.4);
 }
 
 .chat__head {
@@ -194,6 +175,7 @@ onMounted(() => scrollToBottom(true))
   display: flex;
   flex-direction: column;
   gap: 4px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
 }
 
 .chat__list::-webkit-scrollbar {

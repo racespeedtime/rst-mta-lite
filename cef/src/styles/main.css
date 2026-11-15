@@ -157,7 +157,6 @@ html[data-theme='light'] .app-root :is(
   .ready__panel,
   .rewind,
   .speedo,
-  .chat,
   .competition,
   .hud__player,
   .hud .room,
@@ -181,6 +180,16 @@ html[data-theme='light'] .app-root .track__by {
 
 html[data-theme='light'] .app-root .track__by {
   color: var(--rst-muted) !important;
+}
+
+html[data-theme='light'] .app-root .chat {
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+html[data-theme='light'] .app-root .chat__list {
+  text-shadow: 0 1px 2px rgba(255, 255, 255, 0.95), 0 0 4px rgba(255, 255, 255, 0.75);
 }
 
 html[data-theme='light'] .app-root .track .icon {
