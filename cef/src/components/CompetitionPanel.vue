@@ -140,12 +140,12 @@ const groups = computed<TeamGroup[]>(() => {
 }
 
 .competition__group--red .competition__team-head {
-  color: #ff9b9b;
+  color: var(--rst-red);
   border-color: rgba(255, 110, 110, 0.35);
 }
 
 .competition__group--blue .competition__team-head {
-  color: #9cc9ff;
+  color: var(--rst-blue);
   border-color: rgba(100, 170, 255, 0.35);
 }
 
@@ -215,11 +215,11 @@ const groups = computed<TeamGroup[]>(() => {
 }
 
 .competition__points {
-  color: #ffd167;
+  color: var(--rst-gold);
 }
 
 .competition__out {
-  color: #ff9b9b;
+  color: var(--rst-red);
   font-size: 9px;
 }
 

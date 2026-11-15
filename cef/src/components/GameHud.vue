@@ -178,7 +178,7 @@ const gameModeLabel = computed(() => {
   padding: 2px 7px;
   border-radius: 999px;
   border: 1px solid rgba(139, 124, 255, 0.3);
-  color: #b8aeff;
+  color: var(--rst-accent-2);
   font-size: 9px;
   letter-spacing: 0.08em;
 }
@@ -327,7 +327,7 @@ const gameModeLabel = computed(() => {
   border: 1px solid rgba(140, 180, 255, 0.08);
   border-radius: 6px;
   background: rgba(6, 11, 19, 0.45);
-  color: rgba(147, 164, 189, 0.55);
+  color: var(--rst-muted);
   font-size: 9px;
   letter-spacing: 0.08em;
   pointer-events: none;
@@ -336,7 +336,7 @@ const gameModeLabel = computed(() => {
 
 .track .icon {
   flex: none;
-  color: rgba(147, 164, 189, 0.45);
+  color: var(--rst-muted);
 }
 
 .track__map {
@@ -350,19 +350,19 @@ const gameModeLabel = computed(() => {
 
 .track__by {
   flex: none;
-  color: rgba(147, 164, 189, 0.5);
+  color: var(--rst-muted);
   white-space: nowrap;
 }
 
 .hud__tag--red {
   border-color: rgba(255, 110, 110, 0.4);
   background: rgba(255, 110, 110, 0.14);
-  color: #ff9b9b;
+  color: var(--rst-red);
 }
 
 .hud__tag--blue {
   border-color: rgba(100, 170, 255, 0.4);
   background: rgba(100, 170, 255, 0.14);
-  color: #9cc9ff;
+  color: var(--rst-blue);
 }
 </style>

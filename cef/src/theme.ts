@@ -55,10 +55,21 @@ export function resolveTheme(mode: ThemeMode): ResolvedTheme {
   return mode
 }
 
+function darkenHex(hex: string, factor: number): string {
+  const value = normalizeAccent(hex).slice(1)
+  const channels = [0, 2, 4].map((offset) => {
+    const channel = parseInt(value.slice(offset, offset + 2), 16)
+    return Math.max(0, Math.min(255, Math.round(channel * factor)))
+  })
+  return `#${channels.map((channel) => channel.toString(16).padStart(2, '0')).join('')}`
+}
+
 export function applyTheme(settings: ThemeSettings): void {
   const root = document.documentElement
   const resolved = resolveTheme(settings.mode)
-  const accent = normalizeAccent(settings.accent)
+  const sourceAccent = normalizeAccent(settings.accent)
+  // 浅色背景上直接使用亮青色会失去对比度，浅色主题把主色压暗一档。
+  const accent = resolved === 'light' ? darkenHex(sourceAccent, 0.68) : sourceAccent
   root.dataset.theme = resolved
   root.dataset.themeMode = settings.mode
   root.style.setProperty('--rst-accent', accent)

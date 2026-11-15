@@ -8,6 +8,8 @@
   --rst-accent-2: #8b7cff;
   --rst-gold: #ffd479;
   --rst-green: #7ee2a8;
+  --rst-red: #ff9b9b;
+  --rst-blue: #9cc9ff;
   --rst-panel: rgba(9, 15, 25, 0.9);
   --rst-panel-soft: rgba(14, 23, 36, 0.72);
   --rst-border: rgba(140, 180, 255, 0.16);
@@ -104,14 +106,17 @@ button:disabled {
 
 :root[data-theme='light'] {
   color-scheme: light;
-  --rst-text: #17273b;
-  --rst-muted: #5f7188;
-  --rst-panel: rgba(255, 255, 255, 0.94);
-  --rst-panel-soft: rgba(255, 255, 255, 0.76);
-  --rst-border: rgba(40, 80, 120, 0.18);
-  --rst-shadow: 0 24px 60px rgba(30, 60, 100, 0.18);
-  --rst-gold: #a96b12;
-  --rst-green: #14875a;
+  --rst-text: #111827;
+  --rst-muted: #4b5563;
+  --rst-panel: rgba(255, 255, 255, 0.96);
+  --rst-panel-soft: rgba(255, 255, 255, 0.82);
+  --rst-border: rgba(17, 24, 39, 0.12);
+  --rst-shadow: 0 24px 60px rgba(22, 32, 48, 0.16);
+  --rst-gold: #805400;
+  --rst-green: #126b43;
+  --rst-red: #a61b12;
+  --rst-blue: #155489;
+  --rst-accent-2: #5b3fd6;
 }
 
 html[data-theme='light'] .app-root {
@@ -127,6 +132,7 @@ html[data-theme='light'] .app-root :is(
   .help__panel,
   .map-detail__panel,
   .race-result__panel,
+  .race-result__banner,
   .ready__panel,
   .rewind,
   .speedo,
@@ -141,7 +147,7 @@ html[data-theme='light'] .app-root :is(
   .maptimer
 ) {
   border-color: var(--rst-border) !important;
-  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(232, 241, 250, 0.94)) !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.97), rgba(242, 245, 249, 0.95)) !important;
   color: var(--rst-text) !important;
   box-shadow: var(--rst-shadow);
 }
@@ -159,7 +165,7 @@ html[data-theme='light'] .app-root :is(
   .mode-vote,
   .auth
 ) {
-  background: radial-gradient(circle at 50% 28%, rgba(236, 245, 252, 0.62), rgba(203, 219, 235, 0.76)) !important;
+  background: radial-gradient(circle at 50% 28%, rgba(248, 250, 252, 0.46), rgba(224, 229, 235, 0.62)) !important;
 }
 
 html[data-theme='light'] .app-root :is(
@@ -185,6 +191,27 @@ html[data-theme='light'] .app-root .build {
   border-color: var(--rst-border);
   background: rgba(255, 255, 255, 0.68) !important;
   color: var(--rst-muted);
+}
+
+html[data-theme='light'] .app-root :is(
+  .chat__native-hint,
+  .chat__button,
+  .map-pool__search,
+  .auth__server,
+  .auth__identity,
+  .auth__tabs,
+  .record-row,
+  .map-pool__row,
+  .race-result__row
+) {
+  border-color: var(--rst-border);
+  background: rgba(25, 40, 58, 0.045) !important;
+  color: var(--rst-muted);
+}
+
+html[data-theme='light'] .app-root :is(.chat__button:hover, .map-pool__search:focus-within) {
+  border-color: rgba(var(--rst-accent-rgb), 0.35) !important;
+  background: rgba(var(--rst-accent-rgb), 0.08) !important;
 }
 
 html[data-theme='light'] .app-root :is(
@@ -220,7 +247,13 @@ html[data-theme='light'] .app-root :is(
 }
 
 html[data-theme='light'] .app-root .auth__input::placeholder {
-  color: rgba(67, 91, 118, 0.62);
+  color: rgba(75, 85, 99, 0.72);
+}
+
+html[data-theme='light'] .app-root .chat__name {
+  color: var(--rst-text) !important;
+  font-weight: 600;
+  text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
 }
 
 html[data-theme='light'] .app-root .scoreboard__status,

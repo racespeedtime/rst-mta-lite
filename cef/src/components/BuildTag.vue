@@ -27,7 +27,7 @@ const title = `构建时间：${buildInfo.time}`
   border: 1px solid rgba(140, 180, 255, 0.08);
   border-radius: 6px;
   background: rgba(6, 11, 19, 0.45);
-  color: rgba(147, 164, 189, 0.55);
+  color: var(--rst-muted);
   font-size: 9px;
   letter-spacing: 0.08em;
   font-variant-numeric: tabular-nums;
@@ -36,7 +36,7 @@ const title = `构建时间：${buildInfo.time}`
 }
 
 .build .icon {
-  color: rgba(147, 164, 189, 0.45);
+  color: var(--rst-muted);
 }
 
 .build__label {

@@ -179,7 +179,7 @@ onMounted(() => scrollToBottom(true))
 .chat__hint {
   font-size: 9px;
   letter-spacing: 0.05em;
-  color: rgba(147, 164, 189, 0.8);
+  color: var(--rst-muted);
 }
 
 .chat--open .chat__hint {
@@ -224,7 +224,7 @@ onMounted(() => scrollToBottom(true))
 .chat__empty {
   margin: 2px 0;
   font-size: 10px;
-  color: rgba(147, 164, 189, 0.72);
+  color: var(--rst-muted);
 }
 
 .chat__line {
@@ -241,7 +241,7 @@ onMounted(() => scrollToBottom(true))
   padding-top: 1px;
   font-size: 9px;
   font-variant-numeric: tabular-nums;
-  color: rgba(147, 164, 189, 0.6);
+  color: var(--rst-muted);
 }
 
 .chat__name {
@@ -254,11 +254,11 @@ onMounted(() => scrollToBottom(true))
 }
 
 .chat__text {
-  color: #dbe6f5;
+  color: var(--rst-text);
 }
 
 .chat__text--native {
-  color: #dbe6f5;
+  color: var(--rst-text);
 }
 
 .chat__text--system {
@@ -270,7 +270,7 @@ onMounted(() => scrollToBottom(true))
   padding: 7px 12px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
   background: rgba(0, 0, 0, 0.14);
-  color: rgba(147, 164, 189, 0.8);
+  color: var(--rst-muted);
   font-size: 10px;
   letter-spacing: 0.04em;
 }

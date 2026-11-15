@@ -347,7 +347,7 @@ kbd {
   margin: 10px 0 0;
   font-size: 10px;
   line-height: 1.5;
-  color: rgba(147, 164, 189, 0.8);
+  color: var(--rst-muted);
 }
 
 .help__foot {

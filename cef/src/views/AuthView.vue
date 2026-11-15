@@ -371,7 +371,7 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .auth__input::placeholder {
-  color: rgba(147, 164, 189, 0.7);
+  color: var(--rst-muted);
 }
 
 .auth__error {
@@ -380,7 +380,7 @@ function onKeydown(event: KeyboardEvent): void {
   border: 1px solid rgba(255, 92, 92, 0.24);
   border-radius: 9px;
   background: rgba(255, 92, 92, 0.1);
-  color: #ff9b9b;
+  color: var(--rst-red);
   font-size: 12px;
 }
 

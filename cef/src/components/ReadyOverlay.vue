@@ -166,11 +166,11 @@ function spectate(): void {
 }
 
 .ready__team--red {
-  color: #ff9b9b;
+  color: var(--rst-red);
 }
 
 .ready__team--blue {
-  color: #9cc9ff;
+  color: var(--rst-blue);
 }
 
 .ready__team--red.is-active {
@@ -188,7 +188,7 @@ function spectate(): void {
   padding: 7px 9px;
   border: 1px solid rgba(255, 190, 92, 0.24);
   border-radius: 7px;
-  color: #ffd18a;
+  color: var(--rst-gold);
   background: rgba(255, 190, 92, 0.08);
   font-size: 10px;
 }

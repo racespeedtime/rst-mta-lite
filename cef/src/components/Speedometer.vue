@@ -209,7 +209,7 @@ const nitroLabel = computed(() => {
 }
 
 .meter__icon--health {
-  color: #7ee2a8;
+  color: var(--rst-green);
   background: rgba(126, 226, 168, 0.12);
 }
 

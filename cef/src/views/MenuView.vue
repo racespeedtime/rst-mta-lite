@@ -878,7 +878,7 @@ function respawn(): void {
   border: 1px solid rgba(255, 190, 92, 0.28);
   border-radius: 9px;
   background: rgba(255, 190, 92, 0.08);
-  color: #ffd18a;
+  color: var(--rst-gold);
   font-size: 11px;
   line-height: 1.45;
 }
@@ -976,7 +976,7 @@ function respawn(): void {
   gap: 3px;
   border-color: rgba(255, 123, 114, 0.2);
   background: rgba(255, 123, 114, 0.06);
-  color: #ff9b94;
+  color: var(--rst-red);
 }
 
 .warp-empty {

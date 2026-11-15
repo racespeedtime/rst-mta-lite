@@ -276,7 +276,7 @@ function vote(mapId: string): void {
 }
 
 .vote__search input::placeholder {
-  color: rgba(147, 164, 189, 0.6);
+  color: var(--rst-muted);
 }
 
 .vote__sorts {
@@ -407,7 +407,7 @@ function vote(mapId: string): void {
 }
 
 .vote__option-popularity {
-  color: rgba(255, 212, 121, 0.8);
+  color: var(--rst-gold);
 }
 
 .vote__option-plays {

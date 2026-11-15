@@ -205,7 +205,7 @@ const remainingMs = computed(() => {
   height: 42px;
   border: 1px solid rgba(255, 209, 103, 0.3);
   border-radius: 12px;
-  color: #ffd167;
+  color: var(--rst-gold);
   background: rgba(255, 209, 103, 0.1);
 }
 
@@ -274,13 +274,13 @@ const remainingMs = computed(() => {
 }
 
 .race-result__team-score--red {
-  color: #ff9b9b;
+  color: var(--rst-red);
   border-color: rgba(255, 110, 110, 0.3);
   background: rgba(255, 110, 110, 0.07);
 }
 
 .race-result__team-score--blue {
-  color: #9cc9ff;
+  color: var(--rst-blue);
   border-color: rgba(100, 170, 255, 0.3);
   background: rgba(100, 170, 255, 0.07);
 }
@@ -348,7 +348,7 @@ const remainingMs = computed(() => {
 
 .race-result__best {
   margin: 9px 0 0;
-  color: #ffd167;
+  color: var(--rst-gold);
   font-size: 10px;
 }
 </style>

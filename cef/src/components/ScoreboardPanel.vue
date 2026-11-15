@@ -215,29 +215,29 @@ onUnmounted(() => {
 }
 
 .scoreboard__status--alive {
-  color: #7ee787;
+  color: var(--rst-green);
   background: rgba(126, 231, 135, 0.1);
 }
 
 .scoreboard__status--dead,
 .scoreboard__status--out {
-  color: #ff7b72;
+  color: var(--rst-red);
   background: rgba(255, 123, 114, 0.1);
 }
 
 .scoreboard__status--spectate {
-  color: #79c0ff;
+  color: var(--rst-blue);
   background: rgba(121, 192, 255, 0.1);
 }
 
 .scoreboard__status--ready,
 .scoreboard__status--vote {
-  color: #e3b341;
+  color: var(--rst-gold);
   background: rgba(227, 179, 65, 0.1);
 }
 
 .scoreboard__status--finished {
-  color: #d2a8ff;
+  color: var(--rst-accent-2);
   background: rgba(210, 168, 255, 0.1);
 }
 

@@ -98,7 +98,7 @@ const bestMs = computed(() => ui.personalBestMs)
 }
 
 .maptimer__item.is-danger strong {
-  color: #ff8a8a;
+  color: var(--rst-red);
 }
 
 .maptimer__item.is-vote strong {
