@@ -220,7 +220,7 @@ local function closeScoreboard()
 end
 
 local function openScoreboard()
-    if scoreboardOpen or phase ~= 'playing' or interactive then
+    if scoreboardOpen or phase ~= 'playing' or menuOpen or voteActive or readyWaiting or helpOpen then
         return
     end
     scoreboardOpen = true
@@ -286,9 +286,6 @@ end
 
 local function setInteractive(enabled)
     enabled = enabled == true
-    if enabled and scoreboardOpen then
-        closeScoreboard()
-    end
 
     if enabled == interactive then
         -- 状态没有变化，也要把输入副作用重新落到当前帧。
@@ -776,7 +773,7 @@ local function applyState(state)
     RST.rewindLives = tonumber(state.lives)
     disableMotionBlur()
     setChatSuppressed(phase ~= 'playing' or voteActive or readyWaiting)
-    if scoreboardOpen and (phase ~= 'playing' or interactive or voteActive or readyWaiting) then
+    if scoreboardOpen and (phase ~= 'playing' or voteActive or readyWaiting) then
         closeScoreboard()
     end
 
@@ -893,6 +890,9 @@ local function setMenuOpen(open)
     end
     if open and helpOpen then
         setHelpOpen(false)
+    end
+    if open and scoreboardOpen then
+        closeScoreboard()
     end
 
     menuOpen = open
@@ -1066,7 +1066,7 @@ addEventHandler('onClientKey', root, function(button, press)
         if isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
             return
         end
-        if phase ~= 'playing' or interactive or voteActive or readyWaiting then
+        if phase ~= 'playing' or menuOpen or voteActive or readyWaiting or helpOpen then
             return
         end
         cancelEvent()

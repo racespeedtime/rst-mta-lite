@@ -37,6 +37,13 @@ onUnmounted(() => {
 
     <div ref="scrollRef" class="scoreboard__scroll">
       <table class="scoreboard__table">
+        <colgroup>
+          <col class="scoreboard__col-id" />
+          <col class="scoreboard__col-name" />
+          <col class="scoreboard__col-status" />
+          <col class="scoreboard__col-num" />
+          <col class="scoreboard__col-num" />
+        </colgroup>
         <thead>
           <tr>
             <th class="scoreboard__id">ID</th>
@@ -135,6 +142,22 @@ onUnmounted(() => {
   table-layout: fixed;
 }
 
+.scoreboard__col-id {
+  width: 54px;
+}
+
+.scoreboard__col-name {
+  width: auto;
+}
+
+.scoreboard__col-status {
+  width: 112px;
+}
+
+.scoreboard__col-num {
+  width: 82px;
+}
+
 .scoreboard__table th {
   position: sticky;
   top: 0;
@@ -164,9 +187,9 @@ onUnmounted(() => {
 }
 
 .scoreboard__id {
-  width: 48px;
   color: var(--rst-accent);
   font-variant-numeric: tabular-nums;
+  text-align: left;
 }
 
 .scoreboard__name {
@@ -177,7 +200,6 @@ onUnmounted(() => {
 }
 
 .scoreboard__num {
-  width: 76px;
   text-align: right;
   font-variant-numeric: tabular-nums;
 }
