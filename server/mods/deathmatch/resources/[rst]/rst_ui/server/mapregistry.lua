@@ -77,12 +77,19 @@ local function readSettings(meta)
     return settings
 end
 
--- 外部展示元数据（YouTube / 封面 / 下载量等）单独存放，
--- 不是地图格式，也不参与地图加载；没有该文件时详情只显示原生字段。
-local function loadExternalMeta()
-    local handle = fileOpen('mapmeta.json')
+-- 外部展示元数据按地图 resource 拆成 sidecar，按需读取；
+-- 不再把上万张地图的封面/YouTube 信息塞进一个 mapmeta.json。
+local externalCache = {}
+
+local function loadMapMeta(mapId)
+    if externalCache[mapId] ~= nil then
+        return externalCache[mapId] or nil
+    end
+
+    local handle = fileOpen('mapmeta/' .. mapId .. '.json')
     if not handle then
-        return {}
+        externalCache[mapId] = false
+        return nil
     end
 
     local size = fileGetSize(handle)
@@ -91,9 +98,32 @@ local function loadExternalMeta()
 
     local data = fromJSON(text or '')
     if type(data) ~= 'table' then
-        return {}
+        externalCache[mapId] = false
+        return nil
     end
+
+    externalCache[mapId] = data
     return data
+end
+
+local function applyMapMeta(entry)
+    if not entry or entry._externalLoaded then
+        return entry
+    end
+    entry._externalLoaded = true
+
+    local extra = loadMapMeta(entry.id)
+    if type(extra) == 'table' then
+        entry.cover = extra.cover
+        entry.youtube = extra.youtube
+        entry.sourceUrl = extra.sourceUrl
+        entry.uploadedAt = extra.uploadedAt
+        entry.downloads = tonumber(extra.downloads)
+        entry.difficulty = extra.difficulty
+        entry.fileSize = tonumber(extra.fileSize)
+        entry.tags = extra.tags
+    end
+    return entry
 end
 
 local function readMap(resource)
@@ -211,26 +241,11 @@ end
 function MapRegistry.init()
     maps = {}
     ids = {}
-    local external = loadExternalMeta()
-    local externalCount = 0
-    for _ in pairs(external) do
-        externalCount = externalCount + 1
-    end
+    externalCache = {}
 
     for _, resource in ipairs(getResources()) do
         local entry = readMap(resource)
         if entry then
-            local extra = external[entry.id]
-            if type(extra) == 'table' then
-                entry.cover = extra.cover
-                entry.youtube = extra.youtube
-                entry.sourceUrl = extra.sourceUrl
-                entry.uploadedAt = extra.uploadedAt
-                entry.downloads = tonumber(extra.downloads)
-                entry.difficulty = extra.difficulty
-                entry.fileSize = tonumber(extra.fileSize)
-                entry.tags = extra.tags
-            end
             maps[entry.id] = entry
             ids[#ids + 1] = entry.id
         elseif getResourceInfo(resource, 'type') == 'map' then
@@ -268,15 +283,14 @@ function MapRegistry.init()
         ))
     end
 
-    outputServerLog(('[MAP] discovered %d native map resource(s); external metadata=%d'):format(
-        #ids,
-        externalCount
+    outputServerLog(('[MAP] discovered %d native map resource(s); metadata sidecars are lazy loaded'):format(
+        #ids
     ))
     return #ids
 end
 
 function MapRegistry.get(mapId)
-    return maps[mapId]
+    return applyMapMeta(maps[mapId])
 end
 
 function MapRegistry.list()

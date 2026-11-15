@@ -22,8 +22,7 @@
     <script src="client/rewind.lua" type="client" />
     <script src="client/pickups.lua" type="client" />
 
-    <!-- 地图外部展示元数据 / 缩略图（不是地图格式） -->
-    <file src="mapmeta.json" />
+    <!-- 地图外部展示元数据：按地图 resource 的 sidecar，按需读取；不集中索引 -->
     <file src="covers/silent-hill.jpg" />
     <file src="covers/a-new-dawn.jpg" />
     <file src="covers/descendants-skills-v.jpg" />

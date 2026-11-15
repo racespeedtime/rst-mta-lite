@@ -144,7 +144,7 @@ node tools/setup-map-acl.mjs
 - F2 →「地图详情」查看当前地图
 - 显示封面、作者、上传日期、下载量、大小、难度、标签、spawn / vehicle / 终点
 - YouTube、mtavault 链接支持复制，不内嵌视频
-- 原生信息来自 `.map`；封面和链接来自 `mapmeta.json` + `covers/`，仅用于展示，不参与加载
+- 原生信息来自 `.map`；封面和链接来自 `mapmeta/<resource>.json` + `covers/`，按需读取，不参与加载
 
 地图本体、压缩包、地图缓存都不进 Git。
 
@@ -221,7 +221,7 @@ server/                      MTA 服务端运行时
     client/                  CEF、输入、rewind、ghost
     server/                  账号、地图、房间、投票
     shared/config.lua        玩法配置
-    mapmeta.json             地图展示元数据
+    mapmeta/                 每张地图的展示元数据（按 resource 拆分，按需读取）
     covers/                  地图封面
 tools/mtavault/              mtavault 抓取 / 扫描
 tools/setup-map-acl.mjs      地图 ACL 设置
