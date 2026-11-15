@@ -161,6 +161,12 @@ local function stopRewind()
         end
         setElementFrozen(frozenElement, false)
         setElementVelocity(frozenElement, currentVX, currentVY, currentVZ)
+
+        if getElementType(frozenElement) == 'vehicle' then
+            pcall(setCameraTarget, frozenElement)
+        else
+            pcall(setCameraTarget, localPlayer)
+        end
     end
 
     frozenElement = nil
@@ -245,6 +251,33 @@ local function startRewind()
     if RST.dispatch then
         RST.dispatch('rewind', { active = true, progress = 0, seconds = 0 })
     end
+end
+
+local function applyRewindCamera(element)
+    if not isElement(element) then
+        return
+    end
+
+    local x, y, z = getElementPosition(element)
+    local _, _, rz = getElementRotation(element)
+    local yaw = math.rad(rz or 0)
+    local fx, fy = math.cos(yaw), math.sin(yaw)
+    local isVehicle = getElementType(element) == 'vehicle'
+
+    local distance = isVehicle and 7.0 or 3.2
+    local height = isVehicle and 2.6 or 1.5
+    local lookAhead = isVehicle and 4.0 or 1.0
+    local aimHeight = isVehicle and 0.9 or 0.6
+
+    -- 始终在载具/角色正后方，避免回放时原生相机滞后旋转
+    setCameraMatrix(
+        x - fx * distance,
+        y - fy * distance,
+        z + height,
+        x + fx * lookAhead,
+        y + fy * lookAhead,
+        z + aimHeight
+    )
 end
 
 rewindRender = function()
@@ -338,6 +371,7 @@ rewindRender = function()
 
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
     applyHealthState(frozenElement, currentHealth)
+    applyRewindCamera(frozenElement)
 
     if RST.dispatch and now() - lastDispatchAt >= 100 then
         lastDispatchAt = now()
