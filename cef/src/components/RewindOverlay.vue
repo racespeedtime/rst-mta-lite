@@ -15,7 +15,8 @@ const progressWidth = computed(
     <div class="rewind__head">
       <span class="rewind__title">
         <IconRewind class="icon" />
-        回放      </span>
+        倒带
+      </span>
       <span class="rewind__time">{{ formatSeconds(ui.rewind.seconds) }}</span>
     </div>
     <div class="rewind__track">

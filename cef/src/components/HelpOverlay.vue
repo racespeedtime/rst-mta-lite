@@ -76,7 +76,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>Y</kbd></span>
-              <span>长按回放最近 8 秒</span>
+              <span>长按倒带最近 8 秒</span>
             </li>
             <li>
               <span class="help__keys"><kbd>GO</kbd></span>
@@ -136,15 +136,15 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>OB</kbd></span>
-              <span>可主动切换纯观战；下回合不会自动参赛</span>
+              <span>可主动切换观战；竞技模式下下回合参赛，训练模式下可立即重生</span>
             </li>
             <li>
               <span class="help__keys"><kbd>命数</kbd></span>
-              <span>每人 10 条命，每次 rewind 消耗 1 条，扣完淘汰</span>
+              <span>每人 10 条命，每次倒带消耗 1 条，扣完淘汰</span>
             </li>
             <li>
               <span class="help__keys"><kbd>排行</kbd></span>
-              <span>右侧按到终点距离升序，命数是同距离时的次级排序</span>
+              <span>已完赛优先，按冲线顺序；未完赛按剩余命数降序</span>
             </li>
             <li>
               <span class="help__keys"><kbd>Ghost</kbd></span>
@@ -152,6 +152,7 @@ onUnmounted(() => {
             </li>
           </ul>
           <p class="help__note">当前模式显示在右上角房间面板；F2 菜单可发起模式投票。</p>
+          <p class="help__note">训练模式：观战后可以直接重生，不需要等下回合；也可以在观战和重生之间反复切换。</p>
         </section>
 
         <section class="help__section">

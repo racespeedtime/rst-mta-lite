@@ -44,11 +44,17 @@ const modeLabel = computed(() => {
 const spectating = computed(() => ui.mode === 'spectating')
 
 const obLabel = computed(() => {
+  if (ui.gameMode === 'training') {
+    return spectating.value ? '立即重生' : '切换观战'
+  }
   if (!spectating.value) return '切换纯观战'
   return ui.ob ? '下回合参赛' : '保持纯观战'
 })
 
 const obHint = computed(() => {
+  if (ui.gameMode === 'training') {
+    return spectating.value ? '返回当前训练赛道' : '进入观战，可随时重生'
+  }
   if (!spectating.value) return '放弃本回合，下回合继续观战'
   return ui.ob ? '取消纯观战，回到比赛' : '下回合不自动参赛'
 })
@@ -77,7 +83,9 @@ function startModeVote(): void {
 }
 
 function toggleOb(): void {
-  if (!spectating.value) {
+  if (ui.gameMode === 'training' && spectating.value) {
+    emitAction('respawn')
+  } else if (!spectating.value) {
     emitAction('ob:spectate')
   } else if (ui.ob) {
     emitAction('ob:race')
@@ -226,15 +234,15 @@ function respawn(): void {
         </button>
 
         <button
-          v-if="ui.gameMode === 'training' && ui.mode === 'playing'"
+          v-if="ui.gameMode === 'training'"
           type="button"
           class="menu-action"
           @click="respawn"
         >
           <span class="menu-action__icon"><IconRotateCcw class="icon" /></span>
           <span class="menu-action__text">
-            <strong>重生</strong>
-            <small>回到随机出生点，重新 3 秒倒计时</small>
+            <strong>{{ spectating ? '立即重生' : '重生' }}</strong>
+            <small>{{ spectating ? '回到当前训练赛道' : '回到随机出生点，重新 3 秒倒计时' }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

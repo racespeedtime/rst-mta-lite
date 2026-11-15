@@ -1029,6 +1029,17 @@ function Rooms.returnToRace(player)
         return true, 'started'
     end
 
+    -- 训练模式：观战状态下直接回到当前赛道
+    if room.mode == 'training'
+        and room.active
+        and not room.waiting
+        and not room.vote
+        and not room.modeVote
+        and not room.raceFinal
+    then
+        return Rooms.respawn(player)
+    end
+
     if room.active and room.waiting and room.mode == 'competitive' then
         removePlayer(room.spectators, player)
         room.players[#room.players + 1] = player
@@ -1059,6 +1070,27 @@ function Rooms.respawn(player)
     if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
         return false, '当前不能重生'
     end
+
+    -- 训练模式的观战者可以直接回到当前赛道，并继续在观战 / 重生之间切换
+    if contains(room.spectators, player) then
+        removePlayer(room.spectators, player)
+        room.ob[player] = nil
+        room.ready[player] = nil
+        room.players[#room.players + 1] = player
+        room.trainingReturns[player] = nil
+        room.trainingReturnsMs[player] = nil
+        room.trainingResults[player] = nil
+        room.finished[player] = nil
+        for index = #room.finishOrder, 1, -1 do
+            if room.finishOrder[index].player == player then
+                table.remove(room.finishOrder, index)
+            end
+        end
+        spawnPlayerInRoom(player, room, true)
+        stateChanged()
+        return true, 'started'
+    end
+
     if not contains(room.players, player) then
         return false, '观战者不能重生'
     end
