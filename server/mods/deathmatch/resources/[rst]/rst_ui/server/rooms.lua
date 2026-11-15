@@ -1618,7 +1618,8 @@ function Rooms.finishModeVote(room)
     room.modeVote = nil
     room.mode = winner == 'training' and 'training' or 'competitive'
     room.competitiveMode = winner == 'team' and 'team' or 'solo'
-    startRound(room, room.mapId)
+    -- 模式投票结束也重新随机地图，避免一直停留在同一张图
+    startRound(room)
     stateChanged()
 end
 
