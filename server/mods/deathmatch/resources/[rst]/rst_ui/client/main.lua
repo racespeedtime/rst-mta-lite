@@ -1074,13 +1074,31 @@ local function injectBrowserWheel(delta)
         return
     end
     lastBrowserWheelAt = nowTick
-
-    -- 不走 CEF 原生注入，直接把滚轮和光标位置交给页面处理，
-    -- 避免浏览器焦点/滚动目标不一致导致菜单滚轮失效。
-    local cursorX, cursorY = getCursorPosition()
-    if cursorX then
-        dispatch('wheel', { x = cursorX, y = cursorY, delta = delta })
+    if not browser or not browserReady then
+        return
     end
+
+    -- 直接滚动 CEF 中当前打开的滚动容器，不依赖浏览器焦点/原生滚轮注入。
+    local step = -math.floor(tonumber(delta) or 0) * 48
+    executeBrowserJavascript(browser, ([[(function(){
+        var step = %d;
+        var selectors = [
+            '.menu-panel',
+            '.vote__options',
+            '.chat__list',
+            '.competition__body',
+            '.map-pool__list',
+            '.records__table-wrap',
+            '.help__panel'
+        ];
+        for (var i = 0; i < selectors.length; i++) {
+            var element = document.querySelector(selectors[i]);
+            if (element && element.scrollHeight > element.clientHeight + 1) {
+                element.scrollTop += step;
+                return;
+            }
+        }
+    })()]]):format(step))
 end
 
 addEventHandler('onClientClick', root, function(button, state, absoluteX, absoluteY)
@@ -1101,6 +1119,23 @@ addEventHandler('onClientMouseWheel', root, function(delta)
         injectBrowserWheel(delta)
     end
 end)
+
+-- 部分客户端会把一次滚轮同时上报成 up/down 两个方向；只取这一对里的第一个方向。
+local lastWheelDirection = 0
+local lastWheelEventAt = 0
+local function handleWheelDirection(direction)
+    local nowTick = getTickCount()
+    if lastWheelDirection ~= 0
+        and direction ~= lastWheelDirection
+        and nowTick - lastWheelEventAt < 80
+    then
+        lastWheelEventAt = nowTick
+        return
+    end
+    lastWheelDirection = direction
+    lastWheelEventAt = nowTick
+    injectBrowserWheel(direction)
+end
 
 addEventHandler('onClientKey', root, function(button, press)
     if tostring(button):lower() ~= 'tab' then
@@ -1178,10 +1213,10 @@ addEventHandler('onClientKey', root, function(button, press)
         return
     end
     if button == 'mouse_wheel_up' then
-        injectBrowserWheel(1)
+        handleWheelDirection(1)
         cancelEvent()
     elseif button == 'mouse_wheel_down' then
-        injectBrowserWheel(-1)
+        handleWheelDirection(-1)
         cancelEvent()
     end
 end)

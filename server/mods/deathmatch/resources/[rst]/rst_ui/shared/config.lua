@@ -12,7 +12,7 @@ function RST.nowMs()
 end
 
 RST.config = {
-    roundSeconds = 30 * 60, -- 每张地图最长 30 分钟
+    roundSeconds = 60 * 60, -- 每张地图最长 1 小时
     defaultMode = 'training', -- training | competitive
     competitiveLives = 10,  -- 竞技模式每人 rewind 命数
     voteSeconds = 30,       -- 换图投票持续时间

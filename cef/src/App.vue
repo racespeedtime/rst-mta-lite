@@ -163,21 +163,6 @@ function onAnyClick(event: MouseEvent): void {
   }
 }
 
-function scrollAtPointer(payload: { x: number; y: number; delta: number }): void {
-  let element = document.elementFromPoint(payload.x, payload.y) as HTMLElement | null
-  while (element) {
-    const style = window.getComputedStyle(element)
-    if (
-      element.scrollHeight > element.clientHeight + 1
-      && (style.overflowY === 'auto' || style.overflowY === 'scroll')
-    ) {
-      element.scrollTop -= payload.delta * 48
-      return
-    }
-    element = element.parentElement
-  }
-}
-
 function onCursorKeydown(event: KeyboardEvent): void {
   if (ui.phase !== 'playing') return
   if (ui.chatOpen) return
@@ -299,7 +284,6 @@ onMounted(() => {
       if (payload.open !== undefined) ui.scoreboardOpen = payload.open
       if (payload.players) ui.scoreboard = payload
     }),
-    onBridge('wheel', scrollAtPointer),
     onBridge('warps', (payload) => {
       ui.warps = payload.items || []
     }),
