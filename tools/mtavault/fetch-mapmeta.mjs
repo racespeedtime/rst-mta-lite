@@ -5,26 +5,24 @@
  * 只抓元数据，不下载地图本体，也不下载封面：
  *   node tools/mtavault/fetch-mapmeta.mjs
  *
- * 输出：
- *   server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json
+ * 输出（开发用，不在运行时资源目录）：
+ *   tools/mtavault/output/mapmeta.json
  *
- * 服务端首次启动会把 catalog 导入 SQLite（map_meta 表），之后按地图懒查询。
+ * 服务端运行时只读 SQLite seed 安装出来的 rst_ui_mapmeta.db。
+ * JSON 只作为抓取/检查中间结果，不参与服务器启动。
  */
 
 import { execFile } from 'node:child_process'
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import { promisify } from 'node:util'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const execFileAsync = promisify(execFile)
 const REPO_ROOT = fileURLToPath(new URL('../..', import.meta.url))
 const FETCH_SCRIPT = join(REPO_ROOT, 'tools/mtavault/fetch-dm-maps.mjs')
 const OUTPUT_DIR = join(REPO_ROOT, 'tools/mtavault/output')
-const CATALOG_PATH = join(
-  REPO_ROOT,
-  'server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json',
-)
+const CATALOG_PATH = join(OUTPUT_DIR, 'mapmeta.json')
 
 async function fetchTag(tag) {
   const out = join(OUTPUT_DIR, `${tag.toLowerCase()}-maps.json`)
@@ -62,7 +60,7 @@ async function main() {
     maps,
   }
 
-  await mkdir(dirname(CATALOG_PATH), { recursive: true })
+  await mkdir(OUTPUT_DIR, { recursive: true })
   await writeFile(CATALOG_PATH, `${JSON.stringify(catalog)}\n`, 'utf8')
   console.log(`[mapmeta] wrote ${maps.length} DM/HDM maps to ${CATALOG_PATH}`)
 }

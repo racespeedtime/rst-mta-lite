@@ -209,17 +209,15 @@ node tools/setup-map-acl.mjs
 
 加入拥有上述权限的 ACL group，然后重启服务器。
 
-### 7. 可选：安装 mtavault 元数据 seed
+### 7. 安装 mtavault 元数据库
 
-正常首次启动会自动从：
+仓库**不包含运行时数据库**，只包含一份只读 seed DB：
 
 ```text
-server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json
+tools/mtavault/seed/rst_ui_mapmeta.db
 ```
 
-导入 SQLite。
-
-也可以提前安装只读 seed DB：
+安装到 MTA 运行目录：
 
 ```bash
 node tools/mtavault/install-mapmeta-db.mjs
@@ -230,6 +228,14 @@ node tools/mtavault/install-mapmeta-db.mjs
 ```text
 server/mods/deathmatch/databases/global/rst_ui_mapmeta.db
 ```
+
+已存在时覆盖：
+
+```bash
+node tools/mtavault/install-mapmeta-db.mjs --force
+```
+
+这个 DB 只包含地图展示元数据，不包含地图本体、账号或玩家记录。
 
 ### 8. 启动服务端
 
@@ -285,8 +291,7 @@ mtasa://127.0.0.1:22003
 | --- | --- | --- |
 | `cef/` 前端源码 | 是 | 需要 `pnpm build` |
 | `rst_ui/` Lua / CEF 页面 | 是 | UI 构建产物 `ui/` 除外 |
-| `mapmeta-catalog.json` | 是 | 首次启动导入 SQLite |
-| `mapmeta` seed DB | 是 | 可选 |
+| `mapmeta` seed DB | 是 | 安装为运行时 `rst_ui_mapmeta.db` |
 | `MTA Server.exe` + `core.dll` / `net.dll` / `pthread.dll` / `xmll.dll` | 否 | 官方 MTA 服务端完整安装 |
 | `mods/deathmatch` 的 DLL / 配置文件 | 否 | `deathmatch.dll`、`lua5.1.dll`、`libssl-3.dll` 等 |
 | `mtaserver.conf` / `acl.xml` / `banlist.xml` | 否 | 本地配置 |
@@ -434,7 +439,7 @@ F2 →「地图池」可以分页浏览和搜索已安装地图。
 
 启动只读取轻量 meta；只有地图被选中时才解析 `.map`。全量 4509 张会扫描 4509 个 resource/meta，但不会启动时解析全部地图细节。
 
-元数据数据库的生成、seed DB 和抓取/下载脚本说明见：
+元数据数据库的安装、seed DB 和抓取/下载脚本说明见：
 
 ```text
 tools/mtavault/README.md
@@ -457,7 +462,7 @@ tools/mtavault/README.md
 - F2 →「地图详情」查看当前地图
 - 显示封面、作者、上传日期、下载量、大小、难度、标签、spawn / vehicle / 终点
 - YouTube、mtavault 链接支持复制，不内嵌视频
-- 原生信息来自 `.map`；封面和链接来自 mtavault 元数据 SQLite（首次从 `mapmeta-catalog.json` 导入），按需查询，不参与加载
+- 原生信息来自 `.map`；封面和链接来自 mtavault 元数据 SQLite（由 seed DB 安装），按需查询，不参与加载
 
 地图本体、压缩包、地图缓存都不进 Git。
 
@@ -534,7 +539,6 @@ server/                      MTA 服务端运行时
     client/                  CEF、输入、rewind、ghost
     server/                  账号、地图、房间、投票
     shared/config.lua        玩法配置
-    mapmeta-catalog.json     mtavault DM/HDM 元数据快照（首次导入 SQLite）
     covers/                  地图封面
 tools/mtavault/              mtavault 抓取 / 扫描
 tools/mtavault/seed/         只读地图元数据 seed DB

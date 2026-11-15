@@ -3,7 +3,7 @@
  * 顺序下载 mtavault DM/HDM 地图 zip，校验 zip 完整性，供手动备份。
  *
  * 默认：
- *   catalog: server/.../rst_ui/mapmeta-catalog.json
+ *   catalog: tools/mtavault/output/mapmeta.json
  *   输出目录: D:\Work\rst-mta-map-backup\mtavault-dm-hdm
  *   代理: http://127.0.0.1:7890
  *
@@ -17,7 +17,7 @@ import { join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const REPO = fileURLToPath(new URL('../..', import.meta.url))
-const CATALOG = join(REPO, 'server/mods/deathmatch/resources/[rst]/rst_ui/mapmeta-catalog.json')
+const CATALOG = join(REPO, 'tools/mtavault/output/mapmeta.json')
 const CACHE = join(REPO, 'server/mods/deathmatch/map-cache')
 const OUT = resolve(process.env.MAP_BACKUP_DIR || join(REPO, '..', 'mtavault-map-backup', 'mtavault-dm-hdm'))
 const PROXY = process.env.MAP_PROXY || 'http://127.0.0.1:7890'
