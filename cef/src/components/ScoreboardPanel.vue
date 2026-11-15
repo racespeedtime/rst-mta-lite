@@ -87,8 +87,10 @@ onUnmounted(() => {
   transform: translate(-50%, -50%);
   border: 1px solid var(--rst-border);
   border-radius: 12px;
-  background: rgba(8, 15, 25, 0.94);
+  background: rgba(8, 15, 25, 0.68);
   box-shadow: var(--rst-shadow);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
   overflow: hidden;
   pointer-events: none;
   z-index: 35;
@@ -163,7 +165,7 @@ onUnmounted(() => {
   top: 0;
   z-index: 1;
   padding: 8px 10px;
-  background: rgba(8, 15, 25, 0.98);
+  background: rgba(8, 15, 25, 0.78);
   color: var(--rst-muted);
   font-size: 9px;
   font-weight: 500;
