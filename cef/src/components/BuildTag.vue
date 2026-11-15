@@ -45,7 +45,7 @@ const title = `构建时间：${buildInfo.time}`
 }
 
 .build__hash {
-  color: rgba(88, 200, 255, 0.65);
+  color: rgba(var(--rst-accent-rgb), 0.65);
 }
 
 .build__dot {

@@ -243,8 +243,8 @@ onUnmounted(() => {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  border: 1px solid rgba(88, 200, 255, 0.24);
-  background: rgba(88, 200, 255, 0.1);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.24);
+  background: rgba(var(--rst-accent-rgb), 0.1);
   color: var(--rst-accent);
 }
 

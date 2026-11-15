@@ -212,8 +212,8 @@ function cast(mode: ModeVoteId): void {
 }
 
 .mode-option:hover:not(:disabled) {
-  border-color: rgba(88, 200, 255, 0.4);
-  background: rgba(88, 200, 255, 0.07);
+  border-color: rgba(var(--rst-accent-rgb), 0.4);
+  background: rgba(var(--rst-accent-rgb), 0.07);
 }
 
 .mode-option--mine {
@@ -228,7 +228,7 @@ function cast(mode: ModeVoteId): void {
 .mode-option__fill {
   position: absolute;
   inset: 0 auto 0 0;
-  background: linear-gradient(90deg, rgba(88, 200, 255, 0.16), rgba(88, 200, 255, 0.02));
+  background: linear-gradient(90deg, rgba(var(--rst-accent-rgb), 0.16), rgba(var(--rst-accent-rgb), 0.02));
   transition: width 0.3s ease;
 }
 
@@ -241,7 +241,7 @@ function cast(mode: ModeVoteId): void {
   height: 34px;
   border-radius: 10px;
   color: var(--rst-accent);
-  background: rgba(88, 200, 255, 0.1);
+  background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
 .mode-option__main {

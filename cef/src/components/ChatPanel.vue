@@ -152,7 +152,7 @@ onMounted(() => scrollToBottom(true))
 .chat--open {
   height: min(38vh, 380px);
   pointer-events: auto;
-  border-color: rgba(88, 200, 255, 0.35);
+  border-color: rgba(var(--rst-accent-rgb), 0.35);
   background: linear-gradient(180deg, rgba(8, 14, 23, 0.94), rgba(6, 11, 19, 0.9));
   box-shadow: 0 18px 46px rgba(0, 0, 0, 0.4);
 }
@@ -209,16 +209,16 @@ onMounted(() => scrollToBottom(true))
 .chat__new {
   margin: 0 10px 7px;
   padding: 5px 9px;
-  border: 1px solid rgba(88, 200, 255, 0.28);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.28);
   border-radius: 7px;
-  background: rgba(88, 200, 255, 0.12);
+  background: rgba(var(--rst-accent-rgb), 0.12);
   color: var(--rst-accent);
   font-size: 10px;
   text-align: center;
 }
 
 .chat__new:hover {
-  background: rgba(88, 200, 255, 0.2);
+  background: rgba(var(--rst-accent-rgb), 0.2);
 }
 
 .chat__empty {

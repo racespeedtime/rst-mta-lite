@@ -11,6 +11,7 @@ import IconFlag from '~icons/lucide/flag'
 import IconMap from '~icons/lucide/map'
 import IconMapPinned from '~icons/lucide/map-pinned'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
+import IconPalette from '~icons/lucide/palette'
 import IconRotateCcw from '~icons/lucide/rotate-ccw'
 import IconSettings from '~icons/lucide/settings'
 import IconTrash2 from '~icons/lucide/trash-2'
@@ -21,10 +22,18 @@ import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
+import { applyTheme, saveThemeSettings, type ThemeMode } from '@/theme'
 import { formatMs, formatTime } from '@/utils/format'
 
 const now = useTicker()
 const activeTab = ref<'play' | 'training' | 'view' | 'system'>('play')
+
+const THEME_MODES: { value: ThemeMode; label: string }[] = [
+  { value: 'dark', label: '深色' },
+  { value: 'light', label: '浅色' },
+  { value: 'system', label: '跟随系统' },
+]
+const ACCENT_PRESETS = ['var(--rst-accent)', '#8b7cff', '#7ee2a8', '#ffd479', '#ff8fab', '#ff8a5c', '#5eead4', '#f472b6']
 const roomRemainingMs = computed(() => {
   const base = ui.room?.timeLeftMs ?? (ui.room?.timeLeft ?? 0) * 1000
   const elapsed = ui.stateAt ? Math.max(0, now.value - ui.stateAt) : 0
@@ -130,6 +139,27 @@ function setVisibility(key: VisibilityKey, visible: boolean): void {
 
   saveVisibility()
   emitAction('visibility:set', { key, visible })
+}
+
+function persistTheme(): void {
+  const theme = { mode: ui.themeMode, accent: ui.accentColor }
+  saveThemeSettings(theme)
+  applyTheme(theme)
+}
+
+function setThemeMode(mode: ThemeMode): void {
+  ui.themeMode = mode
+  persistTheme()
+}
+
+function setAccentColor(color: string): void {
+  if (!/^#[0-9a-f]{6}$/i.test(color)) return
+  ui.accentColor = color.toLowerCase()
+  persistTheme()
+}
+
+function onAccentInput(event: Event): void {
+  setAccentColor((event.target as HTMLInputElement).value)
 }
 
 function setCursor(mode: 'auto' | 'always'): void {
@@ -487,6 +517,40 @@ function respawn(): void {
           <span class="menu-switch" :class="{ 'is-on': ui.nametagsVisible }" aria-hidden="true" />
         </button>
 
+        <div class="theme-settings">
+          <div class="theme-settings__head">
+            <span><IconPalette class="icon icon--sm" />主题</span>
+            <small>本机保存</small>
+          </div>
+          <div class="theme-modes">
+            <button
+              v-for="mode in THEME_MODES"
+              :key="mode.value"
+              type="button"
+              :class="{ 'is-active': ui.themeMode === mode.value }"
+              @click="setThemeMode(mode.value)"
+            >
+              {{ mode.label }}
+            </button>
+          </div>
+          <div class="accent-row">
+            <button
+              v-for="color in ACCENT_PRESETS"
+              :key="color"
+              type="button"
+              class="accent-dot"
+              :class="{ 'is-active': ui.accentColor === color }"
+              :style="{ background: color }"
+              :aria-label="`主题色 ${color}`"
+              @click="setAccentColor(color)"
+            />
+            <label class="accent-custom">
+              自定义
+              <input type="color" :value="ui.accentColor" @input="onAccentInput" />
+            </label>
+          </div>
+        </div>
+
         <div class="menu-cursor">
           <span class="menu-cursor__label">
             <IconMousePointer2 class="icon icon--sm" />
@@ -584,8 +648,8 @@ function respawn(): void {
   width: 38px;
   height: 38px;
   border-radius: 11px;
-  border: 1px solid rgba(88, 200, 255, 0.24);
-  background: rgba(88, 200, 255, 0.1);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.24);
+  background: rgba(var(--rst-accent-rgb), 0.1);
   color: var(--rst-accent);
 }
 
@@ -655,8 +719,8 @@ function respawn(): void {
   gap: 8px 16px;
   padding: 9px 12px;
   border-radius: 9px;
-  background: rgba(88, 200, 255, 0.06);
-  border: 1px solid rgba(88, 200, 255, 0.12);
+  background: rgba(var(--rst-accent-rgb), 0.06);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.12);
   font-size: 11px;
   color: var(--rst-muted);
 }
@@ -664,6 +728,104 @@ function respawn(): void {
 .menu-round strong {
   color: var(--rst-text);
   font-variant-numeric: tabular-nums;
+}
+
+.theme-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--rst-border);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, 0.025);
+}
+
+.theme-settings__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  color: var(--rst-text);
+  font-size: 10px;
+}
+
+.theme-settings__head span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.theme-settings__head .icon {
+  color: var(--rst-accent);
+}
+
+.theme-settings__head small {
+  color: var(--rst-muted);
+  font-size: 8px;
+}
+
+.theme-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.theme-modes button {
+  flex: 1;
+  padding: 5px 8px;
+  border: 1px solid var(--rst-border);
+  border-radius: 5px;
+  color: var(--rst-muted);
+  font-size: 9px;
+}
+
+.theme-modes button:hover {
+  color: var(--rst-text);
+  border-color: rgba(var(--rst-accent-rgb), 0.35);
+}
+
+.theme-modes button.is-active {
+  color: var(--rst-accent);
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
+  background: rgba(var(--rst-accent-rgb), 0.1);
+}
+
+.accent-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.accent-dot {
+  width: 18px;
+  height: 18px;
+  border: 2px solid transparent;
+  border-radius: 50%;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.16);
+}
+
+.accent-dot.is-active {
+  border-color: var(--rst-text);
+  box-shadow: 0 0 0 2px rgba(var(--rst-accent-rgb), 0.35);
+}
+
+.accent-custom {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  margin-left: auto;
+  color: var(--rst-muted);
+  font-size: 8px;
+  cursor: pointer;
+}
+
+.accent-custom input {
+  width: 24px;
+  height: 18px;
+  padding: 0;
+  border: 1px solid var(--rst-border);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
 }
 
 .menu-cursor {
@@ -700,8 +862,8 @@ function respawn(): void {
 }
 
 .menu-cursor__modes button.is-active {
-  border-color: rgba(88, 200, 255, 0.4);
-  background: rgba(88, 200, 255, 0.1);
+  border-color: rgba(var(--rst-accent-rgb), 0.4);
+  background: rgba(var(--rst-accent-rgb), 0.1);
   color: var(--rst-text);
 }
 
@@ -730,9 +892,9 @@ function respawn(): void {
 .warp-hint {
   margin: 0 0 2px;
   padding: 9px 11px;
-  border: 1px solid rgba(88, 200, 255, 0.16);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.16);
   border-radius: 8px;
-  background: rgba(88, 200, 255, 0.05);
+  background: rgba(var(--rst-accent-rgb), 0.05);
   color: var(--rst-muted);
   font-size: 10px;
   line-height: 1.55;
@@ -797,15 +959,15 @@ function respawn(): void {
 .warp-row__button {
   flex: 0 0 auto;
   padding: 4px 7px;
-  border: 1px solid rgba(88, 200, 255, 0.22);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.22);
   border-radius: 5px;
-  background: rgba(88, 200, 255, 0.08);
+  background: rgba(var(--rst-accent-rgb), 0.08);
   color: var(--rst-accent);
   font-size: 8px;
 }
 
 .warp-row__button:hover {
-  background: rgba(88, 200, 255, 0.16);
+  background: rgba(var(--rst-accent-rgb), 0.16);
 }
 
 .warp-row__button--danger {
@@ -849,8 +1011,8 @@ function respawn(): void {
 
 .menu-tabs button.is-active {
   color: var(--rst-text);
-  background: rgba(88, 200, 255, 0.14);
-  box-shadow: inset 0 0 0 1px rgba(88, 200, 255, 0.16);
+  background: rgba(var(--rst-accent-rgb), 0.14);
+  box-shadow: inset 0 0 0 1px rgba(var(--rst-accent-rgb), 0.16);
 }
 
 .menu-action--switch {
@@ -881,8 +1043,8 @@ function respawn(): void {
 }
 
 .menu-switch.is-on {
-  border-color: rgba(88, 200, 255, 0.45);
-  background: rgba(88, 200, 255, 0.22);
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
+  background: rgba(var(--rst-accent-rgb), 0.22);
 }
 
 .menu-switch.is-on::after {
@@ -904,8 +1066,8 @@ function respawn(): void {
 
 .menu-action:hover:not(:disabled) {
   transform: translateX(2px);
-  background: rgba(88, 200, 255, 0.1);
-  border-color: rgba(88, 200, 255, 0.38);
+  background: rgba(var(--rst-accent-rgb), 0.1);
+  border-color: rgba(var(--rst-accent-rgb), 0.38);
 }
 
 .menu-action:disabled {

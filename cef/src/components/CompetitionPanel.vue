@@ -189,7 +189,7 @@ const groups = computed<TeamGroup[]>(() => {
 }
 
 .competition__row--me {
-  background: rgba(88, 200, 255, 0.08);
+  background: rgba(var(--rst-accent-rgb), 0.08);
 }
 
 .competition__row--out {

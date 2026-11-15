@@ -4,6 +4,7 @@
   --rst-text: #e8eef8;
   --rst-muted: #93a4bd;
   --rst-accent: #58c8ff;
+  --rst-accent-rgb: 88, 200, 255;
   --rst-accent-2: #8b7cff;
   --rst-gold: #ffd479;
   --rst-green: #7ee2a8;
@@ -95,4 +96,136 @@ button:disabled {
 .speedo-leave-to {
   opacity: 0;
   transform: translate(-50%, 10px);
+}
+
+/* ------------------------------------------------------------------------- */
+/* 浅色主题                                                                   */
+/* ------------------------------------------------------------------------- */
+
+:root[data-theme='light'] {
+  color-scheme: light;
+  --rst-text: #17273b;
+  --rst-muted: #5f7188;
+  --rst-panel: rgba(255, 255, 255, 0.94);
+  --rst-panel-soft: rgba(255, 255, 255, 0.76);
+  --rst-border: rgba(40, 80, 120, 0.18);
+  --rst-shadow: 0 24px 60px rgba(30, 60, 100, 0.18);
+  --rst-gold: #a96b12;
+  --rst-green: #14875a;
+}
+
+html[data-theme='light'] .app-root {
+  color: var(--rst-text);
+}
+
+html[data-theme='light'] .app-root :is(
+  .auth__card,
+  .menu-panel,
+  .stage__card,
+  .map-pool__panel,
+  .records__panel,
+  .help__panel,
+  .map-detail__panel,
+  .race-result__panel,
+  .ready__panel,
+  .rewind,
+  .speedo,
+  .chat,
+  .competition,
+  .hud__player,
+  .hud .room,
+  .track,
+  .vote__panel,
+  .mode-vote__panel,
+  .scoreboard,
+  .maptimer
+) {
+  border-color: var(--rst-border) !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.96), rgba(232, 241, 250, 0.94)) !important;
+  color: var(--rst-text) !important;
+  box-shadow: var(--rst-shadow);
+}
+
+html[data-theme='light'] .app-root :is(
+  .menu-backdrop,
+  .map-pool,
+  .records,
+  .map-detail,
+  .help,
+  .race-result,
+  .ready,
+  .stage,
+  .vote,
+  .mode-vote,
+  .auth
+) {
+  background: radial-gradient(circle at 50% 28%, rgba(236, 245, 252, 0.62), rgba(203, 219, 235, 0.76)) !important;
+}
+
+html[data-theme='light'] .app-root :is(
+  .menu-action,
+  .warp-row,
+  .theme-settings,
+  .menu-cursor,
+  .help__section,
+  .map-pool__row,
+  .records__row,
+  .race-result__row,
+  .competition__row
+) {
+  border-color: var(--rst-border);
+  background: rgba(35, 75, 115, 0.045) !important;
+}
+
+html[data-theme='light'] .app-root .menu-tabs {
+  background: rgba(35, 75, 115, 0.06) !important;
+}
+
+html[data-theme='light'] .app-root .build {
+  border-color: var(--rst-border);
+  background: rgba(255, 255, 255, 0.68) !important;
+  color: var(--rst-muted);
+}
+
+html[data-theme='light'] .app-root :is(
+  .menu-action:hover:not(:disabled),
+  .map-pool__row:hover,
+  .records__row:hover
+) {
+  background: rgba(var(--rst-accent-rgb), 0.1) !important;
+  border-color: rgba(var(--rst-accent-rgb), 0.3) !important;
+}
+
+html[data-theme='light'] .app-root :is(
+  .chat__list,
+  .map-pool__list,
+  .records__table-wrap,
+  .scoreboard__scroll
+) {
+  background: transparent !important;
+}
+
+html[data-theme='light'] .app-root .scoreboard__table th {
+  background: rgba(238, 245, 252, 0.98) !important;
+  color: var(--rst-muted);
+}
+
+html[data-theme='light'] .app-root :is(
+  .auth__input,
+  .map-pool__search input
+) {
+  border-color: var(--rst-border);
+  background: rgba(255, 255, 255, 0.72);
+  color: var(--rst-text);
+}
+
+html[data-theme='light'] .app-root .auth__input::placeholder {
+  color: rgba(67, 91, 118, 0.62);
+}
+
+html[data-theme='light'] .app-root .scoreboard__status,
+html[data-theme='light'] .app-root .help__keys kbd,
+html[data-theme='light'] .app-root .warp-hint kbd {
+  border-color: var(--rst-border);
+  background: rgba(35, 75, 115, 0.06);
 }

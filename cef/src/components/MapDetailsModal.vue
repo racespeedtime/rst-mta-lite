@@ -183,10 +183,10 @@ watch(
   place-items: center;
   width: 42px;
   height: 42px;
-  border: 1px solid rgba(88, 200, 255, 0.25);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.25);
   border-radius: 12px;
   color: var(--rst-accent);
-  background: rgba(88, 200, 255, 0.1);
+  background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
 .map-detail__eyebrow {
@@ -317,10 +317,10 @@ watch(
 
 .map-detail__tags span {
   padding: 3px 7px;
-  border: 1px solid rgba(88, 200, 255, 0.18);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.18);
   border-radius: 999px;
   color: var(--rst-muted);
-  background: rgba(88, 200, 255, 0.06);
+  background: rgba(var(--rst-accent-rgb), 0.06);
   font-size: 9px;
 }
 
@@ -346,10 +346,10 @@ watch(
 
 .map-detail__link button {
   padding: 4px 7px;
-  border: 1px solid rgba(88, 200, 255, 0.3);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.3);
   border-radius: 5px;
   color: var(--rst-accent);
-  background: rgba(88, 200, 255, 0.08);
+  background: rgba(var(--rst-accent-rgb), 0.08);
   font-size: 9px;
   white-space: nowrap;
 }

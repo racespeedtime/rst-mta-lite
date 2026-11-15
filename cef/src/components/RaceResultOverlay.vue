@@ -147,7 +147,7 @@ const remainingMs = computed(() => {
   align-items: center;
   gap: 14px;
   padding: 10px 15px;
-  border: 1px solid rgba(88, 200, 255, 0.3);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.3);
   border-radius: 11px;
   background: rgba(8, 16, 28, 0.9);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
@@ -186,7 +186,7 @@ const remainingMs = computed(() => {
 .race-result__panel {
   width: min(520px, calc(100vw - 60px));
   padding: 24px;
-  border: 1px solid rgba(88, 200, 255, 0.26);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.26);
   border-radius: 18px;
   background: linear-gradient(155deg, rgba(17, 29, 45, 0.98), rgba(6, 11, 19, 0.98));
   box-shadow: 0 28px 80px rgba(0, 0, 0, 0.5);
@@ -235,7 +235,7 @@ const remainingMs = computed(() => {
   margin: 18px 0 12px;
   padding: 8px 10px;
   border-radius: 8px;
-  background: rgba(88, 200, 255, 0.07);
+  background: rgba(var(--rst-accent-rgb), 0.07);
   color: var(--rst-accent);
   font-size: 11px;
 }
@@ -297,8 +297,8 @@ const remainingMs = computed(() => {
 }
 
 .race-result__row.is-me {
-  border-color: rgba(88, 200, 255, 0.35);
-  background: rgba(88, 200, 255, 0.08);
+  border-color: rgba(var(--rst-accent-rgb), 0.35);
+  background: rgba(var(--rst-accent-rgb), 0.08);
 }
 
 .race-result__row.is-red {

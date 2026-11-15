@@ -57,7 +57,7 @@ onUnmounted(() => {
       <svg class="countdown__ring" viewBox="0 0 200 200">
         <defs>
           <linearGradient id="countdownRingGradient" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#58c8ff" />
+            <stop offset="0%" stop-color="var(--rst-accent)" />
             <stop offset="68%" stop-color="#8b7cff" />
             <stop offset="100%" stop-color="#ffd479" />
           </linearGradient>
@@ -141,7 +141,7 @@ onUnmounted(() => {
 .countdown__ring-progress {
   stroke: url(#countdownRingGradient);
   stroke-linecap: round;
-  filter: drop-shadow(0 0 8px rgba(88, 200, 255, 0.45));
+  filter: drop-shadow(0 0 8px rgba(var(--rst-accent-rgb), 0.45));
 }
 
 .countdown--go .countdown__ring-progress {
@@ -180,11 +180,11 @@ onUnmounted(() => {
   line-height: 1;
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
-  background: linear-gradient(180deg, #f3fbff 0%, #58c8ff 68%, #8b7cff 100%);
+  background: linear-gradient(180deg, #f3fbff 0%, var(--rst-accent) 68%, #8b7cff 100%);
   -webkit-background-clip: text;
   background-clip: text;
   color: transparent;
-  filter: drop-shadow(0 0 22px rgba(88, 200, 255, 0.3));
+  filter: drop-shadow(0 0 22px rgba(var(--rst-accent-rgb), 0.3));
   animation: count-pop 0.26s cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 

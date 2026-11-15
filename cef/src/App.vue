@@ -25,6 +25,7 @@ import ModeVoteView from '@/views/ModeVoteView.vue'
 import { emitAction, emitToLua, onBridge } from '@/mta/bridge'
 import type { StatePayload } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
+import { applyTheme, loadThemeSettings, watchSystemTheme } from '@/theme'
 
 const toast = ref('')
 let toastTimer: number | undefined
@@ -220,6 +221,18 @@ function onCursorKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
+  const theme = loadThemeSettings()
+  ui.themeMode = theme.mode
+  ui.accentColor = theme.accent
+  applyTheme(theme)
+  offs.push(
+    watchSystemTheme(() => {
+      if (ui.themeMode === 'system') {
+        applyTheme({ mode: 'system', accent: ui.accentColor })
+      }
+    }),
+  )
+
   watch(
     () => ui.mapDetailsOpen,
     (open) => {

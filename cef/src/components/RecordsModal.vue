@@ -220,7 +220,7 @@ onMounted(() => request(1))
 }
 
 .records__table tbody tr:hover {
-  background: rgba(88, 200, 255, 0.05);
+  background: rgba(var(--rst-accent-rgb), 0.05);
 }
 
 .records__rank {

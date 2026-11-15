@@ -239,7 +239,7 @@ onMounted(() => request(1))
 }
 
 .map-pool__row:hover {
-  background: rgba(88, 200, 255, 0.05);
+  background: rgba(var(--rst-accent-rgb), 0.05);
 }
 
 .map-pool__index {
@@ -248,7 +248,7 @@ onMounted(() => request(1))
   width: 30px;
   height: 24px;
   border-radius: 6px;
-  background: rgba(88, 200, 255, 0.1);
+  background: rgba(var(--rst-accent-rgb), 0.1);
   color: var(--rst-accent);
   font-size: 10px;
   font-variant-numeric: tabular-nums;

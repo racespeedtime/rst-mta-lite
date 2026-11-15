@@ -255,7 +255,7 @@ function onKeydown(event: KeyboardEvent): void {
   width: 46px;
   height: 46px;
   border-radius: 14px;
-  background: linear-gradient(150deg, rgba(88, 200, 255, 0.5), rgba(139, 124, 255, 0.3));
+  background: linear-gradient(150deg, rgba(var(--rst-accent-rgb), 0.5), rgba(139, 124, 255, 0.3));
   border: 1px solid rgba(140, 200, 255, 0.35);
   color: #eaf6ff;
   box-shadow: 0 10px 26px rgba(76, 194, 255, 0.2);
@@ -304,8 +304,8 @@ function onKeydown(event: KeyboardEvent): void {
   width: 34px;
   height: 34px;
   border-radius: 10px;
-  background: rgba(88, 200, 255, 0.12);
-  border: 1px solid rgba(88, 200, 255, 0.22);
+  background: rgba(var(--rst-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.22);
   color: var(--rst-accent);
   grid-row: span 2;
 }
@@ -366,8 +366,8 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .auth__input:focus {
-  border-color: rgba(88, 200, 255, 0.55);
-  box-shadow: 0 0 0 3px rgba(88, 200, 255, 0.12);
+  border-color: rgba(var(--rst-accent-rgb), 0.55);
+  box-shadow: 0 0 0 3px rgba(var(--rst-accent-rgb), 0.12);
 }
 
 .auth__input::placeholder {
@@ -408,7 +408,7 @@ function onKeydown(event: KeyboardEvent): void {
 
 .auth__tabs button.is-active {
   color: var(--rst-text);
-  background: rgba(88, 200, 255, 0.13);
+  background: rgba(var(--rst-accent-rgb), 0.13);
 }
 
 .auth__submit {
@@ -432,7 +432,7 @@ function onKeydown(event: KeyboardEvent): void {
 .btn:hover:not(:disabled) {
   transform: translateY(-1px);
   background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(88, 200, 255, 0.4);
+  border-color: rgba(var(--rst-accent-rgb), 0.4);
 }
 
 .btn:disabled {
@@ -440,8 +440,8 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .btn--primary {
-  border-color: rgba(88, 200, 255, 0.45);
-  background: linear-gradient(180deg, rgba(88, 200, 255, 0.3), rgba(88, 200, 255, 0.14));
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
+  background: linear-gradient(180deg, rgba(var(--rst-accent-rgb), 0.3), rgba(var(--rst-accent-rgb), 0.14));
 }
 
 .auth__divider {
@@ -475,8 +475,8 @@ function onKeydown(event: KeyboardEvent): void {
 
 .auth__guest:hover:not(:disabled) {
   color: var(--rst-text);
-  border-color: rgba(88, 200, 255, 0.4);
-  background: rgba(88, 200, 255, 0.06);
+  border-color: rgba(var(--rst-accent-rgb), 0.4);
+  background: rgba(var(--rst-accent-rgb), 0.06);
 }
 
 .auth__guest:disabled {

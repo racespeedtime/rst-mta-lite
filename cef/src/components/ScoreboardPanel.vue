@@ -126,7 +126,7 @@ onUnmounted(() => {
   max-height: calc(min(66vh, 620px) - 44px);
   overflow-y: auto;
   scrollbar-width: thin;
-  scrollbar-color: rgba(88, 200, 255, 0.4) transparent;
+  scrollbar-color: rgba(var(--rst-accent-rgb), 0.4) transparent;
 }
 
 .scoreboard__scroll::-webkit-scrollbar {
@@ -135,7 +135,7 @@ onUnmounted(() => {
 
 .scoreboard__scroll::-webkit-scrollbar-thumb {
   border-radius: 8px;
-  background: rgba(88, 200, 255, 0.35);
+  background: rgba(var(--rst-accent-rgb), 0.35);
 }
 
 .scoreboard__table {
@@ -181,11 +181,11 @@ onUnmounted(() => {
 }
 
 .scoreboard__table tbody tr:hover {
-  background: rgba(88, 200, 255, 0.06);
+  background: rgba(var(--rst-accent-rgb), 0.06);
 }
 
 .scoreboard__row--me {
-  background: rgba(88, 200, 255, 0.1);
+  background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
 .scoreboard__id {

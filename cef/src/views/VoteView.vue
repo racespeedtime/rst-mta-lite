@@ -301,8 +301,8 @@ function vote(mapId: string): void {
 .vote__sorts button:hover,
 .vote__sorts button.is-active {
   color: var(--rst-text);
-  border-color: rgba(88, 200, 255, 0.38);
-  background: rgba(88, 200, 255, 0.1);
+  border-color: rgba(var(--rst-accent-rgb), 0.38);
+  background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
 .vote__count {
@@ -352,8 +352,8 @@ function vote(mapId: string): void {
 }
 
 .vote__option:hover:not(:disabled) {
-  border-color: rgba(88, 200, 255, 0.4);
-  background: rgba(88, 200, 255, 0.07);
+  border-color: rgba(var(--rst-accent-rgb), 0.4);
+  background: rgba(var(--rst-accent-rgb), 0.07);
 }
 
 .vote__option--mine {
@@ -369,7 +369,7 @@ function vote(mapId: string): void {
   position: absolute;
   inset: 0 auto 0 0;
   width: 0;
-  background: linear-gradient(90deg, rgba(88, 200, 255, 0.16), rgba(88, 200, 255, 0.02));
+  background: linear-gradient(90deg, rgba(var(--rst-accent-rgb), 0.16), rgba(var(--rst-accent-rgb), 0.02));
   transition: width 0.3s ease;
 }
 

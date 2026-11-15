@@ -230,9 +230,9 @@ function spectate(): void {
 .ready__button {
   width: 100%;
   padding: 11px 16px;
-  border: 1px solid rgba(88, 200, 255, 0.45);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.45);
   border-radius: 10px;
-  background: rgba(88, 200, 255, 0.16);
+  background: rgba(var(--rst-accent-rgb), 0.16);
   color: var(--rst-text);
   font-size: 13px;
   font-weight: 600;
@@ -241,8 +241,8 @@ function spectate(): void {
 }
 
 .ready__button:hover:not(:disabled) {
-  background: rgba(88, 200, 255, 0.26);
-  border-color: rgba(88, 200, 255, 0.7);
+  background: rgba(var(--rst-accent-rgb), 0.26);
+  border-color: rgba(var(--rst-accent-rgb), 0.7);
 }
 
 .ready__button--done {

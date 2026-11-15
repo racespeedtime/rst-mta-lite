@@ -108,7 +108,7 @@ const nitroLabel = computed(() => {
   inset: 0 0 auto;
   height: 1px;
   border-radius: 18px 18px 0 0;
-  background: linear-gradient(90deg, transparent, rgba(88, 200, 255, 0.5), transparent);
+  background: linear-gradient(90deg, transparent, rgba(var(--rst-accent-rgb), 0.5), transparent);
   opacity: 0.55;
 }
 
@@ -141,7 +141,7 @@ const nitroLabel = computed(() => {
 
 .speedo__gear {
   padding: 2px 7px;
-  border: 1px solid rgba(88, 200, 255, 0.3);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.3);
   border-radius: 6px;
   color: var(--rst-accent);
   font-size: 10px;
@@ -163,7 +163,7 @@ const nitroLabel = computed(() => {
   letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   color: var(--rst-text);
-  text-shadow: 0 0 24px rgba(88, 200, 255, 0.16);
+  text-shadow: 0 0 24px rgba(var(--rst-accent-rgb), 0.16);
 }
 
 .speedo__unit {
@@ -182,8 +182,8 @@ const nitroLabel = computed(() => {
 .speedo__bar-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, #58c8ff, #8b7cff 62%, #ffd479);
-  box-shadow: 0 0 12px rgba(88, 200, 255, 0.4);
+  background: linear-gradient(90deg, var(--rst-accent), #8b7cff 62%, #ffd479);
+  box-shadow: 0 0 12px rgba(var(--rst-accent-rgb), 0.4);
   transition: width 0.12s linear;
 }
 
@@ -215,7 +215,7 @@ const nitroLabel = computed(() => {
 
 .meter__icon--nitro {
   color: var(--rst-accent);
-  background: rgba(88, 200, 255, 0.12);
+  background: rgba(var(--rst-accent-rgb), 0.12);
   transition: color 0.15s ease, background 0.15s ease;
 }
 
@@ -254,7 +254,7 @@ const nitroLabel = computed(() => {
 }
 
 .meter__fill--nitro {
-  background: linear-gradient(90deg, #58c8ff, #8b7cff);
+  background: linear-gradient(90deg, var(--rst-accent), #8b7cff);
 }
 
 .meter__fill--nitro.is-active {

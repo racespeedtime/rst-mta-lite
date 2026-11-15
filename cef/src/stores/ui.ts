@@ -54,6 +54,8 @@ export const ui = reactive({
   showChat: true,
   showRadar: true,
   showCrosshair: true,
+  themeMode: 'dark' as 'dark' | 'light' | 'system',
+  accentColor: '#58c8ff',
   recordsOpen: false,
   recordsLoading: false,
   recordsRequestId: 0,

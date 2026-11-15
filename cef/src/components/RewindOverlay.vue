@@ -34,10 +34,10 @@ const progressWidth = computed(
   width: min(360px, calc(100vw - 120px));
   transform: translateX(-50%);
   padding: 12px 16px;
-  border: 1px solid rgba(88, 200, 255, 0.35);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.35);
   border-radius: 13px;
   background: linear-gradient(160deg, rgba(16, 32, 52, 0.86), rgba(6, 12, 22, 0.9));
-  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4), 0 0 30px rgba(88, 200, 255, 0.08);
+  box-shadow: 0 16px 44px rgba(0, 0, 0, 0.4), 0 0 30px rgba(var(--rst-accent-rgb), 0.08);
   pointer-events: none;
 }
 
@@ -75,8 +75,8 @@ const progressWidth = computed(
 .rewind__fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, rgba(88, 200, 255, 0.55), var(--rst-accent));
-  box-shadow: 0 0 12px rgba(88, 200, 255, 0.5);
+  background: linear-gradient(90deg, rgba(var(--rst-accent-rgb), 0.55), var(--rst-accent));
+  box-shadow: 0 0 12px rgba(var(--rst-accent-rgb), 0.5);
 }
 
 .rewind__hint {

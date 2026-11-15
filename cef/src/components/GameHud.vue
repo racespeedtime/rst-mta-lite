@@ -150,8 +150,8 @@ const gameModeLabel = computed(() => {
   width: 30px;
   height: 30px;
   border-radius: 9px;
-  background: rgba(88, 200, 255, 0.12);
-  border: 1px solid rgba(88, 200, 255, 0.2);
+  background: rgba(var(--rst-accent-rgb), 0.12);
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.2);
   color: var(--rst-accent);
 }
 
