@@ -261,7 +261,8 @@ local function applyRewindCamera(element)
     local x, y, z = getElementPosition(element)
     local _, _, rz = getElementRotation(element)
     local yaw = math.rad(rz or 0)
-    local fx, fy = math.cos(yaw), math.sin(yaw)
+    -- GTA 的 rz=0 朝 +Y；不能用数学上的 cos/sin 直接当车头方向
+    local fx, fy = -math.sin(yaw), math.cos(yaw)
     local isVehicle = getElementType(element) == 'vehicle'
 
     local distance = isVehicle and 7.0 or 3.2
