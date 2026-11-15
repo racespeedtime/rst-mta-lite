@@ -12,6 +12,8 @@ local UI_URL = 'http://mta/local/ui/index.html'
 
 local browser
 local browserReady = false
+local pageReady = false
+local pendingDispatches = {}
 local screenW, screenH = guiGetScreenSize()
 
 local phase = 'auth'
@@ -34,6 +36,7 @@ local controlLocked = false
 local cursorAlways = false
 local freeCursor = false
 local hudHidden = false
+local chatSuppressed = false
 local devtoolsOpen = false
 local lastCursorToggleAt = 0
 
@@ -141,11 +144,40 @@ local function callJs(name, ...)
 end
 
 local function dispatch(name, payload)
-    return callJs('dispatch', name, toJSON(payload or {}))
+    local json = toJSON(payload or {})
+    if not browserReady or not pageReady then
+        pendingDispatches[#pendingDispatches + 1] = { name = name, json = json }
+        if #pendingDispatches > 200 then
+            table.remove(pendingDispatches, 1)
+        end
+        return true
+    end
+    return callJs('dispatch', name, json)
 end
 
 local function dispatchRaw(name, json)
-    return callJs('dispatch', name, json or '{}')
+    json = json or '{}'
+    if not browserReady or not pageReady then
+        if name ~= 'state' then
+            pendingDispatches[#pendingDispatches + 1] = { name = name, json = json }
+            if #pendingDispatches > 200 then
+                table.remove(pendingDispatches, 1)
+            end
+        end
+        return true
+    end
+    return callJs('dispatch', name, json)
+end
+
+local function flushPendingDispatches()
+    if not browserReady or not pageReady or #pendingDispatches == 0 then
+        return
+    end
+    local queued = pendingDispatches
+    pendingDispatches = {}
+    for _, item in ipairs(queued) do
+        callJs('dispatch', item.name, item.json)
+    end
 end
 
 RST.dispatch = dispatch
@@ -187,19 +219,7 @@ end
 -- 输入 / 交互状态
 -- ---------------------------------------------------------------------------
 
-local function setInteractive(enabled)
-    enabled = enabled == true
-    if enabled == interactive then
-        return
-    end
-
-    if not enabled and RST.stopRewind then
-        RST.stopRewind()
-    end
-
-    interactive = enabled
-    RST.interactive = enabled
-
+local function applyInputState(enabled)
     showCursor(enabled)
     guiSetInputEnabled(enabled)
     toggleAllControls(not enabled, true, false)
@@ -211,6 +231,26 @@ local function setInteractive(enabled)
             focusBrowser(nil)
         end
     end
+end
+
+local function setInteractive(enabled)
+    enabled = enabled == true
+
+    if enabled == interactive then
+        -- 状态没有变化，也要把输入副作用重新落到当前帧。
+        -- 例如观战结束时 stopSpectate() 会 showCursor(false)，随后 interactive 仍为 true，
+        -- 只 return 会让菜单开着但鼠标不可见。
+        applyInputState(enabled)
+        return
+    end
+
+    if not enabled and RST.stopRewind then
+        RST.stopRewind()
+    end
+
+    interactive = enabled
+    RST.interactive = enabled
+    applyInputState(enabled)
 end
 
 local function isForcedCursor()
@@ -641,6 +681,22 @@ end
 -- 状态机
 -- ---------------------------------------------------------------------------
 
+local function setChatSuppressed(suppressed)
+    suppressed = suppressed == true
+    if suppressed == chatSuppressed then
+        return
+    end
+
+    chatSuppressed = suppressed
+    pcall(showChat, not suppressed and not hudHidden, suppressed or hudHidden)
+    if suppressed and chatOpen then
+        chatOpen = false
+        RST.chatOpen = false
+        dispatch('chat', { open = false })
+        updateCursor()
+    end
+end
+
 local function applyState(state)
     local previousPhase = phase
     local previousMode = mode
@@ -665,6 +721,7 @@ local function applyState(state)
     RST.readyWaiting = readyWaiting
     RST.rewindLives = tonumber(state.lives)
     disableMotionBlur()
+    setChatSuppressed(phase ~= 'playing' or voteActive or readyWaiting)
 
     if phase ~= 'playing' and menuOpen then
         menuOpen = false
@@ -866,7 +923,10 @@ local function onBrowserCreated()
     end
 end
 
+local browserReloads = 0
+
 local function onBrowserLoadingFailed(url, errorCode, errorDescription)
+    pageReady = false
     outputDebugString(
         ('rst_ui: 页面加载失败 %s (%s: %s)'):format(
             tostring(url),
@@ -875,18 +935,36 @@ local function onBrowserLoadingFailed(url, errorCode, errorDescription)
         ),
         1
     )
+
+    if browserReloads < 2 and browser and isElement(browser) then
+        browserReloads = browserReloads + 1
+        setTimer(function()
+            if browser and isElement(browser) then
+                pcall(reloadBrowserPage, browser)
+            end
+        end, 1000, 1)
+        return
+    end
+
+    -- 页面彻底失败时回退原生输入/HUD，至少不要黑屏卡死
+    setNativeHudVisible(true)
+    showChat(true, false)
+    showCursor(false)
+    if isElement(localPlayer) then
+        setElementFrozen(localPlayer, false)
+    end
 end
 
 local function createUiBrowser()
     screenW, screenH = guiGetScreenSize()
-    -- DevTools 需要先开启开发模式，否则 toggleBrowserDevTools 不会显示
-    pcall(setDevelopmentMode, true, true)
     pcall(setPlayerHudComponentVisible, 'radar', true)
     pcall(setPlayerHudComponentVisible, 'crosshair', true)
     -- 第 4 个参数 = 透明浏览器；HTML body 也是透明，游戏画面才能透出
     browser = createBrowser(screenW, screenH, true, true)
     if not browser then
         outputDebugString('rst_ui: createBrowser 失败', 1)
+        setNativeHudVisible(true)
+        showChat(true, false)
         return
     end
 
@@ -905,7 +983,7 @@ addEventHandler('onClientCursorMove', root, function(_, _, absoluteX, absoluteY)
 end)
 
 addEventHandler('onClientClick', root, function(button, state, absoluteX, absoluteY)
-    if not interactive or not browserReady then
+    if not interactive or not browserReady or chatOpen then
         return
     end
 
@@ -920,6 +998,21 @@ end)
 addEventHandler('onClientMouseWheel', root, function(delta)
     if interactive and browserReady and type(delta) == 'number' then
         injectBrowserMouseWheel(browser, delta)
+    end
+end)
+
+-- CEF 是 dxDrawImage 绘制的，不是 GUI 元素，onClientMouseWheel 在部分客户端不会触发；
+-- 用 onClientKey 的滚轮事件补充。
+addEventHandler('onClientKey', root, function(button, press)
+    if not press or not interactive or not browserReady then
+        return
+    end
+    if button == 'mouse_wheel_up' then
+        injectBrowserMouseWheel(browser, 1)
+        cancelEvent()
+    elseif button == 'mouse_wheel_down' then
+        injectBrowserMouseWheel(browser, -1)
+        cancelEvent()
     end
 end)
 
@@ -938,9 +1031,11 @@ addEvent('rst:ui:countdown', true)
 addEvent('rst:ui:lives', true)
 
 addEventHandler('rst:ui:ready', root, function()
+    pageReady = true
     if type(cachedState) == 'string' and #cachedState > 2 then
         dispatchRaw('state', cachedState)
     end
+    flushPendingDispatches()
     applyUiScale()
     triggerServerEvent('rst:ui:requestState', localPlayer)
     applyInteractive()
@@ -968,6 +1063,8 @@ addEventHandler('rst:ui:action', root, function(json)
         applyInteractive()
     elseif data.action == 'menu:close' then
         setMenuOpen(false)
+    elseif data.action == 'menu:open' then
+        setMenuOpen(true)
     elseif data.action == 'help:open' then
         setHelpOpen(true)
     elseif data.action == 'help:close' then
@@ -985,14 +1082,19 @@ addEventHandler('rst:ui:action', root, function(json)
         pcall(setPlayerHudComponentVisible, 'radar', not hudHidden)
         pcall(setPlayerHudComponentVisible, 'crosshair', not hudHidden)
         -- 隐藏全部 UI 时，原生 chatbox 也一起隐藏并禁止输入
-        pcall(showChat, not hudHidden, hudHidden)
+        pcall(showChat, not hudHidden and not chatSuppressed, hudHidden or chatSuppressed)
     elseif data.action == 'devtools' then
         if browser then
-            pcall(setDevelopmentMode, true, true)
+            if not devtoolsOpen then
+                pcall(setDevelopmentMode, true, true)
+            end
             devtoolsOpen = not devtoolsOpen
             local ok = pcall(toggleBrowserDevTools, browser, devtoolsOpen)
             if not ok then
                 outputDebugString('[rst_ui] toggleBrowserDevTools failed', 1)
+            end
+            if not devtoolsOpen then
+                pcall(setDevelopmentMode, false, false)
             end
         end
     else
@@ -1083,14 +1185,13 @@ addEventHandler('onClientChatMessage', root, function(text, r, g, b, messageType
         return
     end
 
-    cancelEvent()
-
-    local cleaned = text:gsub('#%x%x%x%x%x%x', '')
+    -- 8 位 ARGB 先匹配，避免 #RRGGBBAA 只被吃掉前 6 位
+    local cleaned = text:gsub('#%x%x%x%x%x%x%x%x', ''):gsub('#%x%x%x%x%x%x', '')
     if #cleaned == 0 then
         return
     end
 
-    dispatch('chatMessage', {
+    local delivered = dispatch('chatMessage', {
         kind = 'native',
         text = cleaned,
         time = getRealTime().timestamp,
@@ -1101,6 +1202,9 @@ addEventHandler('onClientChatMessage', root, function(text, r, g, b, messageType
         },
         nativeType = tonumber(messageType) or 0,
     })
+    if delivered then
+        cancelEvent()
+    end
 end)
 
 -- ---------------------------------------------------------------------------
@@ -1109,6 +1213,9 @@ end)
 
 addEventHandler('onClientPlayerSpawn', localPlayer, function()
     disableMotionBlur()
+    if not RST.countdownActive and not RST.readyWaiting then
+        setSpawnControlLock(false)
+    end
     if phase == 'playing' and mode == 'playing' then
         stopSpectate()
         setCameraTarget(localPlayer)
@@ -1132,6 +1239,12 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     if RST.countdownActive then
         RST.countdownActive = false
         dispatch('countdown', { active = false })
+    end
+    setSpawnControlLock(false)
+    -- 服务端死亡计时器会重新生成；本地先解除倒计时/准备冻结
+    countdownVehicle = nil
+    if isElement(localPlayer) then
+        setElementFrozen(localPlayer, false)
     end
 
     setHelpOpen(false)
@@ -1378,11 +1491,18 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
     end
 
     stopSpectate()
+    setSpawnControlLock(false)
     showCursor(false)
     guiSetInputEnabled(false)
     toggleAllControls(true, true, false)
     showChat(true, false)
     setNativeHudVisible(true)
+    hudHidden = false
+    pcall(setPlayerHudComponentVisible, 'radar', true)
+    pcall(setPlayerHudComponentVisible, 'crosshair', true)
+    if isElement(localPlayer) then
+        setElementFrozen(localPlayer, false)
+    end
 
     if browser and isElement(browser) then
         destroyElement(browser)

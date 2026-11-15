@@ -156,8 +156,7 @@ local function loadMapDetails(entry)
     local spawns = {}
     local pickups = {}
     local lastCheckpoint
-    local hunterCount = 0
-    local hunterX, hunterY, hunterZ = 0, 0, 0
+    local hunterPoints = {}
 
     for _, node in ipairs(xmlNodeGetChildren(mapRoot) or {}) do
         local name = xmlNodeGetName(node)
@@ -196,10 +195,7 @@ local function loadMapDetails(entry)
 
             local vehicle = tonumber(attr(node, 'vehicle'))
             if pickupType == 'vehiclechange' and vehicle == 425 and x and y and z then
-                hunterCount = hunterCount + 1
-                hunterX = hunterX + x
-                hunterY = hunterY + y
-                hunterZ = hunterZ + z
+                hunterPoints[#hunterPoints + 1] = { x = x, y = y, z = z }
             end
         end
     end
@@ -212,18 +208,18 @@ local function loadMapDetails(entry)
 
     local first = spawns[1]
     local finish
-    if hunterCount > 0 then
-        finish = {
-            x = hunterX / hunterCount,
-            y = hunterY / hunterCount,
-            z = hunterZ / hunterCount,
-        }
+    local finishes = {}
+    if #hunterPoints > 0 then
+        -- 一张图可能有多个 Hunter 终点，逐个判定，不能取平均点
+        finishes = hunterPoints
+        finish = hunterPoints[1]
     elseif lastCheckpoint then
         finish = {
             x = num(lastCheckpoint, 'posX'),
             y = num(lastCheckpoint, 'posY'),
             z = num(lastCheckpoint, 'posZ'),
         }
+        finishes[1] = finish
     end
 
     entry.spawnpoints = spawns
@@ -231,6 +227,7 @@ local function loadMapDetails(entry)
     entry.rot = first.rot or 0
     entry.vehicle = first.vehicle
     entry.finish = finish
+    entry.finishes = finishes
     entry.pickups = pickups
     entry._detailsLoaded = true
 
@@ -278,6 +275,9 @@ end
 function MapRegistry.details(mapId)
     local entry = maps[mapId]
     if not entry then
+        return nil
+    end
+    if entry._detailsFailed then
         return nil
     end
     if not loadMapDetails(entry) then

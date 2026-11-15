@@ -14,6 +14,7 @@ local config = RST.config
 local rooms = {}
 local stateChanged = function() end
 local freezeTimers = {}
+local deathTimers = {}
 local raceVehicles = {}
 
 local function contains(list, value)
@@ -254,7 +255,22 @@ local function clearFreezeTimer(player)
     end
 end
 
-local function beginCountdownFor(player, seconds)
+local function clearDeathTimer(player)
+    if deathTimers[player] then
+        killTimer(deathTimers[player])
+        deathTimers[player] = nil
+    end
+end
+
+local function markPlayerStarted(room, player)
+    if room and isElement(player) then
+        room.playerStartedAt[player] = now()
+        room.playerStartedAtMs[player] = RST.nowMs()
+    end
+end
+
+local function beginCountdownFor(player, seconds, room)
+    room = room or Rooms.playerRoom(player)
     clearFreezeTimer(player)
     setPlayerFrozen(player, true)
 
@@ -270,7 +286,15 @@ local function beginCountdownFor(player, seconds)
         if isElement(car) then
             pcall(setVehicleEngineState, car, true)
         end
+        markPlayerStarted(room, player)
         return
+    end
+
+    if room then
+        room.startingUntil = math.max(
+            room.startingUntil or 0,
+            RST.nowMs() + math.floor(seconds * 1000) + 250
+        )
     end
 
     triggerClientEvent(player, 'rst:ui:countdown', player, toJSON({
@@ -284,6 +308,7 @@ local function beginCountdownFor(player, seconds)
         if isElement(currentCar) then
             pcall(setVehicleEngineState, currentCar, true)
         end
+        markPlayerStarted(room, player)
     end, math.floor(seconds * 1000) + 250, 1)
 end
 
@@ -293,6 +318,7 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
     if not map or not isElement(player) then
         return
     end
+    clearDeathTimer(player)
     room.dimension = map.dimension or 0
 
     -- 竞速出生：清理旧车并计算发车格位
@@ -331,10 +357,11 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
         clearFreezeTimer(player)
         setPlayerFrozen(player, true)
     elseif countdown then
-        beginCountdownFor(player, config.spawnCountdown)
+        beginCountdownFor(player, config.spawnCountdown, room)
     else
         clearFreezeTimer(player)
         setPlayerFrozen(player, false)
+        markPlayerStarted(room, player)
     end
 end
 
@@ -409,9 +436,12 @@ local function startRound(room, forcedMapId)
     room.raceFinal = false
     room.resultsUntil = 0
     room.resultsUntilMs = 0
+    room.startingUntil = 0
     room.trainingReturns = {}
     room.trainingReturnsMs = {}
     room.trainingResults = {}
+    room.playerStartedAt = {}
+    room.playerStartedAtMs = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
     local stayingSpectators = {}
@@ -465,7 +495,8 @@ local function finishPlayer(room, player, time)
         return
     end
 
-    local elapsedMs = math.max(0, RST.nowMs() - (room.raceStartedAtMs or RST.nowMs()))
+    local startMs = room.playerStartedAtMs[player] or room.raceStartedAtMs or RST.nowMs()
+    local elapsedMs = math.max(0, RST.nowMs() - startMs)
     local elapsed = elapsedMs / 1000
     local rank = #room.finishOrder + 1
     local entry = {
@@ -520,19 +551,24 @@ local function checkFinishes(room, time)
         return
     end
 
+    local finishes = type(map.finishes) == 'table' and #map.finishes > 0
+        and map.finishes or { finish }
     local radius = config.finishRadius or 30
     for _, player in ipairs(room.players) do
         if
             not room.finished[player]
+            and room.playerStartedAtMs[player]
             and isElement(player)
             and getElementHealth(player) > 0
             and getPedOccupiedVehicle(player)
         then
             local x, y, z = getElementPosition(player)
-            local dx, dy, dz = x - finish.x, y - finish.y, z - finish.z
-            local dist2 = dx * dx + dy * dy + dz * dz
-            if dist2 <= radius * radius then
-                finishPlayer(room, player, time)
+            for _, point in ipairs(finishes) do
+                local dx, dy, dz = x - point.x, y - point.y, z - point.z
+                if dx * dx + dy * dy + dz * dz <= radius * radius then
+                    finishPlayer(room, player, time)
+                    break
+                end
             end
         end
     end
@@ -640,9 +676,12 @@ function Rooms.init(onChanged)
             raceEndsAt = 0,
             raceFinal = false,
             resultsUntil = 0,
+            startingUntil = 0,
             trainingReturns = {},
             trainingReturnsMs = {},
             trainingResults = {},
+            playerStartedAt = {},
+            playerStartedAtMs = {},
         }
     end
 
@@ -672,7 +711,7 @@ function Rooms.beginCountdown(room)
     local seconds = config.competitiveCountdown or 5
     for _, player in ipairs(room.players) do
         if isElement(player) then
-            beginCountdownFor(player, seconds)
+            beginCountdownFor(player, seconds, room)
         end
     end
     stateChanged()
@@ -770,14 +809,13 @@ teamScores = function(room)
     }
     local byId = { red = teams[1], blue = teams[2] }
 
-    for _, player in ipairs(room.players) do
-        local team = room.teamOf[player]
-        local entry = team and byId[team]
-        local result = room.finished[player]
-        if entry and result then
-            entry.score = entry.score + (result.points or 0)
-            entry.finished = entry.finished + 1
-            entry.bestRank = math.min(entry.bestRank, result.rank or math.huge)
+    for _, entry in ipairs(room.finishOrder) do
+        local team = entry.team
+        local teamEntry = team and byId[team]
+        if teamEntry then
+            teamEntry.score = teamEntry.score + (entry.points or 0)
+            teamEntry.finished = teamEntry.finished + 1
+            teamEntry.bestRank = math.min(teamEntry.bestRank, entry.rank or math.huge)
         end
     end
 
@@ -893,7 +931,10 @@ function Rooms.eliminate(player, room)
     end
 
     room.ready[player] = nil
+    room.playerStartedAt[player] = nil
+    room.playerStartedAtMs[player] = nil
     clearFreezeTimer(player)
+    clearDeathTimer(player)
     if isElement(raceVehicles[player]) then
         destroyElement(raceVehicles[player])
     end
@@ -973,8 +1014,11 @@ function Rooms.becomeSpectator(player)
     room.ob[player] = true
     room.lives[player] = nil
     room.ready[player] = nil
+    room.playerStartedAt[player] = nil
+    room.playerStartedAtMs[player] = nil
 
     clearFreezeTimer(player)
+    clearDeathTimer(player)
     if isElement(raceVehicles[player]) then
         destroyElement(raceVehicles[player])
     end
@@ -1189,6 +1233,15 @@ function Rooms.leave(player)
             room.ready[player] = nil
             room.lives[player] = nil
             room.ob[player] = nil
+            room.playerStartedAt[player] = nil
+            room.playerStartedAtMs[player] = nil
+            clearDeathTimer(player)
+            if room.vote then
+                room.vote.votes[player] = nil
+            end
+            if room.modeVote then
+                room.modeVote.votes[player] = nil
+            end
             room.trainingReturns[player] = nil
             room.trainingReturnsMs[player] = nil
             room.trainingResults[player] = nil
@@ -1303,6 +1356,9 @@ function Rooms.startVote(room, reason)
     end
     if room.waiting then
         return false, '等待玩家准备中，无法发起投票'
+    end
+    if room.startingUntil and RST.nowMs() < room.startingUntil then
+        return false, '出发倒计时中，无法发起投票'
     end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
@@ -1444,6 +1500,9 @@ function Rooms.startModeVote(room)
     if room.waiting then
         return false, '等待玩家准备中，无法发起模式投票'
     end
+    if room.startingUntil and RST.nowMs() < room.startingUntil then
+        return false, '出发倒计时中，无法发起模式投票'
+    end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
     end
@@ -1462,7 +1521,7 @@ function Rooms.startModeVote(room)
         {
             id = 'training',
             name = MODE_NAMES.training,
-            description = '无限 rewind，自由练习',
+            description = '无限倒带，自由练习',
         },
         {
             id = 'competitive',
@@ -1700,15 +1759,31 @@ function Rooms.handleDeath(player)
     if not room or not room.active or not contains(room.players, player) then
         return
     end
+    if room.waiting or room.vote or room.modeVote or room.raceFinal then
+        return
+    end
+    if room.finished[player] or room.trainingReturns[player] then
+        return
+    end
 
-    setTimer(function()
+    clearDeathTimer(player)
+    local mapId = room.mapId
+    deathTimers[player] = setTimer(function()
+        deathTimers[player] = nil
         if not isElement(player) then
             return
         end
 
         local currentRoom = Rooms.playerRoom(player)
-        if currentRoom == room and room.active and contains(room.players, player) then
-            spawnPlayerInRoom(player, room, false)
+        if currentRoom ~= room or room.mapId ~= mapId then
+            return
         end
+        if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+            return
+        end
+        if not contains(room.players, player) or room.finished[player] then
+            return
+        end
+        spawnPlayerInRoom(player, room, false)
     end, config.respawnDelay, 1)
 end

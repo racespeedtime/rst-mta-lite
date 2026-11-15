@@ -237,6 +237,12 @@ local function startRewind()
         return
     end
 
+    -- 乘客倒带会逐帧拖动整辆车，影响司机和服务端同步；只允许司机使用
+    local occupiedVehicle = getPedOccupiedVehicle(localPlayer)
+    if occupiedVehicle and getVehicleOccupant(occupiedVehicle, 0) ~= localPlayer then
+        return
+    end
+
     if RST.rewindLives ~= nil then
         if RST.rewindLives <= 0 then
             return
@@ -437,6 +443,10 @@ addEventHandler('onClientKey', root, function(button, press)
 
     -- 原生聊天输入中时让 Y 正常输入字符
     if isChatBoxInputActive() then
+        return
+    end
+    -- 控制台 / MTA 窗口激活时不要拦截，避免控制台里打不出 y
+    if isConsoleActive() or isMTAWindowActive() then
         return
     end
     if not RST.isGameplayActive() then

@@ -25,6 +25,21 @@ local function clearPickupTimers()
     pickupTimers = {}
 end
 
+local function resetPickups(map)
+    clearPickupTimers()
+    currentPickups = map and map.pickups or {}
+    pickupState = {}
+    for _, pickup in ipairs(currentPickups) do
+        pickupState[pickup.id] = { visible = true }
+    end
+end
+
+local function broadcastPickups()
+    for _, player in ipairs(getElementsByType('player')) do
+        MapManager.sendPickups(player)
+    end
+end
+
 local function applyMapSettings(settings)
     settings = type(settings) == 'table' and settings or {}
 
@@ -37,6 +52,8 @@ local function applyMapSettings(settings)
     pcall(setGravity, tonumber(settings.gravity) or 0.008)
     pcall(setGameSpeed, tonumber(settings.gamespeed) or 1)
     pcall(setWaveHeight, tonumber(settings.waveheight) or 0)
+    pcall(setCloudsEnabled, true)
+    pcall(setVehicleWeaponsEnabled, true)
 
     -- 官方 mapmanager：locked_time=true 时把一分钟拉长到 2147483647ms，实际冻结时间
     local locked = settings.locked_time == true or settings.locked_time == 'true'
@@ -137,7 +154,8 @@ function MapManager.hitPickup(player, pickupId)
         return
     end
 
-    pickupState[pickup.id] = { visible = false }
+    -- 官方 race 只有 respawn >= 50ms 才卸载/重生；0 表示永久可重复拾取
+    local respawn = tonumber(pickup.respawn) or 0
 
     if pickup.type == 'nitro' then
         pcall(addVehicleUpgrade, vehicle, 1010)
@@ -152,8 +170,6 @@ function MapManager.hitPickup(player, pickupId)
         end
     end
 
-    -- 官方 race 只有 respawn >= 50ms 才卸载/重生；0 表示永久可重复拾取
-    local respawn = tonumber(pickup.respawn) or 0
     if respawn >= 50 then
         pickupState[pickup.id] = { visible = false }
         broadcastPickupState(pickup.id, false)
@@ -220,6 +236,9 @@ function MapManager.load(mapId)
     end
 
     if currentMapId == mapId and getResourceState(resource) == 'running' then
+        -- 同一张图重开也要重置 pickup 状态，避免上一回合的隐藏/计时器残留
+        resetPickups(map)
+        broadcastPickups()
         return true
     end
 
@@ -242,11 +261,7 @@ function MapManager.load(mapId)
 
     currentResource = resource
     currentMapId = mapId
-    currentPickups = map.pickups or {}
-    pickupState = {}
-    for _, pickup in ipairs(currentPickups) do
-        pickupState[pickup.id] = { visible = true }
-    end
+    resetPickups(map)
     applyMapSettings(map.settings)
 
     -- 地图自带车辆会与玩家赛车重复；只清理未打 rst 标记的车辆
@@ -259,6 +274,7 @@ function MapManager.load(mapId)
     outputServerLog(('[MAP] loaded %s (%s) pickups=%d'):format(
         tostring(map.name), tostring(map.resource), #currentPickups
     ))
+    broadcastPickups()
     return true
 end
 

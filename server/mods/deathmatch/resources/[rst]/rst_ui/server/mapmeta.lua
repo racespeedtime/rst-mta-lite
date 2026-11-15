@@ -133,6 +133,9 @@ local function rowToMeta(row)
         return nil
     end
     local tags = fromJSON(row.tags or '[]')
+    if type(tags) == 'table' and type(tags[1]) == 'table' then
+        tags = tags[1]
+    end
     return {
         mtavaultId = row.mtavault_id,
         mapType = row.map_type,

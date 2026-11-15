@@ -123,6 +123,7 @@ local function buildState(player, session)
                     and (room.modeVote == nil)
                     and room.active
                     and not room.waiting
+                    and not (room.startingUntil and RST.nowMs() < room.startingUntil)
                     and cooldownLeft <= 0
                 state.voteCooldown = math.floor(cooldownLeft)
 
@@ -137,6 +138,7 @@ local function buildState(player, session)
                     and (room.modeVote == nil)
                     and room.active
                     and not room.waiting
+                    and not (room.startingUntil and RST.nowMs() < room.startingUntil)
                     and modeCooldownLeft <= 0
                 state.modeVoteCooldown = math.floor(modeCooldownLeft)
             end
@@ -266,6 +268,7 @@ actions['auth:register'] = function(player, session, data)
         return
     end
     if now() - (session.lastAuthAt or 0) < 1 then
+        notify(player, '操作太快，请稍后再试')
         return
     end
     session.lastAuthAt = now()
@@ -314,6 +317,7 @@ actions['auth:login'] = function(player, session, data)
         return
     end
     if now() - (session.lastAuthAt or 0) < 1 then
+        notify(player, '操作太快，请稍后再试')
         return
     end
     session.lastAuthAt = now()
@@ -351,6 +355,16 @@ actions['auth:login'] = function(player, session, data)
             pushState(player)
         end)
     end)
+end
+
+actions['stage:join'] = function(player, session)
+    if not session.authed or session.roomId then
+        return
+    end
+    if joinDefaultRoom(player, session) then
+        notify(player, '已进入比赛')
+    end
+    pushState(player)
 end
 
 actions['vote:start'] = function(player, session)
@@ -844,6 +858,12 @@ addCommandHandler('car', function(player, _, modelArg)
         return
     end
 
+    local room = Rooms.playerRoom(player)
+    if room and room.mode == 'competitive' then
+        notify(player, '竞技模式不能生成测试车辆')
+        return
+    end
+
     if isElement(testVehicles[player]) then
         destroyElement(testVehicles[player])
         testVehicles[player] = nil
@@ -864,4 +884,13 @@ addCommandHandler('car', function(player, _, modelArg)
     testVehicles[player] = vehicle
 
     notify(player, '已生成测试车辆，按 F 上车')
+end)
+
+addEventHandler('onResourceStop', resourceRoot, function()
+    for _, player in ipairs(getElementsByType('player')) do
+        if isElement(player) then
+            setElementFrozen(player, false)
+            pcall(setPlayerNametagColor, player, false)
+        end
+    end
 end)

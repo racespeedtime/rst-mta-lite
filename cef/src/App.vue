@@ -17,6 +17,7 @@ import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
+import StageView from '@/components/StageView.vue'
 import MenuView from '@/views/MenuView.vue'
 import VoteView from '@/views/VoteView.vue'
 import ModeVoteView from '@/views/ModeVoteView.vue'
@@ -38,7 +39,7 @@ function showToast(text: string): void {
 }
 
 function playSound(name: string): void {
-  emitToLua('sound', { name })
+  emitAction('sound', { name })
 }
 
 function handleRaceAudio(
@@ -138,6 +139,7 @@ function applyState(state: StatePayload): void {
 
   if (state.phase !== 'playing') {
     ui.menuOpen = false
+    ui.mapDetailsOpen = false
     ui.mapPoolOpen = false
     ui.recordsOpen = false
   }
@@ -156,16 +158,64 @@ function applyState(state: StatePayload): void {
 function onAnyClick(event: MouseEvent): void {
   const target = event.target as HTMLElement | null
   if (target?.closest('button')) {
-    emitToLua('sound', { name: 'click' })
+    emitAction('sound', { name: 'click' })
   }
 }
 
 function onCursorKeydown(event: KeyboardEvent): void {
-  if (event.key !== 'F3' || ui.phase !== 'playing') return
+  if (ui.phase !== 'playing') return
+  if (ui.chatOpen) return
   const target = event.target as HTMLElement | null
   if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
-  event.preventDefault()
-  emitAction('cursor:toggle')
+
+  if (event.key === 'F3') {
+    event.preventDefault()
+    emitAction('cursor:toggle')
+    return
+  }
+
+  if (event.key === 'F1') {
+    event.preventDefault()
+    if (ui.helpOpen) {
+      ui.helpOpen = false
+      emitAction('help:close')
+    } else {
+      emitAction('help:open')
+    }
+    return
+  }
+
+  if (event.key === 'F2') {
+    event.preventDefault()
+    emitAction(ui.menuOpen ? 'menu:close' : 'menu:open')
+    return
+  }
+
+  if (event.key === 'Escape' && !ui.chatOpen) {
+    let handled = false
+    if (ui.mapDetailsOpen) {
+      ui.mapDetailsOpen = false
+      handled = true
+    }
+    if (ui.mapPoolOpen) {
+      ui.mapPoolOpen = false
+      handled = true
+    }
+    if (ui.recordsOpen) {
+      ui.recordsOpen = false
+      handled = true
+    }
+    if (ui.helpOpen) {
+      ui.helpOpen = false
+      emitAction('help:close')
+      handled = true
+    }
+    if (ui.menuOpen) {
+      emitAction('menu:close')
+      handled = true
+    }
+    if (handled) event.preventDefault()
+  }
 }
 
 onMounted(() => {
@@ -274,6 +324,7 @@ onUnmounted(() => {
 <template>
   <div class="app-root">
     <AuthView v-if="ui.phase === 'auth'" />
+    <StageView v-else-if="ui.phase === 'stage'" />
     <template v-else-if="ui.phase === 'playing'">
       <template v-if="!ui.hudHidden">
         <GameHud />

@@ -290,11 +290,17 @@ async function main() {
       continue
     }
     const dest = join(OUT, `${slug}.zip`)
-    if (manifest.downloaded[slug] || manifest.skipped[slug] || (existsSync(dest) && validate(dest).ok)) {
+    const existingValid = existsSync(dest) && validate(dest).ok
+    if (existingValid) {
       if (!manifest.downloaded[slug] && !manifest.skipped[slug]) {
         manifest.downloaded[slug] = { name: map.name, checked: true }
       }
       continue
+    }
+    if (manifest.downloaded[slug] || manifest.skipped[slug]) {
+      log(`MANIFEST STALE ${slug}, file missing/invalid; redownloading`)
+      delete manifest.downloaded[slug]
+      delete manifest.skipped[slug]
     }
     if (existsSync(dest)) {
       log(`INVALID EXISTING ${slug}.zip, redownload`)
