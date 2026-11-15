@@ -175,6 +175,7 @@ export interface StatePayload {
   me: {
     name: string
     guest: boolean
+    registered?: boolean | null
     mode?: PlayMode
     team?: TeamId | null
   }

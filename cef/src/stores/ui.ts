@@ -23,6 +23,7 @@ export const ui = reactive({
   mapPoolEmpty: false,
   playerName: 'player',
   guest: false,
+  registered: null as boolean | null,
   mode: 'playing' as PlayMode,
   competitiveMode: 'solo' as 'solo' | 'team',
   team: null as 'red' | 'blue' | null,

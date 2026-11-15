@@ -86,6 +86,11 @@ function applyState(state: StatePayload): void {
   if (state.me) {
     ui.playerName = state.me.name || ui.playerName
     ui.guest = state.me.guest === true
+    ui.registered = state.me.registered === true
+      ? true
+      : state.me.registered === false
+        ? false
+        : null
     ui.mode = state.me.mode || 'playing'
     ui.team = state.me.team || null
   }

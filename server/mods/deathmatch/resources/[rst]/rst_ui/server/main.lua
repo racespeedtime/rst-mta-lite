@@ -38,6 +38,7 @@ local function initSession(player)
     Sessions[player] = {
         authed = false,
         guest = false,
+        registered = nil,
         roomId = nil,
         mode = nil,
         mapId = nil,
@@ -84,6 +85,7 @@ local function buildState(player, session)
         me = {
             name = getPlayerName(player) or 'player',
             guest = session.guest == true,
+            registered = session.registered,
         },
     }
 
@@ -205,18 +207,45 @@ local function joinDefaultRoom(player, session)
     return true
 end
 
+actions['auth:check'] = function(player, session)
+    if session.authed then
+        return
+    end
+    Accounts.exists(getPlayerName(player), function(exists)
+        if not guardSession(player, session) then
+            return
+        end
+        session.registered = exists == true
+        pushState(player)
+    end)
+end
+
 actions['auth:guest'] = function(player, session)
     if session.authed then
         return
     end
 
-    session.authed = true
-    session.guest = true
-    outputServerLog('[AUTH] guest ' .. tostring(getPlayerName(player)))
-    if joinDefaultRoom(player, session) then
-        notify(player, '游客模式进入成功')
-    end
-    pushState(player)
+    -- 昵称已经注册时必须登录，不能绕过账号直接游客进入
+    Accounts.exists(getPlayerName(player), function(exists)
+        if not guardSession(player, session) then
+            return
+        end
+        if exists then
+            session.registered = true
+            notify(player, '该昵称已注册，请登录')
+            pushState(player)
+            return
+        end
+
+        session.registered = false
+        session.authed = true
+        session.guest = true
+        outputServerLog('[AUTH] guest ' .. tostring(getPlayerName(player)))
+        if joinDefaultRoom(player, session) then
+            notify(player, '游客模式进入成功')
+        end
+        pushState(player)
+    end)
 end
 
 actions['auth:register'] = function(player, session, data)
@@ -248,7 +277,9 @@ actions['auth:register'] = function(player, session, data)
             return
         end
         if exists then
+            session.registered = true
             notify(player, '账号已存在，请直接登录')
+            pushState(player)
             return
         end
 
@@ -263,6 +294,7 @@ actions['auth:register'] = function(player, session, data)
 
             session.authed = true
             session.guest = false
+            session.registered = true
             outputServerLog('[AUTH] register ' .. tostring(username))
             if joinDefaultRoom(player, session) then
                 notify(player, '注册成功，已自动登录')
@@ -288,23 +320,37 @@ actions['auth:login'] = function(player, session, data)
     session.lastAuthAt = now()
 
     local username = getPlayerName(player)
-    Accounts.verify(username, password, function(ok, err)
+    Accounts.exists(username, function(exists)
         if not guardSession(player, session) then
             return
         end
-        if not ok then
-            outputServerLog(('[AUTH] login_failed %s'):format(tostring(username)))
-            notify(player, err or '登录失败')
+        if not exists then
+            session.registered = false
+            notify(player, '账号不存在，请先注册')
+            pushState(player)
             return
         end
 
-        session.authed = true
-        session.guest = false
-        outputServerLog(('[AUTH] login %s'):format(tostring(username)))
-        if joinDefaultRoom(player, session) then
-            notify(player, '登录成功')
-        end
-        pushState(player)
+        session.registered = true
+        Accounts.verify(username, password, function(ok, err)
+            if not guardSession(player, session) then
+                return
+            end
+            if not ok then
+                outputServerLog(('[AUTH] login_failed %s'):format(tostring(username)))
+                notify(player, err or '登录失败')
+                return
+            end
+
+            session.authed = true
+            session.guest = false
+            session.registered = true
+            outputServerLog(('[AUTH] login %s'):format(tostring(username)))
+            if joinDefaultRoom(player, session) then
+                notify(player, '登录成功')
+            end
+            pushState(player)
+        end)
     end)
 end
 

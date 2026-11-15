@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref, watch } from 'vue'
 
 import IconGhost from '~icons/lucide/ghost'
 import IconLock from '~icons/lucide/lock'
@@ -17,8 +17,23 @@ const mode = ref<AuthMode>('login')
 const password = ref('')
 const confirmPassword = ref('')
 
+onMounted(() => {
+  emitAction('auth:check')
+})
+
+watch(
+  () => ui.registered,
+  (registered) => {
+    if (registered === true) mode.value = 'login'
+    else if (registered === false) mode.value = 'register'
+  },
+  { immediate: true },
+)
+
 function switchMode(next: AuthMode): void {
   if (ui.busy) return
+  if (next === 'register' && ui.registered === true) return
+  if (next === 'login' && ui.registered === false) return
   mode.value = next
   ui.authError = ''
 }
@@ -85,6 +100,7 @@ function onKeydown(event: KeyboardEvent): void {
 
       <div class="auth__tabs">
         <button
+          v-if="ui.registered !== false"
           type="button"
           :class="{ 'is-active': mode === 'login' }"
           :disabled="ui.busy"
@@ -93,6 +109,7 @@ function onKeydown(event: KeyboardEvent): void {
           登录
         </button>
         <button
+          v-if="ui.registered !== true"
           type="button"
           :class="{ 'is-active': mode === 'register' }"
           :disabled="ui.busy"
@@ -145,13 +162,21 @@ function onKeydown(event: KeyboardEvent): void {
 
       <div class="auth__divider"><span>或</span></div>
 
-      <button type="button" class="auth__guest" :disabled="ui.busy" @click="playAsGuest">
+      <button
+        v-if="ui.registered !== true"
+        type="button"
+        class="auth__guest"
+        :disabled="ui.busy"
+        @click="playAsGuest"
+      >
         <IconGhost class="icon" />
         <span>游客进入</span>
       </button>
 
       <p class="auth__foot">
-        {{ mode === 'login' ? '登录后直接进入比赛。' : '两次密码一致后创建账号并自动登录。' }}
+        <template v-if="ui.registered === true">该昵称已注册，请登录。</template>
+        <template v-else-if="ui.registered === false">该昵称未注册，请注册或游客进入。</template>
+        <template v-else>正在检查账号状态…</template>
       </p>
     </section>
   </div>
