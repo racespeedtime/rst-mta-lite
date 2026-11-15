@@ -245,68 +245,14 @@ local function startRewind()
     applyHealthState(frozenElement, currentHealth)
     setElementFrozen(frozenElement, true)
     setElementVelocity(frozenElement, 0, 0, 0)
+    -- 使用 GTA 原生追车相机；setCameraMatrix 会 detach 相机并破坏雷达中心/朝向
+    pcall(setCameraTarget, frozenElement)
 
     addEventHandler('onClientRender', root, rewindRender)
 
     if RST.dispatch then
         RST.dispatch('rewind', { active = true, progress = 0, seconds = 0 })
     end
-end
-
-local function applyRewindCamera(element)
-    if not isElement(element) then
-        return
-    end
-
-    local x, y, z = getElementPosition(element)
-    local _, _, rz = getElementRotation(element)
-    local yaw = math.rad(rz or 0)
-    -- GTA 的 rz=0 朝 +Y；不能用数学上的 cos/sin 直接当车头方向
-    local fx, fy = -math.sin(yaw), math.cos(yaw)
-    local isVehicle = getElementType(element) == 'vehicle'
-
-    local speed = math.sqrt(
-        (currentVX or 0) * (currentVX or 0)
-        + (currentVY or 0) * (currentVY or 0)
-        + (currentVZ or 0) * (currentVZ or 0)
-    ) * 180
-    local ratio = math.max(0, math.min(1, speed / 220))
-
-    local fov = 70
-    if getCameraFieldOfView then
-        local mode = isVehicle and 'vehicle' or 'player'
-        fov = tonumber(getCameraFieldOfView(mode)) or fov
-        if isVehicle then
-            local maxFov = tonumber(getCameraFieldOfView('vehicle_max')) or fov
-            fov = fov + (maxFov - fov) * ratio
-        end
-    end
-
-    local distance, height, lookAhead, aimHeight
-    if isVehicle then
-        -- 接近默认追车镜头：静止稍近，高速自动拉远
-        distance = 6.2 + 2.2 * ratio
-        height = 2.2 + 0.4 * ratio
-        lookAhead = 1.2 + 0.8 * ratio
-        aimHeight = 1.0
-    else
-        distance = 3.2
-        height = 1.5
-        lookAhead = 0.4
-        aimHeight = 0.6
-    end
-
-    -- 始终在载具/角色正后方；FOV 跟随默认动态镜头，避免回放看起来被放大
-    setCameraMatrix(
-        x - fx * distance,
-        y - fy * distance,
-        z + height,
-        x + fx * lookAhead,
-        y + fy * lookAhead,
-        z + aimHeight,
-        0,
-        fov
-    )
 end
 
 rewindRender = function()
@@ -400,7 +346,6 @@ rewindRender = function()
 
     applyNitroState(frozenElement, currentNitroLevel, currentNitroCount)
     applyHealthState(frozenElement, currentHealth)
-    applyRewindCamera(frozenElement)
 
     if RST.dispatch and now() - lastDispatchAt >= 100 then
         lastDispatchAt = now()
