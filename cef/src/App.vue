@@ -425,7 +425,7 @@ onUnmounted(() => {
           </Transition>
           <CompetitionPanel v-if="ui.showHud && ui.competition" />
           <RaceResultOverlay v-if="ui.raceResult" />
-          <ReadyOverlay v-if="ui.ready.waiting" />
+          <ReadyOverlay v-if="ui.ready.waiting && ui.mode !== 'spectating'" />
           <RewindOverlay v-if="ui.rewind.active" />
 
           <ChatPanel v-if="ui.showChat" />
