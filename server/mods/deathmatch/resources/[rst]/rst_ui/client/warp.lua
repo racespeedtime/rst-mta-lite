@@ -2,7 +2,7 @@
     rst_ui / client/warp.lua
 
     训练模式快速传送点：
-    - 双击左 Alt：保存当前位置
+    - 双击左 Alt：保存第一下按下时的位置
     - 长按左 Alt：回到最近一次保存的位置
     - F2 → 训练：回到任意点 / 删除 / 回到最近
     - 回到传送点后冻结 500ms，和倒带松开后的处理一致
@@ -24,6 +24,7 @@ local frozenElement = nil
 local warpSeq = 0
 local lastTapAt = 0
 local saveWindowTimer = nil
+local pendingWarp = nil
 
 local function toast(text)
     if RST.dispatch then
@@ -282,14 +283,10 @@ local function teleportTo(warp)
     return true
 end
 
-function RST.saveWarp()
-    if not canWarp() then
-        explainWarpBlocked('保存传送点')
-        return false
-    end
+-- 真正记录“按下 Alt 那一刻”的状态；双击的第二次点击只负责触发保存。
+local function captureWarpState()
     if not RST.mapId then
-        toast('当前没有可用地图')
-        return false
+        return nil
     end
 
     local vehicle = getPedOccupiedVehicle(localPlayer)
@@ -307,8 +304,7 @@ function RST.saveWarp()
         nitroActive = isVehicleNitroActivated(vehicle)
     end
 
-    warps[#warps + 1] = {
-        id = nextId,
+    return {
         mapId = RST.mapId,
         x = x,
         y = y,
@@ -342,15 +338,41 @@ function RST.saveWarp()
             nitroActive = nitroActive,
         },
     }
+end
+
+local function appendWarp(warp)
+    if type(warp) ~= 'table' then
+        return false
+    end
+    if not warp.mapId or warp.mapId ~= RST.mapId then
+        toast('地图已切换，传送点没有保存')
+        return false
+    end
+
+    warp.id = nextId
     nextId = nextId + 1
+    warps[#warps + 1] = warp
 
     while #warps > MAX_WARPS do
         table.remove(warps, 1)
     end
 
     syncWarps()
-    toast(('已保存传送点 #%d'):format(warps[#warps].id))
+    toast(('已保存传送点 #%d'):format(warp.id))
     return true
+end
+
+function RST.saveWarp()
+    if not canWarp() then
+        explainWarpBlocked('保存传送点')
+        return false
+    end
+    if not RST.mapId then
+        toast('当前没有可用地图')
+        return false
+    end
+
+    return appendWarp(captureWarpState())
 end
 
 function RST.goWarp(id)
@@ -403,6 +425,12 @@ end
 function RST.clearWarps()
     warps = {}
     nextId = 1
+    pendingWarp = nil
+    lastTapAt = 0
+    if saveWindowTimer then
+        killTimer(saveWindowTimer)
+        saveWindowTimer = nil
+    end
     RST.stopWarp()
     syncWarps()
 end
@@ -431,14 +459,20 @@ addEventHandler('onClientKey', root, function(button, press)
                     killTimer(saveWindowTimer)
                     saveWindowTimer = nil
                 end
-                RST.saveWarp()
+                local warp = pendingWarp or captureWarpState()
+                pendingWarp = nil
+                appendWarp(warp)
             else
                 lastTapAt = tick
+                if not pendingWarp then
+                    pendingWarp = captureWarpState()
+                end
                 if saveWindowTimer then
                     killTimer(saveWindowTimer)
                 end
                 saveWindowTimer = setTimer(function()
                     lastTapAt = 0
+                    pendingWarp = nil
                     saveWindowTimer = nil
                 end, DOUBLE_TAP_MS, 1)
             end
@@ -456,6 +490,10 @@ addEventHandler('onClientKey', root, function(button, press)
     holding = true
     RST.warpHolding = true
     longTriggered = false
+    -- 第一下按下就抓状态；第二下只负责在窗口内触发保存
+    if lastTapAt == 0 and not pendingWarp then
+        pendingWarp = captureWarpState()
+    end
     holdTimer = setTimer(function()
         holdTimer = nil
         if not holding or not canWarp() then
@@ -463,6 +501,7 @@ addEventHandler('onClientKey', root, function(button, press)
         end
         longTriggered = true
         lastTapAt = 0
+        pendingWarp = nil
         if saveWindowTimer then
             killTimer(saveWindowTimer)
             saveWindowTimer = nil
@@ -475,6 +514,7 @@ addEventHandler('onClientPlayerWasted', localPlayer, function()
     holding = false
     RST.warpHolding = false
     lastTapAt = 0
+    pendingWarp = nil
     if saveWindowTimer then
         killTimer(saveWindowTimer)
         saveWindowTimer = nil
