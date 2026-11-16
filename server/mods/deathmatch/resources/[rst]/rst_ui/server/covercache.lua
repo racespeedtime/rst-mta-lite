@@ -444,12 +444,14 @@ function CoverCache.prepare(player, detail, requestId)
         local retryAt = (failure.at or 0) + retryDelay(failure.attempts or 1)
         if os.time() < retryAt then
             detail.cover = nil
+            detail.coverError = true
             return detail
         end
     end
 
     if breakerUntil > os.time() then
         detail.cover = nil
+        detail.coverError = true
         return detail
     end
 
@@ -467,6 +469,7 @@ function CoverCache.prepare(player, detail, requestId)
 
     if #queueOrder >= QUEUE_LIMIT then
         detail.cover = nil
+        detail.coverError = true
         return detail
     end
 

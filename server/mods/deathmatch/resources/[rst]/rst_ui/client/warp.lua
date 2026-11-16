@@ -26,6 +26,15 @@ local lastTapAt = 0
 local saveWindowTimer = nil
 local pendingWarp = nil
 
+local function clearPendingWarp()
+    pendingWarp = nil
+    lastTapAt = 0
+    if saveWindowTimer then
+        killTimer(saveWindowTimer)
+        saveWindowTimer = nil
+    end
+end
+
 local function toast(text)
     if RST.dispatch then
         RST.dispatch('toast', { text = text })
@@ -372,7 +381,10 @@ function RST.saveWarp()
         return false
     end
 
-    return appendWarp(captureWarpState())
+    local saved = appendWarp(captureWarpState())
+    -- F2 主动保存后，丢弃正在等待第二下 Alt 的旧快照
+    clearPendingWarp()
+    return saved
 end
 
 function RST.goWarp(id)
@@ -425,17 +437,12 @@ end
 function RST.clearWarps()
     warps = {}
     nextId = 1
-    pendingWarp = nil
-    lastTapAt = 0
-    if saveWindowTimer then
-        killTimer(saveWindowTimer)
-        saveWindowTimer = nil
-    end
+    clearPendingWarp()
     RST.stopWarp()
     syncWarps()
 end
 
--- 短按保存；按住达到阈值直接回到最近一个点
+-- 双击保存；按住达到阈值直接回到最近一个点
 addEventHandler('onClientKey', root, function(button, press)
     if tostring(button):lower() ~= 'lalt' then
         return
@@ -513,12 +520,7 @@ end)
 addEventHandler('onClientPlayerWasted', localPlayer, function()
     holding = false
     RST.warpHolding = false
-    lastTapAt = 0
-    pendingWarp = nil
-    if saveWindowTimer then
-        killTimer(saveWindowTimer)
-        saveWindowTimer = nil
-    end
+    clearPendingWarp()
     if holdTimer then
         killTimer(holdTimer)
         holdTimer = nil
