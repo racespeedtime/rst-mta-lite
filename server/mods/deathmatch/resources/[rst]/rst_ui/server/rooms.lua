@@ -1188,6 +1188,9 @@ function Rooms.becomeSpectator(player)
     if not index then
         return false, '不在参赛列表中'
     end
+    if room.vote and room.vote.reason == 'start' then
+        return false, '开局投票进行中，不能切换观战'
+    end
 
     table.remove(room.players, index)
     removeFromTeam(room, player)
@@ -1240,6 +1243,9 @@ function Rooms.returnToRace(player)
     end
     if not contains(room.spectators, player) then
         return false, '不在观战列表中'
+    end
+    if room.vote and room.vote.reason == 'start' then
+        return false, '开局投票进行中，不能切换参赛'
     end
 
     room.ob[player] = nil

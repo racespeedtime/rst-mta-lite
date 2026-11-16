@@ -52,6 +52,7 @@ function spectate(): void {
           type="button"
           class="ready__team ready__team--red"
           :class="{ 'is-active': ui.ready.team === 'red' }"
+          :disabled="ui.vote?.start === true"
           @click="selectTeam('red')"
         >
           红队 <strong>{{ teamCounts.red }}</strong>
@@ -60,6 +61,7 @@ function spectate(): void {
           type="button"
           class="ready__team ready__team--blue"
           :class="{ 'is-active': ui.ready.team === 'blue' }"
+          :disabled="ui.vote?.start === true"
           @click="selectTeam('blue')"
         >
           蓝队 <strong>{{ teamCounts.blue }}</strong>
