@@ -504,6 +504,7 @@ local function applyRoundStart(room)
     room.spawnAssignments = {}
 
     -- 新回合开始，普通观战者转为玩家；纯 OB 保持观战
+    room.watching = room.watching or {}
     local stayingSpectators = {}
     for _, player in ipairs(room.spectators) do
         if room.ob[player] then
@@ -511,6 +512,7 @@ local function applyRoundStart(room)
         else
             room.players[#room.players + 1] = player
             room.ob[player] = nil
+            room.watching[player] = nil
         end
     end
     room.spectators = stayingSpectators
@@ -834,6 +836,7 @@ function Rooms.init(onChanged)
             lastVoteAt = 0,
             lastStartVoteAt = 0,
             lastModeVoteAt = 0,
+            watching = {},
             finishOrder = {},
             finished = {},
             raceStartedAt = 0,
@@ -1202,6 +1205,13 @@ function Rooms.becomeSpectator(player)
     room.ob[player] = true
     room.lives[player] = nil
     room.ready[player] = nil
+    room.watching = room.watching or {}
+    room.watching[player] = nil
+    for spectator, target in pairs(room.watching) do
+        if target == player then
+            room.watching[spectator] = nil
+        end
+    end
     if room.vote then
         room.vote.votes[player] = nil
     end
@@ -1230,6 +1240,45 @@ function Rooms.becomeSpectator(player)
     return true
 end
 
+function Rooms.setSpectateTarget(player, target)
+    local room = Rooms.playerRoom(player)
+    if not room or not contains(room.spectators, player) then
+        return false
+    end
+
+    room.watching = room.watching or {}
+    local current = room.watching[player]
+    if not isElement(target)
+        or not contains(room.players, target)
+        or target == player
+        or getElementHealth(target) <= 0
+        or getElementDimension(target) ~= getElementDimension(player)
+    then
+        target = nil
+    end
+
+    if current == target then
+        return true
+    end
+    if target then
+        room.watching[player] = target
+    else
+        room.watching[player] = nil
+    end
+    stateChanged()
+    return true
+end
+
+function Rooms.watchCount(room, player)
+    local count = 0
+    for spectator, target in pairs((room and room.watching) or {}) do
+        if target == player and isElement(spectator) then
+            count = count + 1
+        end
+    end
+    return count
+end
+
 -- 从纯 OB 返回比赛：准备阶段立即上车；训练模式立即重生；竞技其他阶段下回合
 function Rooms.returnToRace(player)
     local room = Rooms.playerRoom(player)
@@ -1250,6 +1299,8 @@ function Rooms.returnToRace(player)
     end
 
     room.ob[player] = nil
+    room.watching = room.watching or {}
+    room.watching[player] = nil
 
     if not room.active and not room.vote and not room.modeVote and #room.players == 0 then
         removePlayer(room.spectators, player)
@@ -1598,6 +1649,13 @@ function Rooms.leave(player)
 
         if removed then
             removeFromTeam(room, player)
+            room.watching = room.watching or {}
+            room.watching[player] = nil
+            for spectator, target in pairs(room.watching) do
+                if target == player then
+                    room.watching[spectator] = nil
+                end
+            end
             room.ready[player] = nil
             room.lives[player] = nil
             room.ob[player] = nil
@@ -1645,6 +1703,7 @@ function Rooms.leave(player)
                     room.lastVoteAt = 0
                     room.lastStartVoteAt = 0
                     room.lastModeVoteAt = 0
+                    room.watching = {}
                 end
             end
             stateChanged()

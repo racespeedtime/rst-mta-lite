@@ -132,6 +132,7 @@ function applyState(state: StatePayload): void {
     playSound('fail')
   }
   ui.ob = state.ob === true
+  ui.watchers = Math.max(0, Number(state.watchers) || 0)
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
   ui.raceResult = state.raceResult || null

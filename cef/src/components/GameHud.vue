@@ -45,6 +45,9 @@ const gameModeLabel = computed(() => {
         <span v-if="ui.team" class="hud__tag" :class="`hud__tag--${ui.team}`">
           {{ teamLabel }}
         </span>
+        <span v-if="!spectating && ui.watchers > 0" class="hud__tag hud__tag--watch">
+          <IconEye class="icon icon--sm" />{{ ui.watchers }} 人观战
+        </span>
       </div>
     </div>
 
@@ -353,6 +356,12 @@ const gameModeLabel = computed(() => {
   flex: none;
   color: var(--rst-muted);
   white-space: nowrap;
+}
+
+.hud__tag--watch {
+  border-color: rgba(255, 212, 121, 0.3);
+  background: rgba(255, 212, 121, 0.1);
+  color: var(--rst-gold);
 }
 
 .hud__tag--red {

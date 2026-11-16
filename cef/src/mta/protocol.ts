@@ -310,6 +310,7 @@ export interface StatePayload {
   competitiveMode?: CompetitiveFormat
   lives?: number
   ob?: boolean
+  watchers?: number
   ready?: ReadyState
   competition?: CompetitionState | null
   raceResult?: RaceResultState | null

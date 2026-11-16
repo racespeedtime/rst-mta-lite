@@ -459,6 +459,16 @@ local mouseResumeTimer = nil
 local mouseLastX, mouseLastY = 0, 0
 local armMouseLook
 
+local lastSpectateWatch = nil
+local function reportSpectateTarget(target)
+    target = target or false
+    if lastSpectateWatch == target then
+        return
+    end
+    lastSpectateWatch = target
+    triggerServerEvent('rst:spectate:watch', localPlayer, target)
+end
+
 local function setSpectateName(name)
     name = name or ''
     if spectateName == name then
@@ -520,6 +530,7 @@ local function detachTracking()
         return
     end
     trackingTarget = nil
+    reportSpectateTarget(nil)
     captureCamera()
     setSpectateName('自由视角')
     armMouseLook()
@@ -556,6 +567,7 @@ local function cycleSpectate(direction)
     local vehicle = getPedOccupiedVehicle(trackingTarget)
     setCameraTarget(vehicle or trackingTarget)
     setSpectateName((getPlayerName(trackingTarget) or '玩家') .. (vehicle and ' · 车辆' or ' · 角色'))
+    reportSpectateTarget(trackingTarget)
 end
 
 local function toggleSpectateView()
@@ -615,6 +627,7 @@ function RST.gotoSpectate(data)
         local vehicle = getPedOccupiedVehicle(target)
         setCameraTarget(vehicle or target)
         setSpectateName((getPlayerName(target) or '玩家') .. (vehicle and ' · 车辆' or ' · 角色'))
+        reportSpectateTarget(target)
         return true
     end
 
@@ -638,6 +651,7 @@ function RST.gotoSpectate(data)
     setSpectateName(label)
 
     trackingTarget = nil
+    reportSpectateTarget(nil)
     freecamX = spot.x - math.cos(math.rad(freecamYaw or 0)) * 22
     freecamY = spot.y - math.sin(math.rad(freecamYaw or 0)) * 22
     freecamZ = spot.z + 10
@@ -807,6 +821,7 @@ local function startSpectate()
 
     freecamActive = true
     trackingTarget = nil
+    reportSpectateTarget(nil)
     mouseLookReady = false
     freecamVehicle = getPedOccupiedVehicle(localPlayer)
     captureCamera()
@@ -837,6 +852,7 @@ local function stopSpectate()
 
     freecamActive = false
     trackingTarget = nil
+    reportSpectateTarget(nil)
     mouseLookReady = false
     mouseRecentering = false
     if mouseResumeTimer then

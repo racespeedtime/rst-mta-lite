@@ -112,6 +112,7 @@ local function buildState(player, session)
                 state.personalBest = best and math.floor(best / 1000) or nil
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
                 state.ob = room.ob[player] == true
+                state.watchers = Rooms.watchCount(room, player)
                 state.me.finished = room.finished[player] ~= nil
                 state.raceFinal = room.raceFinal == true
 
@@ -1021,6 +1022,15 @@ addEventHandler('rst:scoreboard:request', root, function()
 end)
 
 -- 客户端完成一次 rewind 后扣命
+addEvent('rst:spectate:watch', true)
+addEventHandler('rst:spectate:watch', root, function(target)
+    local player = client or source
+    if not isElement(player) then
+        return
+    end
+    Rooms.setSpectateTarget(player, target)
+end)
+
 addEvent('rst:rewind:use', true)
 addEventHandler('rst:rewind:use', root, function()
     local player = client or source
