@@ -125,7 +125,7 @@ function vote(mapId: string): void {
         </template>
       </p>
 
-      <div class="vote__toolbar">
+      <div v-if="!forced" class="vote__toolbar">
         <label class="vote__search">
           <IconSearch class="icon icon--sm" />
           <input

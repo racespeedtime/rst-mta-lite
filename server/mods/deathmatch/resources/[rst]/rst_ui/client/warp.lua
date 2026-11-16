@@ -20,6 +20,7 @@ local longTriggered = false
 local holdTimer = nil
 local freezeTimer = nil
 local frozenElement = nil
+local warpSeq = 0
 
 local function toast(text)
     if RST.dispatch then
@@ -181,19 +182,36 @@ local function teleportTo(warp)
         return false
     end
 
-    -- 传送点绑定保存时的车辆模型：当前车辆不一致就不传送，避免把 Hunter 传回旧车的点
-    local currentModel = vehicle and getElementModel(vehicle) or 0
-    local savedModel = tonumber(warp.vehicle) or 0
-    if savedModel > 0 and currentModel ~= savedModel then
-        local ok, name = pcall(getVehicleNameFromModel, savedModel)
-        if not ok or not name or name == '' then
-            name = ('车辆 %d'):format(savedModel)
-        end
-        toast(('传送点保存时在 %s 上，当前车辆不一致'):format(name))
-        return false
-    end
-
     local state = warp.state or warp
+    warpSeq = warpSeq + 1
+    local seq = warpSeq
+
+    -- 传送点保存时开的是什么车，回来就换回什么车。
+    -- 客户端先本地换，服务端再同步一次；模型变化可能重置升级/血量，300ms 后补套状态。
+    local savedModel = tonumber(warp.vehicle) or 0
+    if vehicle and savedModel > 0 and getElementModel(vehicle) ~= savedModel then
+        triggerServerEvent('rst:warp:model', localPlayer, savedModel)
+        pcall(setElementModel, vehicle, savedModel)
+
+        setTimer(function()
+            if seq ~= warpSeq then
+                return
+            end
+            if not isElement(vehicle) or getPedOccupiedVehicle(localPlayer) ~= vehicle then
+                return
+            end
+            if getElementModel(vehicle) ~= savedModel then
+                return
+            end
+            if state.healthKind == 'vehicle' and type(state.health) == 'number' then
+                pcall(setElementHealth, vehicle, math.max(1, math.min(1000, state.health)))
+            end
+            if state.damage then
+                RST.applyVehicleDamage(vehicle, state.damage)
+            end
+            applyNitro(vehicle, state)
+        end, 300, 1)
+    end
 
     -- 位置 + 朝向：有矩阵时一起恢复精确朝向，Euler 作为兜底
     if state.matrix and setElementMatrix then

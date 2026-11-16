@@ -1416,6 +1416,41 @@ addEventHandler('onVehicleExit', root, function(player, seat, jacker, forcedBySc
     end, 60, 1)
 end)
 
+-- 训练传送点换回保存时的车型：客户端只负责显示，模型以服务端为准
+addEvent('rst:warp:model', true)
+addEventHandler('rst:warp:model', root, function(model)
+    local player = client or source
+    if not isElement(player) then
+        return
+    end
+
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'training' or not room.active then
+        return
+    end
+
+    local vehicle = getPedOccupiedVehicle(player)
+    if not vehicle or vehicle ~= raceVehicles[player] then
+        return
+    end
+
+    model = tonumber(model)
+    if not model or model < 400 or model > 611 then
+        return
+    end
+    if getElementModel(vehicle) == model then
+        return
+    end
+
+    local health = getElementHealth(vehicle)
+    local upgrades = getVehicleUpgrades(vehicle) or {}
+    pcall(setElementModel, vehicle, model)
+    pcall(setElementHealth, vehicle, health)
+    for _, upgrade in ipairs(upgrades) do
+        pcall(addVehicleUpgrade, vehicle, upgrade)
+    end
+end)
+
 function Rooms.all()
     return rooms
 end
