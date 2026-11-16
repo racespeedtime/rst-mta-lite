@@ -128,8 +128,10 @@ local function buildState(player, session)
 
                     local names = {}
                     local dimension = getElementDimension(player)
-                    for _, other in ipairs(getElementsByType('player')) do
+                    -- 只列当前参赛者；观战者/纯 OB 不作为跟随目标
+                    for _, other in ipairs(room.players) do
                         if other ~= player
+                            and isElement(other)
                             and getElementDimension(other) == dimension
                             and getElementHealth(other) > 0
                         then

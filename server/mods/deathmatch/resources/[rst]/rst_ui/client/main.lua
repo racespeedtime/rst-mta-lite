@@ -468,12 +468,23 @@ local function setSpectateName(name)
     dispatch('spectate', { name = name })
 end
 
+local function spectateNameAllowed(name)
+    for _, allowed in ipairs((RST.spectateTravel and RST.spectateTravel.players) or {}) do
+        if allowed == name then
+            return true
+        end
+    end
+    return false
+end
+
 local function spectatePlayers()
     local dimension = getElementDimension(localPlayer)
     local players = {}
     for _, player in ipairs(getElementsByType('player')) do
+        local name = getPlayerName(player) or ''
         if
             player ~= localPlayer
+            and spectateNameAllowed(name)
             and getElementDimension(player) == dimension
             and getElementHealth(player) > 0
         then
@@ -586,7 +597,12 @@ function RST.gotoSpectate(data)
     if type(data.player) == 'string' then
         local target
         for _, candidate in ipairs(getElementsByType('player')) do
-            if candidate ~= localPlayer and getPlayerName(candidate) == data.player then
+            if candidate ~= localPlayer
+                and spectateNameAllowed(data.player)
+                and getPlayerName(candidate) == data.player
+                and getElementDimension(candidate) == getElementDimension(localPlayer)
+                and getElementHealth(candidate) > 0
+            then
                 target = candidate
                 break
             end
@@ -725,7 +741,10 @@ local function freecamRender()
     end
 
     if trackingTarget then
-        if not isElement(trackingTarget) or getElementHealth(trackingTarget) <= 0 then
+        if not isElement(trackingTarget)
+            or getElementHealth(trackingTarget) <= 0
+            or not spectateNameAllowed(getPlayerName(trackingTarget) or '')
+        then
             detachTracking()
             return
         end
