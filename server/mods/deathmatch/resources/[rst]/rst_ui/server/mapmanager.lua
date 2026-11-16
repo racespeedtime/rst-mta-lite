@@ -263,6 +263,12 @@ function MapManager.load(mapId, onDone)
         return false
     end
 
+    -- 完赛只认 Hunter 终点 pickup；没有这个 pickup 的图没法结束回合，直接当坏图处理
+    if not map.hasHunterFinish then
+        onDone(false, '地图没有 Hunter 终点 pickup，无法判定完赛')
+        return false
+    end
+
     if currentMapId == mapId and currentResource and getResourceState(currentResource) == 'running' then
         -- 同一张图重开也要重置 pickup 状态，避免上一回合的隐藏/计时器残留
         resetPickups(map)

@@ -110,6 +110,8 @@ function MapStore.init()
         if id ~= '' then
             if item.valid == false or not item.map or item.map == '' then
                 skipped = skipped + 1
+                local missing = type(item.missing) == 'table' and item.missing or {}
+                log(('跳过 %s：meta 引用缺失 %d 个文件'):format(id, #missing))
             else
                 index[id] = {
                     id = id,
@@ -136,6 +138,7 @@ end
 function MapStore.count()
     return #ids
 end
+
 
 function MapStore.list()
     return ids

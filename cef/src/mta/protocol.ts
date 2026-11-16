@@ -126,6 +126,8 @@ export interface ModeVoteOption {
 }
 
 export interface ModeVoteState {
+  started?: boolean
+  forced?: boolean
   active: boolean
   timeLeft: number
   timeLeftMs?: number
@@ -388,6 +390,7 @@ export type BridgeEventMap = {
   cursor: CursorPayload
   mapsPage: MapPoolPage
   voteui: VoteUiPayload
+  modevoteui: ModalPayload
   mappool: ModalPayload
   mapdetails: ModalPayload
   recordsmodal: ModalPayload

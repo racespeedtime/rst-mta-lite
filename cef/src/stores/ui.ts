@@ -77,6 +77,7 @@ export const ui = reactive({
   warps: [] as WarpPoint[],
   vote: null as VoteState | null,
   voteOverlayOpen: false,
+  modeVoteOverlayOpen: false,
   modeVote: null as ModeVoteState | null,
   canStartVote: false,
   voteCooldown: 0,

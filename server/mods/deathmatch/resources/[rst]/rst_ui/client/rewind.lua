@@ -393,7 +393,7 @@ local function startRewind()
             return
         end
         RST.rewindLives = RST.rewindLives - 1
-        triggerServerEvent('rst:rewind:use')
+        triggerServerEvent('rst:rewind:use', localPlayer)
     end
 
     active = true

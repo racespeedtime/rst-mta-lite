@@ -74,6 +74,20 @@ local function broadcastNotice(text)
     end
 end
 
+local function noticePlayer(player, text)
+    if isElement(player) then
+        triggerClientEvent(player, 'rst:ui:notice', player, tostring(text))
+    end
+end
+
+local function formatRaceTime(ms)
+    ms = math.max(0, math.floor(tonumber(ms) or 0))
+    local minutes = math.floor(ms / 60000)
+    local seconds = math.floor((ms % 60000) / 1000)
+    local millis = ms % 1000
+    return ('%02d:%02d.%03d'):format(minutes, seconds, millis)
+end
+
 local TEAM_NAMES = { red = '红队', blue = '蓝队' }
 
 local function teamColor(team)
@@ -452,6 +466,8 @@ local function applyRoundStart(room)
     room.raceStartedAtMs = RST.nowMs()
     room.raceEndsAt = 0
     room.raceEndsAtMs = 0
+    room.resultShowAtMs = 0
+    room.raceCountdownMarks = {}
     room.raceFinal = false
     room.resultsUntil = 0
     room.resultsUntilMs = 0
@@ -621,15 +637,30 @@ local function finishPlayer(room, player, time)
     }
     room.finished[player] = entry
     room.finishOrder[rank] = entry
-    Records.record(player, room.mapId, elapsedMs)
+
+    -- 训练成绩只显示本次，不写个人最佳
+    if room.mode ~= 'training' then
+        Records.record(player, room.mapId, elapsedMs)
+    end
 
     if room.mode == 'training' then
         room.trainingResults[player] = entry
-        room.trainingReturns[player] = time + (config.trainingReturnSeconds or 5)
-        room.trainingReturnsMs[player] = RST.nowMs() + (config.trainingReturnSeconds or 5) * 1000
+        -- 切到 Hunter / 冲线后先 toast，过几秒再弹结算
+        entry.showAtMs = RST.nowMs() + (config.finishResultDelay or 3) * 1000
+        room.trainingReturns[player] = time + (config.trainingReturnSeconds or 6)
+        room.trainingReturnsMs[player] = RST.nowMs() + (config.trainingReturnSeconds or 6) * 1000
+        noticePlayer(player, ('完赛 %s · 训练成绩不计入最佳'):format(formatRaceTime(elapsedMs)))
     elseif room.raceEndsAt == 0 then
         room.raceEndsAt = time + (config.raceEndCountdown or 30)
         room.raceEndsAtMs = RST.nowMs() + (config.raceEndCountdown or 30) * 1000
+        -- 第一个完赛也先 toast，几秒后再弹结算面板
+        room.resultShowAtMs = RST.nowMs() + (config.finishResultDelay or 3) * 1000
+        room.raceCountdownMarks = { [30] = true }
+        broadcastNotice('结算倒计时 30 秒')
+    end
+
+    if room.mode ~= 'training' then
+        noticePlayer(player, ('完赛 %s · 第 %d 名'):format(formatRaceTime(elapsedMs), rank))
     end
 
     stateChanged()
@@ -638,7 +669,7 @@ end
 -- Hunter 终点 pickup 命中的瞬间直接判定完赛，不再只依赖坐标半径
 function Rooms.hunterFinish(player)
     local room = Rooms.playerRoom(player)
-    if not room or not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
+    if not room or not room.active or room.waiting or voteBlocksRound(room) or room.raceFinal then
         return false
     end
     if not contains(room.players, player) or not room.playerStartedAtMs[player] then
@@ -668,39 +699,7 @@ local function finishRace(room)
     stateChanged()
 end
 
-local function checkFinishes(room, time)
-    if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
-        return
-    end
 
-    local map = MapRegistry.details(room.mapId)
-    local finish = map and map.finish
-    if not finish then
-        return
-    end
-
-    local finishes = type(map.finishes) == 'table' and #map.finishes > 0
-        and map.finishes or { finish }
-    local radius = config.finishRadius or 30
-    for _, player in ipairs(room.players) do
-        if
-            not room.finished[player]
-            and room.playerStartedAtMs[player]
-            and isElement(player)
-            and getElementHealth(player) > 0
-            and getPedOccupiedVehicle(player)
-        then
-            local x, y, z = getElementPosition(player)
-            for _, point in ipairs(finishes) do
-                local dx, dy, dz = x - point.x, y - point.y, z - point.z
-                if dx * dx + dy * dy + dz * dz <= radius * radius then
-                    finishPlayer(room, player, time)
-                    break
-                end
-            end
-        end
-    end
-end
 
 local function returnTrainingPlayer(room, player, time)
     room.trainingReturns[player] = nil
@@ -729,6 +728,10 @@ function Rooms.raceResultState(room, player)
         if not mine then
             return nil
         end
+        -- 完赛 toast 先出现，结算面板延后几秒
+        if mine.showAtMs and RST.nowMs() < mine.showAtMs then
+            return nil
+        end
         return {
             active = true,
             mode = 'training',
@@ -747,6 +750,9 @@ function Rooms.raceResultState(room, player)
     end
 
     if room.mode ~= 'competitive' or (room.raceEndsAt == 0 and not room.raceFinal) then
+        return nil
+    end
+    if not room.raceFinal and room.resultShowAtMs and RST.nowMs() < room.resultShowAtMs then
         return nil
     end
 
@@ -817,15 +823,7 @@ function Rooms.init(onChanged)
 
     setTimer(Rooms.tick, 1000, 0)
 
-    -- 冲线单独用 100ms 检测，避免 1s tick 把毫秒成绩量化成整秒
-    setTimer(function()
-        local time = now()
-        for _, room in pairs(rooms) do
-            if not room.vote and not room.modeVote then
-                checkFinishes(room, time)
-            end
-        end
-    end, 100, 0)
+
 end
 
 function Rooms.beginCountdown(room)
@@ -1091,6 +1089,10 @@ function Rooms.consumeLife(player)
     if not room.active or room.waiting or not contains(room.players, player) then
         return false
     end
+    -- 已完赛 / 比赛结算期间的倒带不再扣命，避免结算后还能消耗命数
+    if room.finished[player] or room.raceFinal or (room.resultsUntil or 0) > 0 then
+        return false
+    end
 
     local lives = room.lives[player]
     if type(lives) ~= 'number' or lives <= 0 then
@@ -1243,7 +1245,7 @@ function Rooms.respawn(player)
     if room.mode ~= 'training' then
         return false, '仅训练模式支持主动重生'
     end
-    if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
+    if not room.active or room.waiting or voteBlocksRound(room) or room.raceFinal then
         return false, '当前不能重生'
     end
 
@@ -1431,26 +1433,35 @@ function Rooms.tick()
     local time = now()
 
     for _, room in pairs(rooms) do
-        local modeVoteRunning = room.modeVote ~= nil
-
         if room.modeVote and time >= room.modeVote.endsAt then
             Rooms.finishModeVote(room)
-            modeVoteRunning = room.modeVote ~= nil
         end
         if room.vote and time >= room.vote.endsAt then
             Rooms.finishVote(room)
         end
 
+        -- 竞技结算倒计时：30 / 20 / 10 / 5..1 秒额外提醒
+        if room.mode == 'competitive' and room.active and room.raceEndsAt > 0 and not room.raceFinal then
+            local remaining = math.floor(room.raceEndsAt - time + 0.5)
+            if remaining == 30 or remaining == 20 or remaining == 10 or (remaining >= 1 and remaining <= 5) then
+                room.raceCountdownMarks = room.raceCountdownMarks or {}
+                if not room.raceCountdownMarks[remaining] then
+                    room.raceCountdownMarks[remaining] = true
+                    broadcastNotice(('结算倒计时 %d 秒'):format(remaining))
+                end
+            end
+        end
+
         -- 强制投票接管画面时不做回合判定；玩家自发的投票不打断跑图，回合照常推进
         local blockingVote = voteBlocksRound(room)
 
-        if not blockingVote and not modeVoteRunning then
-            checkFinishes(room, time)
-
+        if not blockingVote then
             if room.mode == 'competitive' and room.active and room.raceEndsAt > 0 and not room.raceFinal and time >= room.raceEndsAt then
                 finishRace(room)
             elseif room.raceFinal and room.resultsUntil > 0 and time >= room.resultsUntil then
-                if room.nextMapId then
+                if room.vote or room.modeVote then
+                    -- 已经有投票（换图 / 模式）：等它出结果，不再发起 race-end
+                elseif room.nextMapId then
                     -- 自发投票已经出结果：直接切图，不再发起新的换图投票
                     local nextMapId = room.nextMapId
                     room.nextMapId = nil
@@ -1461,7 +1472,7 @@ function Rooms.tick()
                     room.resultsUntilMs = 0
                     startRound(room, nextMapId)
                 else
-                    local ok = Rooms.startVote(room, 'race-end')
+                    local ok, err = Rooms.startVote(room, 'race-end')
                     if ok then
                         room.raceFinal = false
                         room.raceEndsAt = 0
@@ -1469,13 +1480,8 @@ function Rooms.tick()
                         room.resultsUntil = 0
                         room.resultsUntilMs = 0
                     else
-                        room.resultsUntil = 0
-                        room.resultsUntilMs = 0
-                        for _, player in ipairs(room.players) do
-                            if isElement(player) then
-                                setPlayerFrozen(player, false)
-                            end
-                        end
+                        outputServerLog(('[VOTE] 结算后发起换图投票失败：%s'):format(tostring(err)))
+                        abortRound(room, err or '结算后无法发起换图投票')
                     end
                 end
             elseif room.active and room.roundEnds > 0 and #room.players > 0
@@ -1487,19 +1493,19 @@ function Rooms.tick()
                     local nextMapId = room.nextMapId
                     room.nextMapId = nil
                     startRound(room, nextMapId)
-                elseif room.vote then
-                    -- 回合到点但自发投票还没结束：先结束本回合，等投票结果出来再开下一张
+                elseif room.vote or room.modeVote then
+                    -- 回合到点但投票还没结束：先结束本回合，等投票结果
                     room.active = false
                     room.roundEnds = 0
                     room.roundEndsMs = 0
-                    broadcastNotice('回合时间到，等待换图投票结果')
+                    broadcastNotice('回合时间到，等待投票结果')
                 else
                     Rooms.startVote(room, 'auto')
                 end
             end
 
             for player, returnAt in pairs(room.trainingReturns) do
-                if time >= returnAt and not room.vote and not room.modeVote then
+                if time >= returnAt and not room.vote then
                     returnTrainingPlayer(room, player, time)
                 end
             end
@@ -1536,8 +1542,12 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
     if room.startingUntil and RST.nowMs() < room.startingUntil then
         return false, '出发倒计时中，无法发起投票'
     end
-    if room.raceFinal or (room.resultsUntil or 0) > 0 then
+    -- race-end 是结算结束后由服务端自己发起的投票，要允许在 raceFinal 状态下开始
+    if reason ~= 'race-end' and (room.raceFinal or (room.resultsUntil or 0) > 0) then
         return false, '回合正在结算，稍后再发起投票'
+    end
+    if (room.raceEndsAt or 0) > 0 and not room.raceFinal and reason ~= 'race-end' then
+        return false, '结算倒计时中，稍后再发起投票'
     end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
@@ -1551,7 +1561,7 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
         end
     end
 
-    if reason ~= 'auto' and (config.voteCooldown or 0) > 0 then
+    if reason ~= 'auto' and reason ~= 'race-end' and (config.voteCooldown or 0) > 0 then
         local last = room.lastVoteAt or 0
         if last > 0 then
             local remaining = (config.voteCooldown or 0) - (now() - last)
@@ -1752,6 +1762,19 @@ function Rooms.finishVote(room)
         return
     end
 
+    -- 本轮正在结算（30 秒倒计时 / 最终排行）时，投票结果挂起，结算结束再切图
+    local resultsPending = room.raceFinal
+        or (room.resultsUntil or 0) > 0
+        or ((room.raceEndsAt or 0) > 0 and not room.raceFinal)
+    if manual and resultsPending then
+        room.nextMapId = winner
+        broadcastNotice(('换图投票结果：%s（弃权 %d 票），本轮结算后切换'):format(
+            tostring(winnerName), abstained
+        ))
+        stateChanged()
+        return
+    end
+
     -- 自发投票出结果立即换图（不弹全屏，但当前回合会结束）
     if manual and roundRunning and config.manualVoteImmediate ~= false then
         broadcastNotice(('换图投票结果：%s（弃权 %d 票），立即切换'):format(
@@ -1782,7 +1805,7 @@ local MODE_NAMES = {
     team = '团队竞技',
 }
 
-function Rooms.startModeVote(room)
+function Rooms.startModeVote(room, byPlayer)
     if not room then
         return false, '舞台不存在'
     end
@@ -1797,6 +1820,9 @@ function Rooms.startModeVote(room)
     end
     if room.startingUntil and RST.nowMs() < room.startingUntil then
         return false, '出发倒计时中，无法发起模式投票'
+    end
+    if room.raceFinal or (room.resultsUntil or 0) > 0 or (room.raceEndsAt or 0) > 0 then
+        return false, '比赛结算中，稍后再发起模式投票'
     end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
@@ -1831,15 +1857,22 @@ function Rooms.startModeVote(room)
     }
 
     room.lastModeVoteAt = now()
-    room.active = false
-    room.roundEnds = 0
-    room.roundEndsMs = 0
     room.modeVote = {
         options = options,
         votes = {},
         endsAt = now() + (config.modeVoteSeconds or 20),
         endsAtMs = RST.nowMs() + (config.modeVoteSeconds or 20) * 1000,
+        byPlayer = byPlayer,
+        forced = false,
+        reason = 'manual',
     }
+
+    -- 模式投票不打断跑图，和自发换图投票一样按 F4 打开
+    if byPlayer and isElement(byPlayer) then
+        broadcastNotice(('%s 发起模式投票，按 F4 参与（%d 秒）'):format(
+            getPlayerName(byPlayer) or '玩家', config.modeVoteSeconds or 20
+        ))
+    end
 
     stateChanged()
     return true
@@ -1929,11 +1962,17 @@ function Rooms.finishModeVote(room)
     end
 
     room.modeVote = nil
+    local modeChanged = winner ~= currentMode
     room.mode = winner == 'training' and 'training' or 'competitive'
     room.competitiveMode = winner == 'team' and 'team' or 'solo'
-    -- 模式投票结束也重新随机地图，避免一直停留在同一张图
-    startRound(room)
-    stateChanged()
+
+    if modeChanged or not room.active then
+        -- 换模式不换图：保留当前地图，从出生点重新开局；
+        -- 如果投票期间回合已经先结束（active=false），即使模式没变也要重新开局
+        startRound(room, room.mapId)
+    else
+        stateChanged()
+    end
 end
 
 function Rooms.modeVoteState(room, player)
@@ -1965,6 +2004,8 @@ function Rooms.modeVoteState(room, player)
             or 'training',
         options = options,
         mine = room.modeVote.votes[player],
+        started = room.modeVote.byPlayer == player,
+        forced = room.modeVote.forced == true,
     }
 end
 
@@ -2065,11 +2106,19 @@ function Rooms.handleDeath(player)
     if not room or not room.active or not contains(room.players, player) then
         return
     end
-    if room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
+    if room.waiting or voteBlocksRound(room) or room.raceFinal then
         return
     end
     if room.finished[player] or room.trainingReturns[player] then
         return
+    end
+
+    -- 竞技模式死亡也扣 1 条命；命数耗尽直接转观战，不再安排重生
+    if room.mode == 'competitive' then
+        local _, _, eliminated = Rooms.consumeLife(player)
+        if eliminated then
+            return
+        end
     end
 
     clearDeathTimer(player)
@@ -2084,7 +2133,7 @@ function Rooms.handleDeath(player)
         if currentRoom ~= room or room.mapId ~= mapId then
             return
         end
-        if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
+        if not room.active or room.waiting or voteBlocksRound(room) or room.raceFinal then
             return
         end
         if not contains(room.players, player) or room.finished[player] then

@@ -29,6 +29,8 @@ local helpOpen = false
 local voteActive = false
 local voteForced = false
 local voteUiOpen = false
+local modeVoteActive = false
+local modeVoteUiOpen = false
 local readyWaiting = false
 local interactive = false
 local setSpawnControlLock
@@ -58,9 +60,13 @@ RST = {
     voteActive = false,
     voteForced = false,
     voteUiOpen = false,
+    modeVoteActive = false,
+    modeVoteUiOpen = false,
     countdownActive = false,
     readyWaiting = false,
     rewindLives = nil,
+    finished = false,
+    raceFinal = false,
     gameMode = 'training',
     mapId = nil,
     roomId = nil,
@@ -94,6 +100,8 @@ function RST.isGameplayActive()
         and not RST.voteActive
         and not RST.countdownActive
         and not RST.readyWaiting
+        and not RST.finished
+        and not RST.raceFinal
 end
 
 function RST.canRewind()
@@ -327,6 +335,7 @@ local function isForcedCursor()
         or helpOpen
         or voteForced
         or voteUiOpen
+        or modeVoteUiOpen
         or readyWaiting
 end
 
@@ -384,6 +393,22 @@ local function setVoteUi(open)
     voteUiOpen = open
     RST.voteUiOpen = open
     dispatch('voteui', { open = open })
+    applyInteractive()
+end
+
+-- 模式投票：和自发换图投票一样，F4 手动打开，不接管跑图
+local function setModeVoteUi(open)
+    open = open == true
+    if open and not modeVoteActive then
+        open = false
+    end
+    if open == modeVoteUiOpen then
+        dispatch('modevoteui', { open = modeVoteUiOpen })
+        return
+    end
+    modeVoteUiOpen = open
+    RST.modeVoteUiOpen = open
+    dispatch('modevoteui', { open = open })
     applyInteractive()
 end
 
@@ -783,6 +808,8 @@ local function applyState(state)
     local previousMode = mode
     local previousVote = voteActive
     local previousVoteUi = voteUiOpen
+    local previousModeVote = modeVoteActive
+    local previousModeVoteUi = modeVoteUiOpen
 
     local nextPhase = state.phase
     if nextPhase ~= 'auth' and nextPhase ~= 'stage' and nextPhase ~= 'playing' then
@@ -794,11 +821,10 @@ local function applyState(state)
     mode = (state.me and state.me.mode) or 'playing'
     local voteTable = type(state.vote) == 'table' and state.vote or nil
     local modeVoteTable = type(state.modeVote) == 'table' and state.modeVote or nil
-    voteActive = (voteTable ~= nil and voteTable.active == true)
-        or (modeVoteTable ~= nil and modeVoteTable.active == true)
-    -- 强制投票（回合到点/完赛）自动弹全屏；玩家自发的投票只在按 F3 时弹出
-    voteForced = (modeVoteTable ~= nil and modeVoteTable.active == true)
-        or (voteTable ~= nil and voteTable.active == true and voteTable.forced ~= false)
+    modeVoteActive = modeVoteTable ~= nil and modeVoteTable.active == true
+    voteActive = (voteTable ~= nil and voteTable.active == true) or modeVoteActive
+    -- 只有强制换图投票会自动全屏；模式投票和自发换图投票都按 F4 打开
+    voteForced = voteTable ~= nil and voteTable.active == true and voteTable.forced ~= false
     if not voteActive or voteForced then
         voteUiOpen = false
     elseif voteTable ~= nil and voteTable.started == true and not previousVote then
@@ -806,18 +832,31 @@ local function applyState(state)
         voteUiOpen = true
     end
 
+    if not modeVoteActive then
+        modeVoteUiOpen = false
+    elseif modeVoteTable.started == true and not previousModeVote then
+        modeVoteUiOpen = true
+    end
+
     readyWaiting = type(state.ready) == 'table'
         and state.ready.waiting == true
 
     RST.phase = phase
     RST.mode = mode
+    RST.finished = state.me and state.me.finished == true or false
+    RST.raceFinal = state.raceFinal == true
     RST.voteActive = voteActive
     RST.voteForced = voteForced
     RST.voteUiOpen = voteUiOpen
+    RST.modeVoteActive = modeVoteActive
+    RST.modeVoteUiOpen = modeVoteUiOpen
     RST.readyWaiting = readyWaiting
     RST.rewindLives = tonumber(state.lives)
     if previousVoteUi ~= voteUiOpen then
         dispatch('voteui', { open = voteUiOpen })
+    end
+    if previousModeVoteUi ~= modeVoteUiOpen then
+        dispatch('modevoteui', { open = modeVoteUiOpen })
     end
 
     local previousMapId = RST.mapId
@@ -977,6 +1016,10 @@ local function closeTopOverlay()
     end
     if voteUiOpen then
         setVoteUi(false)
+        return true
+    end
+    if modeVoteUiOpen then
+        setModeVoteUi(false)
         return true
     end
     if mapDetailsOpen then
@@ -1299,13 +1342,17 @@ addEventHandler('onClientKey', root, function(button, press)
     end
     cancelEvent()
     if not voteActive then
-        dispatch('toast', { text = '当前没有换图投票' })
+        dispatch('toast', { text = '当前没有投票' })
         return
     end
     if voteForced then
         return
     end
-    setVoteUi(not voteUiOpen)
+    if modeVoteActive then
+        setModeVoteUi(not modeVoteUiOpen)
+    else
+        setVoteUi(not voteUiOpen)
+    end
 end)
 
 -- CEF 是 dxDrawImage 绘制的，不是 GUI 元素，onClientMouseWheel 在部分客户端不会触发；
@@ -1374,6 +1421,8 @@ addEventHandler('rst:ui:action', root, function(json)
         playUiSound(tostring(data.name or 'click'))
     elseif data.action == 'voteui' then
         setVoteUi(data.open == true)
+    elseif data.action == 'modevoteui' then
+        setModeVoteUi(data.open == true)
     elseif data.action == 'mapdetails' then
         mapDetailsOpen = data.open == true
         applyInteractive()

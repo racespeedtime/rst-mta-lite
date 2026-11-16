@@ -7,6 +7,7 @@ import IconClock from '~icons/lucide/clock'
 import IconTrophy from '~icons/lucide/trophy'
 import IconUsers from '~icons/lucide/users'
 import IconVote from '~icons/lucide/vote'
+import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import type { ModeVoteId } from '@/mta/protocol'
 import { useTicker } from '@/composables/useTicker'
@@ -44,6 +45,10 @@ function cast(mode: ModeVoteId): void {
   if (vote.value?.mine) return
   emitAction('modevote:cast', { mode })
 }
+
+function close(): void {
+  emitAction('modevoteui', { open: false })
+}
 </script>
 
 <template>
@@ -57,14 +62,25 @@ function cast(mode: ModeVoteId): void {
             <h1 class="mode-vote__title">模式投票</h1>
           </div>
         </div>
-        <span class="mode-vote__timer">
-          <IconClock class="icon icon--sm" />
-          {{ formatMs(remainingMs) }}
-        </span>
+        <div class="mode-vote__head-right">
+          <span class="mode-vote__timer">
+            <IconClock class="icon icon--sm" />
+            {{ formatMs(remainingMs) }}
+          </span>
+          <button
+            v-if="vote.forced !== true"
+            type="button"
+            class="mode-vote__close"
+            aria-label="关闭模式投票面板"
+            @click="close"
+          >
+            <IconX class="icon" />
+          </button>
+        </div>
       </header>
 
       <p class="mode-vote__hint">
-        地图不变，只切换比赛模式；平票或无人投票时保持当前模式。
+        地图不变，只切换比赛模式；平票或无人投票时保持当前模式。按 F4 可随时开关本面板。
       </p>
 
       <div class="mode-vote__current">
@@ -173,6 +189,27 @@ function cast(mode: ModeVoteId): void {
   font-size: 15px;
   font-variant-numeric: tabular-nums;
   color: var(--rst-gold);
+}
+
+.mode-vote__head-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mode-vote__close {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--rst-border);
+  border-radius: 8px;
+  color: var(--rst-muted);
+}
+
+.mode-vote__close:hover {
+  color: var(--rst-text);
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
 }
 
 .mode-vote__hint {

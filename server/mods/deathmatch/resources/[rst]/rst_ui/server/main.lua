@@ -112,6 +112,8 @@ local function buildState(player, session)
                 state.personalBest = best and math.floor(best / 1000) or nil
                 state.lives = room.mode == 'competitive' and room.lives[player] or nil
                 state.ob = room.ob[player] == true
+                state.me.finished = room.finished[player] ~= nil
+                state.raceFinal = room.raceFinal == true
 
                 local cooldownLeft = 0
                 if (room.lastVoteAt or 0) > 0 then
@@ -126,6 +128,9 @@ local function buildState(player, session)
                     and room.active
                     and not room.waiting
                     and not (room.startingUntil and RST.nowMs() < room.startingUntil)
+                    and not room.raceFinal
+                    and (room.raceEndsAt or 0) <= 0
+                    and (room.resultsUntil or 0) <= 0
                     and cooldownLeft <= 0
                 state.voteCooldown = math.floor(cooldownLeft)
 
@@ -141,6 +146,9 @@ local function buildState(player, session)
                     and room.active
                     and not room.waiting
                     and not (room.startingUntil and RST.nowMs() < room.startingUntil)
+                    and not room.raceFinal
+                    and (room.raceEndsAt or 0) <= 0
+                    and (room.resultsUntil or 0) <= 0
                     and modeCooldownLeft <= 0
                 state.modeVoteCooldown = math.floor(modeCooldownLeft)
             end
@@ -432,11 +440,9 @@ actions['modevote:start'] = function(player, session)
         return
     end
 
-    local ok, err = Rooms.startModeVote(room)
+    local ok, err = Rooms.startModeVote(room, player)
     if not ok then
         notify(player, err)
-    else
-        notify(player, '已发起模式投票')
     end
     broadcastState()
 end
@@ -925,6 +931,10 @@ addEventHandler('rst:rewind:use', root, function()
 
     local ok, lives, eliminated = Rooms.consumeLife(player)
     if not ok then
+        outputServerLog(('[REWIND] 未扣命 player=%s mode=%s active=%s waiting=%s lives=%s finished=%s'):format(
+            tostring(getPlayerName(player)), tostring(room.mode), tostring(room.active), tostring(room.waiting),
+            tostring(room.lives[player]), tostring(room.finished[player] ~= nil)
+        ))
         return
     end
 

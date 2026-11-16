@@ -272,6 +272,7 @@ local function loadMapDetails(entry)
     entry.vehicle = first.vehicle
     entry.finish = finish
     entry.finishes = finishes
+    entry.hasHunterFinish = #hunterPoints > 0
     entry.pickups = pickups
     entry._detailsLoaded = true
 

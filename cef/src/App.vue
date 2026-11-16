@@ -145,6 +145,7 @@ function applyState(state: StatePayload): void {
         : null
   ui.vote = state.vote || null
   ui.modeVote = state.modeVote || null
+  if (!ui.modeVote?.active) ui.modeVoteOverlayOpen = false
   ui.canStartVote = state.canStartVote === true
   ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
   ui.canStartModeVote = state.canStartModeVote === true
@@ -191,6 +192,10 @@ function applyState(state: StatePayload): void {
 
 function openVotePanel(): void {
   emitAction('voteui', { open: true })
+}
+
+function openModeVotePanel(): void {
+  emitAction('modevoteui', { open: true })
 }
 
 function onAnyClick(event: MouseEvent): void {
@@ -282,6 +287,9 @@ onMounted(() => {
     }),
     onBridge('voteui', (payload) => {
       ui.voteOverlayOpen = payload.open === true
+    }),
+    onBridge('modevoteui', (payload) => {
+      ui.modeVoteOverlayOpen = payload.open === true
     }),
     // Lua 侧按 Esc 关闭弹窗时，把 CEF 里的开关同步关掉（否则只能靠按钮关闭）
     onBridge('mappool', (payload) => {
@@ -416,7 +424,17 @@ onUnmounted(() => {
         >
           换图投票中 · 按 F4 参与
         </button>
-        <ModeVoteView v-if="ui.modeVote?.active" />
+        <ModeVoteView
+          v-if="ui.modeVote?.active && (ui.modeVote.forced !== false || ui.modeVoteOverlayOpen)"
+        />
+        <button
+          v-if="ui.modeVote?.active && ui.modeVote.forced === false && !ui.modeVoteOverlayOpen"
+          type="button"
+          class="vote-hint"
+          @click="openModeVotePanel"
+        >
+          模式投票中 · 按 F4 参与
+        </button>
         <HelpOverlay v-if="ui.helpOpen" />
       </template>
       <AuthView v-else />
