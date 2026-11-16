@@ -478,6 +478,8 @@ local function applyRoundStart(room)
     end
     room.vote = nil
     room.modeVote = nil
+    -- 新地图开始不继承上一张图的换图投票冷却；换完图可以立即投下一轮
+    room.lastVoteAt = 0
     room.ready = {}
     room.lives = {}
     room.mode = room.mode or config.defaultMode or 'training'
@@ -578,6 +580,8 @@ local function startRound(room, forcedMapId, attempt)
     end
 
     room.mapId = forcedMapId or pickMap(room)
+    -- 换图一开始就清掉上一张图的手动换图冷却，新图加载完成即可再投
+    room.lastVoteAt = 0
     if not room.mapId or not MapRegistry.peek(room.mapId) then
         room.active = false
         room.roundEnds = 0
@@ -586,6 +590,7 @@ local function startRound(room, forcedMapId, attempt)
         stateChanged()
         return false, '没有可用地图'
     end
+
 
     outputServerLog(('[ROUND] start map=%s players=%d spectators=%d'):format(
         tostring(room.mapId), #room.players, #room.spectators
@@ -1523,9 +1528,22 @@ addEventHandler('onVehicleExit', root, function(player, seat, jacker, forcedBySc
     end, 60, 1)
 end)
 
--- 训练传送点换回保存时的车型：客户端只负责显示，模型以服务端为准
+local function applyWarpNitro(vehicle, hasNitro)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' then
+        return
+    end
+    -- 氮气等级 / 次数是客户端函数；服务端只负责把 1010 升级装回去，
+    -- 具体余量由客户端 applyNitro 设置。
+    if hasNitro == true then
+        pcall(addVehicleUpgrade, vehicle, 1010)
+    elseif hasNitro == false then
+        pcall(removeVehicleUpgrade, vehicle, 1010)
+    end
+end
+
+-- 训练传送点换回保存时的车型 / 氮气：客户端只负责显示，状态以服务端为准
 addEvent('rst:warp:model', true)
-addEventHandler('rst:warp:model', root, function(model)
+addEventHandler('rst:warp:model', root, function(model, hasNitro, nitroLevel, nitroCount)
     local player = client or source
     if not isElement(player) then
         return
@@ -1561,6 +1579,25 @@ addEventHandler('rst:warp:model', root, function(model)
     for _, upgrade in ipairs(upgrades) do
         pcall(addVehicleUpgrade, vehicle, upgrade)
     end
+    applyWarpNitro(vehicle, hasNitro)
+end)
+
+-- 车型没变时单独恢复氮气升级和余量（例如爆炸重生后回到旧传送点）
+addEvent('rst:warp:nitro', true)
+addEventHandler('rst:warp:nitro', root, function(hasNitro, nitroLevel, nitroCount)
+    local player = client or source
+    if not isElement(player) then
+        return
+    end
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'training' or not room.active then
+        return
+    end
+    local vehicle = getPedOccupiedVehicle(player)
+    if not vehicle or vehicle ~= raceVehicles[player] then
+        return
+    end
+    applyWarpNitro(vehicle, hasNitro)
 end)
 
 function Rooms.all()
@@ -1842,6 +1879,7 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
             return false, '地图池里没有这张图'
         end
     end
+
 
     if reason ~= 'auto' and reason ~= 'race-end' and reason ~= 'start' and (config.voteCooldown or 0) > 0 then
         local last = room.lastVoteAt or 0

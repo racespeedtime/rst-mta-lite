@@ -60,7 +60,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>F2</kbd></span>
-              <span>菜单：换图投票 / 模式投票</span>
+              <span>菜单：随机换图 / 模式投票</span>
             </li>
             <li>
               <span class="help__keys"><kbd>T</kbd></span>
@@ -175,7 +175,7 @@ onUnmounted(() => {
           <ul class="help__list">
             <li>
               <span class="help__keys"><kbd>F2</kbd></span>
-              <span>提前发起换图投票或模式投票</span>
+              <span>提前发起随机换图投票或模式投票</span>
             </li>
             <li>
               <span class="help__keys"><kbd>计时</kbd></span>

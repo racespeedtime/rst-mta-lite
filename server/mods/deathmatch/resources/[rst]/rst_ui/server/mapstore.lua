@@ -1,24 +1,25 @@
 --[[
     rst_ui / server/mapstore.lua
 
-    按需地图资源（服务器端真正只加载一张图）：
+    按需地图资源 + 地图级客户端缓存：
 
-    - [rst]/maplib 是纯数据 resource：maps/<id>/ 里是展开后的地图文件，
-      它的 meta.xml 不声明任何文件，所以 MTA 开服时只会读一个 meta，
-      不会扫描 / 哈希这 26 GB 地图内容。
-    - 运行期只有一个固定槽位 resource：resources/rst_map。
-    - 换图时把库里的目标地图文件复制进槽位，refresh 重新加载，再启动。
+    - [rst]/maplib 是纯数据 resource：maps/<id>/ 里是展开后的地图文件。
+    - 每张玩过的地图使用独立槽位 resource：rst_map_<mapId>。
+      MTA 客户端按 resource 名缓存，因此再次进入同一张图可以命中缓存。
+    - 第一次进入某张图时才创建槽位并复制文件；之后只启动已有槽位，
+      不再删除 / 覆盖其他地图的槽位。
+    - 未被启动的槽位不会加载地图文件；开服时间仍与地图库规模基本无关。
 
-    这样开服时间与地图数量无关；一张图约 6-24 MB，复制 + 重新校验在
-    几百毫秒内完成，客户端也只会下载当前这张图。
+    槽位文件保留在服务器上是“已玩地图永久缓存”的代价；如需清理，可手动
+    删除 resources/[rst]/rst_map_* 目录后，下次进入会重新创建 / 复制槽位。
 ]]
 
 MapStore = {}
 
 local LIB_NAME = 'maplib'
-local SLOT_NAME = 'rst_map'
+local SLOT_PREFIX_NAME = 'rst_map'
+local SLOT_ORG_DIR = '[rst]'
 local LIB_MAPS = ':' .. LIB_NAME .. '/maps/'
-local SLOT_PREFIX = ':' .. SLOT_NAME .. '/'
 local INDEX_PATH = ':' .. LIB_NAME .. '/index.json'
 
 local INDEX_MAX_BYTES = 64 * 1024 * 1024
@@ -28,15 +29,15 @@ local COPY_TICK_MS = 30
 local REFRESH_TIMEOUT_MS = 10000 -- 槽位重新加载的等待上限
 local REFRESH_POLL_MS = 100
 
-MapStore.slotName = SLOT_NAME
 MapStore.libraryName = LIB_NAME
+MapStore.slotPrefix = SLOT_PREFIX_NAME
 
 local index = {}          -- id -> { id, name, author, map, dimension, bytes, files }
 local ids = {}            -- 排序后的地图 id 列表
 local fileCache = {}      -- id -> { 相对路径 }
 local fileCacheOrder = {}
 local installing = false
-local loadedMapId         -- 槽位里当前装着哪张图
+local loadedMapId         -- 最近一次安装的图
 local queue = {}
 
 local function log(message)
@@ -80,8 +81,26 @@ local function splitLines(text)
     return lines
 end
 
-local function slotResource()
-    return getResourceFromName(SLOT_NAME)
+-- 地图 id 是稳定 slug；resource 名前缀保证以字母开头，避免 -foo 这类 id。
+local function slotNameFor(mapId)
+    local safe = tostring(mapId or ''):gsub('[^%w_-]', '_')
+    return SLOT_PREFIX_NAME .. '_' .. safe
+end
+
+MapStore.slotNameFor = slotNameFor
+
+function MapStore.isSlotResourceName(name)
+    name = tostring(name or '')
+    return name == SLOT_PREFIX_NAME
+        or name:sub(1, #SLOT_PREFIX_NAME + 1) == SLOT_PREFIX_NAME .. '_'
+end
+
+local function slotPrefix(slotName)
+    return ':' .. slotName .. '/'
+end
+
+local function slotResourceFor(mapId)
+    return getResourceFromName(slotNameFor(mapId))
 end
 
 -- ---------------------------------------------------------------------------
@@ -128,7 +147,7 @@ function MapStore.init()
     end
 
     table.sort(ids)
-    log(('地图库 %d 张可玩，运行槽位 %s，按需复制'):format(#ids, SLOT_NAME))
+    log(('地图库 %d 张可玩；槽位按地图 ID 复用（%s_<mapId>）'):format(#ids, SLOT_PREFIX_NAME))
     if skipped > 0 then
         log(('%d 张地图 meta 引用缺失文件，已从地图池排除'):format(skipped))
     end
@@ -138,7 +157,6 @@ end
 function MapStore.count()
     return #ids
 end
-
 
 function MapStore.list()
     return ids
@@ -176,39 +194,37 @@ end
 -- 槽位 resource
 -- ---------------------------------------------------------------------------
 
-local function ensureSlot()
-    local resource = slotResource()
+local function ensureSlot(mapId)
+    local name = slotNameFor(mapId)
+    local resource = getResourceFromName(name)
     if resource then
-        return resource
+        return resource, name
     end
 
-    resource = createResource(SLOT_NAME)
+    resource = createResource(name, SLOT_ORG_DIR)
     if not resource then
-        log('无法创建槽位 resource ' .. SLOT_NAME .. '（检查 ACL function.createResource）')
-        return nil
+        -- 目录可能已经存在但 MTA 尚未识别，刷新后再试一次
+        refreshResources(true)
+        resource = getResourceFromName(name)
     end
-    return resource
+    if not resource then
+        log(('无法创建槽位 resource %s（检查 ACL function.createResource）'):format(name))
+        return nil, name
+    end
+    return resource, name
 end
 
-local function deleteSlotFiles()
-    local listed = splitLines(readText(SLOT_PREFIX .. '_files.txt', LIST_MAX_BYTES))
-    for _, name in ipairs(listed) do
-        if name ~= '_files.txt' then
-            fileDelete(SLOT_PREFIX .. name)
-        end
-    end
-end
-
-local function copyFiles(mapId, files, onDone)
+local function copyFiles(mapId, files, slotName, onDone)
     local position = 1
     local total = #files
+    local prefix = slotPrefix(slotName)
     local timer
 
     local function step()
         local startedAt = getTickCount()
         while position <= total and (getTickCount() - startedAt) < COPY_CHUNK_MS do
             local name = files[position]
-            if not fileCopy(LIB_MAPS .. mapId .. '/' .. name, SLOT_PREFIX .. name, true) then
+            if not fileCopy(LIB_MAPS .. mapId .. '/' .. name, prefix .. name, true) then
                 if isTimer(timer) then
                     killTimer(timer)
                 end
@@ -234,12 +250,12 @@ local function copyFiles(mapId, files, onDone)
     end
 end
 
-local function waitForSlot(expectedName, onDone)
+local function waitForSlot(slotName, expectedName, onDone)
     local waited = 0
     local timer
 
     timer = setTimer(function()
-        local resource = slotResource()
+        local resource = getResourceFromName(slotName)
         if not resource then
             killTimer(timer)
             onDone(false, '槽位 resource 重新加载失败')
@@ -270,8 +286,8 @@ end
 -- 安装 / 卸载
 -- ---------------------------------------------------------------------------
 
--- 把地图库里的 mapId 装进槽位。完成后回调 onDone(ok, err)。
--- 同一时间只装一张；并发调用会排队。
+-- 把地图库里的 mapId 装进独立槽位。完成后回调 onDone(ok, err)。
+-- 同一时间只装一张；并发调用会排队。已存在的槽位直接复用。
 function MapStore.install(mapId, onDone)
     onDone = type(onDone) == 'function' and onDone or function() end
 
@@ -280,9 +296,10 @@ function MapStore.install(mapId, onDone)
         return
     end
 
-    -- 槽位里已经是这张图（上一回合刚玩过 / 刚装载完），直接复用
+    -- 最近一次安装的就是这张图，直接复用当前槽位
     if loadedMapId == mapId and #queue == 0 then
-        local state = MapStore.slotState()
+        local resource = slotResourceFor(mapId)
+        local state = resource and getResourceState(resource) or 'missing'
         if state == 'loaded' or state == 'running' then
             onDone(true)
             return
@@ -306,7 +323,7 @@ function MapStore.install(mapId, onDone)
         end
     end
 
-    local slot = ensureSlot()
+    local slot, slotName = ensureSlot(mapId)
     if not slot then
         finish(false, '地图槽位不可用')
         return
@@ -322,56 +339,94 @@ function MapStore.install(mapId, onDone)
         return
     end
 
-    deleteSlotFiles()
+    local prefix = slotPrefix(slotName)
+    local ready = fileExists(prefix .. 'meta.xml') and fileExists(prefix .. '_files.txt')
+    if ready then
+        for _, name in ipairs(files) do
+            if not fileExists(prefix .. name) then
+                ready = false
+                break
+            end
+        end
+    end
 
-    copyFiles(mapId, files, function(copied, copyErr)
-        if not copied then
-            finish(false, copyErr)
+    if ready then
+        -- 槽位已经完整复制过：不再触碰文件，客户端缓存由同一个 resource 名复用
+        local state = getResourceState(slot)
+        if state == 'loaded' or state == 'running' then
+            loadedMapId = mapId
+            log(('复用槽位 %s（%s）'):format(slotName, mapId))
+            finish(true)
             return
         end
-
-        -- 记下这张图的文件清单，下次安装前用它清理残留
-        fileCopy(LIB_MAPS .. mapId .. '/_files.txt', SLOT_PREFIX .. '_files.txt', true)
-
         refreshResources(true)
-
-        local entry = index[mapId]
-        waitForSlot(entry.name or '', function(loaded, detail)
+        waitForSlot(slotName, (index[mapId] and index[mapId].name) or '', function(loaded, detail)
             if not loaded then
                 finish(false, ('槽位重新加载超时（%s）'):format(tostring(detail)))
                 return
             end
+            local entry = index[mapId]
             if entry.name and entry.name ~= '' and detail ~= entry.name then
                 finish(false, ('槽位地图不符：期望 %s，实际 %s'):format(entry.name, tostring(detail)))
                 return
             end
-            log(('已装载 %s（%s，%d 个文件）'):format(
-                entry.name ~= '' and entry.name or mapId, mapId, #files
-            ))
             loadedMapId = mapId
+            log(('复用槽位 %s（%s）'):format(slotName, mapId))
             finish(true)
         end)
-    end)
+        return
+    else
+        copyFiles(mapId, files, slotName, function(copied, copyErr)
+            if not copied then
+                finish(false, copyErr)
+                return
+            end
+            fileCopy(LIB_MAPS .. mapId .. '/_files.txt', prefix .. '_files.txt', true)
+            refreshResources(true)
+            waitForSlot(slotName, (index[mapId] and index[mapId].name) or '', function(loaded, detail)
+                if not loaded then
+                    finish(false, ('槽位重新加载超时（%s）'):format(tostring(detail)))
+                    return
+                end
+                local entry = index[mapId]
+                if entry.name and entry.name ~= '' and detail ~= entry.name then
+                    finish(false, ('槽位地图不符：期望 %s，实际 %s'):format(entry.name, tostring(detail)))
+                    return
+                end
+                loadedMapId = mapId
+                log(('已创建槽位 %s（%s，%d 个文件）'):format(
+                    slotName, entry.name ~= '' and entry.name or mapId, #files
+                ))
+                finish(true)
+            end)
+        end)
+        return
+    end
+
 end
 
 function MapStore.isInstalling()
     return installing
 end
 
-function MapStore.slotState()
-    local resource = slotResource()
+function MapStore.slotState(mapId)
+    local resource = mapId and slotResourceFor(mapId) or nil
+    if not resource and loadedMapId then
+        resource = slotResourceFor(loadedMapId)
+    end
     if not resource then
         return 'missing'
     end
     return getResourceState(resource)
 end
 
--- 停掉槽位（rst_ui 停止 / 换图时调用）。文件留着，下次安装前会清理。
+-- 停掉最近安装的槽位。槽位文件保留，供客户端缓存和下次复用。
 function MapStore.stop()
-    local resource = slotResource()
+    if not loadedMapId then
+        return
+    end
+    local resource = slotResourceFor(loadedMapId)
     if resource and getResourceState(resource) == 'running' then
         stopResource(resource)
     end
 end
-
-

@@ -10,6 +10,17 @@
   --rst-green: #7ee2a8;
   --rst-red: #ff9b9b;
   --rst-blue: #9cc9ff;
+
+  /* Element Plus 统一使用项目强调色，避免日期选择器默认蓝色、
+     分页下拉自定义绿色互相不一致 */
+  --el-color-primary: var(--rst-accent);
+  --el-color-primary-light-3: rgba(88, 200, 255, 0.72);
+  --el-color-primary-light-5: rgba(88, 200, 255, 0.52);
+  --el-color-primary-light-7: rgba(88, 200, 255, 0.32);
+  --el-color-primary-light-8: rgba(88, 200, 255, 0.22);
+  --el-color-primary-light-9: rgba(88, 200, 255, 0.1);
+  --el-color-primary-dark-2: #35b7f0;
+
   --rst-panel: rgba(9, 15, 25, 0.9);
   --rst-panel-soft: rgba(14, 23, 36, 0.72);
   --rst-border: rgba(140, 180, 255, 0.16);

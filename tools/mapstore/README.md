@@ -14,8 +14,8 @@ zip resource 还会先把整包解压到 `resource-cache/unzipped`，并且每�
 - `resource-cache/unzipped` 会额外占 18 GB
 
 所以地图文件平时放在 `[rst]/maplib` 这个「数据 resource」里（它的 `meta.xml` 不声明
-任何文件，MTA 启动只读一个 meta），换图时由 `rst_ui` 把选中的那张图复制进运行槽位
-`resources/rst_map`，再 `refreshResources` + `startResource`。
+任何文件，MTA 启动只读一个 meta）。第一次换到某张图时，`rst_ui` 才把它复制进该图独立的
+槽位 `resources/[rst]/rst_map_<mapId>`；再次进入直接复用槽位，客户端按 resource 名缓存。
 
 改成按需装载后实测（2026-11-16，本机 NVMe）：
 
@@ -106,7 +106,7 @@ node tools/setup-map-acl.mjs          # 幂等补齐
 最后**重启服务端**（索引只在启动时读一次），日志里应出现：
 
 ```text
-[MAPSTORE] 地图库 N 张可玩，运行槽位 rst_map，按需复制
+[MAPSTORE] 地图库 N 张可玩；槽位按地图 ID 复用（rst_map_<mapId>）
 ```
 
 F2 地图池的数量应该和 `index.json` 里的可玩地图数一致。
@@ -218,7 +218,7 @@ server/mods/deathmatch/resources/[rst]/maplib/
 - `--zips` 指向的 zip 只是备份 / 源包，运行时不用；本机实测 zip 约 25.6 GB、展开库约 36 GB，
   两份都留约 61.6 GB。磁盘紧就用 `--delete-zips` 只留展开库，或 `--move-zips` 挪到外置盘
 - zip 备份建议留在 `server/mods/deathmatch/map-cache/zips/` 或 `MAP_BACKUP_DIR`
-- 运行槽位 `resources/rst_map` 由 `rst_ui` 自己创建和维护，不要手工编辑
+- 地图槽位 `resources/[rst]/rst_map_<mapId>` 由 `rst_ui` 自己创建和维护，不要手工编辑；删除槽位会让该图下次重新复制
 - 客户端只会下载当前被选中的那张地图
 - 玩过的地图会在 `resource-cache/http-client-files/` 留下客户端文件缓存，长期换图会慢慢变大；
   停服后删掉整个目录即可，MTA 会按需重建

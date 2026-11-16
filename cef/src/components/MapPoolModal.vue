@@ -8,9 +8,9 @@ import IconVote from '~icons/lucide/vote'
 import IconX from '~icons/lucide/x'
 import { ElDatePicker, ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus'
 import 'element-plus/es/components/table/style/css'
+import 'element-plus/es/components/select/style/css'
 import 'element-plus/es/components/pagination/style/css'
 import 'element-plus/es/components/date-picker/style/css'
-import 'element-plus/es/components/select/style/css'
 import { emitAction } from '@/mta/bridge'
 import type { MapPoolItem, MapPoolPage, MapPoolSortField } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
@@ -20,6 +20,16 @@ const PAGE_SIZES = [10, 20, 30, 50, 100]
 
 const search = ref(ui.mapPoolSearch)
 const pageSize = ref(ui.mapPoolPageSize || 30)
+const tooltip = ref<{ text: string; x: number; y: number } | null>(null)
+
+// MTA CEF 的 html 使用了 CSS zoom；ElSelect 的 popper 坐标会被 zoom 重复计算。
+// 下拉改为 teleported=false，用 CSS 固定锚定到选择器上方，不再依赖 Popper 坐标。
+function currentUiZoom(): number {
+  const root = document.documentElement
+  const raw = root.style.zoom || getComputedStyle(root).zoom
+  const value = Number.parseFloat(raw)
+  return Number.isFinite(value) && value > 0 ? value : 1
+}
 const dateRange = ref<[string, string] | null>(
   ui.mapPoolDateFrom && ui.mapPoolDateTo ? [ui.mapPoolDateFrom, ui.mapPoolDateTo] : null,
 )
@@ -146,16 +156,31 @@ function rowClassName({ row }: any): string {
   return row && row.current ? 'is-current' : ''
 }
 
-function voteTitle(): string {
-  if (ui.vote) return '当前已有投票'
-  if (!ui.room) return '请先进入舞台'
-  if (!ui.canStartVote) {
-    return ui.voteCooldown > 0 ? `投票冷却中，还需 ${ui.voteCooldown} 秒` : '当前无法发起投票'
+
+function hideTooltip(): void {
+  tooltip.value = null
+}
+
+function showTooltip(event: MouseEvent, text: string): void {
+  const element = event.currentTarget as HTMLElement | null
+  if (!element || !text) return
+  if (element.scrollWidth <= element.clientWidth + 1) {
+    hideTooltip()
+    return
   }
-  return '发起换图投票（这张图会作为候选并标注提名者）'
+
+  const rect = element.getBoundingClientRect()
+  const zoom = currentUiZoom()
+  const viewportWidth = window.innerWidth / zoom
+  const viewportHeight = window.innerHeight / zoom
+  const maxWidth = Math.min(420, viewportWidth - 24)
+  const x = Math.max(8, Math.min(rect.left / zoom, viewportWidth - maxWidth - 8))
+  const y = Math.min(rect.bottom / zoom + 6, viewportHeight - 64)
+  tooltip.value = { text, x, y }
 }
 
 function close(): void {
+  hideTooltip()
   ui.mapPoolOpen = false
 }
 
@@ -172,6 +197,7 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.clearTimeout(searchTimer)
+  hideTooltip()
 })
 </script>
 
@@ -224,7 +250,7 @@ onBeforeUnmount(() => {
         <span class="map-pool__filters-hint">留空 = 不限</span>
       </div>
 
-      <div class="map-pool__list" :class="{ 'is-loading': ui.mapPoolLoading }">
+      <div class="map-pool__list" :class="{ 'is-loading': ui.mapPoolLoading }" @scroll="hideTooltip">
         <ElTable
           class="map-pool__table"
           :data="ui.mapPool?.items || []"
@@ -241,16 +267,28 @@ onBeforeUnmount(() => {
             <template #default="{ row }">
               <div class="map-pool__cell">
                 <strong>
-                  {{ row.name }}
+                  <span
+                    class="map-pool__ellipsis"
+                    @mouseenter="showTooltip($event, row.name)"
+                    @mouseleave="hideTooltip"
+                  >{{ row.name }}</span>
                   <em v-if="row.current" class="map-pool__badge">当前</em>
                 </strong>
-                <small>{{ row.author }}</small>
+                <small
+                  class="map-pool__ellipsis"
+                  @mouseenter="showTooltip($event, row.author)"
+                  @mouseleave="hideTooltip"
+                >{{ row.author }}</small>
               </div>
             </template>
           </ElTableColumn>
-          <ElTableColumn label="ID" min-width="120" show-overflow-tooltip>
+          <ElTableColumn label="ID" min-width="120">
             <template #default="{ row }">
-              <span class="map-pool__muted">{{ row.id }}</span>
+              <span
+                class="map-pool__muted map-pool__ellipsis"
+                @mouseenter="showTooltip($event, row.id)"
+                @mouseleave="hideTooltip"
+              >{{ row.id }}</span>
             </template>
           </ElTableColumn>
           <ElTableColumn prop="uploaded" label="上传" width="96" sortable="custom">
@@ -274,12 +312,11 @@ onBeforeUnmount(() => {
                 <button
                   type="button"
                   class="map-pool__action"
-                  :title="voteTitle()"
                   :disabled="!canVote"
                   @click.stop="voteFor(row)"
                 >
                   <IconVote class="icon icon--sm" />
-                  投票
+                  投这张
                 </button>
                 <span class="map-pool__action map-pool__action--hint" aria-hidden="true">
                   <IconEye class="icon icon--sm" />
@@ -290,6 +327,10 @@ onBeforeUnmount(() => {
           </ElTableColumn>
         </ElTable>
       </div>
+
+      <p class="map-pool__vote-hint">
+        行尾「投这张」= 发起特定地图投票；F2「发起随机换图投票」= 由系统随机抽候选。
+      </p>
 
       <footer class="map-pool__foot">
         <ElPagination
@@ -302,19 +343,30 @@ onBeforeUnmount(() => {
           layout="prev, pager, next"
           @current-change="go"
         />
-        <ElSelect
-          v-model="pageSize"
-          class="map-pool__page-size"
-          size="small"
-          :teleported="false"
-          placement="top"
-          :disabled="ui.mapPoolLoading"
-          @change="changePageSize"
-        >
-          <ElOption v-for="size in PAGE_SIZES" :key="size" :label="`每页 ${size} 条`" :value="size" />
-        </ElSelect>
+        <div class="map-pool__page-size-wrap">
+          <ElSelect
+            v-model="pageSize"
+            class="map-pool__page-size"
+            size="small"
+            placement="top"
+            popper-class="map-pool__select-popper"
+            :teleported="false"
+            :disabled="ui.mapPoolLoading"
+            @change="changePageSize"
+          >
+            <ElOption v-for="size in PAGE_SIZES" :key="size" :label="`每页 ${size} 条`" :value="size" />
+          </ElSelect>
+        </div>
       </footer>
     </section>
+
+    <div
+      v-if="tooltip"
+      class="map-pool__tip"
+      :style="{ left: `${tooltip.x}px`, top: `${tooltip.y}px` }"
+    >
+      {{ tooltip.text }}
+    </div>
   </div>
 </template>
 
@@ -441,8 +493,48 @@ onBeforeUnmount(() => {
   font-size: 10px;
 }
 
+.map-pool__page-size-wrap {
+  position: relative;
+  flex: 0 0 118px;
+  width: 118px;
+}
+
 .map-pool__page-size {
   width: 118px;
+}
+
+/* 不依赖 Popper 的 zoom 坐标：直接锚定在选择器上方 */
+.map-pool__page-size-wrap :deep(.map-pool__select-popper) {
+  position: absolute !important;
+  top: auto !important;
+  bottom: calc(100% + 6px) !important;
+  left: 0 !important;
+  right: auto !important;
+  transform: none !important;
+  margin: 0 !important;
+  min-width: 118px;
+  width: max-content;
+  z-index: 2100;
+}
+
+:global(.map-pool__select-popper) {
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #0d1624;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+
+:global(.map-pool__select-popper .el-select-dropdown__item) {
+  color: #dce7f5;
+  font-size: 11px;
+}
+
+:global(.map-pool__select-popper .el-select-dropdown__item.is-hovering) {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+:global(.map-pool__select-popper .el-select-dropdown__item.is-selected) {
+  color: var(--rst-accent);
 }
 
 .map-pool__filters-hint {
@@ -491,6 +583,35 @@ onBeforeUnmount(() => {
 
 .map-pool__table :deep(.el-table__row.is-current) {
   box-shadow: inset 2px 0 0 rgba(126, 226, 168, 0.6);
+}
+
+.map-pool__ellipsis {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.map-pool__cell > strong > .map-pool__ellipsis {
+  flex: 1;
+}
+
+.map-pool__tip {
+  position: fixed;
+  z-index: 120;
+  max-width: min(420px, calc(100vw - 24px));
+  padding: 8px 10px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 8px;
+  background: #0d1624;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+  color: #f2f6fb;
+  font-size: 11px;
+  line-height: 1.5;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  pointer-events: none;
 }
 
 .map-pool__cell {
@@ -571,6 +692,14 @@ onBeforeUnmount(() => {
   background: transparent;
   opacity: 0.55;
   pointer-events: none;
+}
+
+.map-pool__vote-hint {
+  margin: 0;
+  padding: 10px 18px 0;
+  color: var(--rst-muted);
+  font-size: 10px;
+  line-height: 1.5;
 }
 
 .map-pool__foot {

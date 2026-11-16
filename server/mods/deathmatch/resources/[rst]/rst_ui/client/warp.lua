@@ -131,9 +131,26 @@ local function readMatrix(element)
     return ok and matrix or nil
 end
 
+local function hasNitroUpgrade(vehicle)
+    if not isElement(vehicle) or getElementType(vehicle) ~= 'vehicle' then
+        return false
+    end
+    for _, upgrade in ipairs(getVehicleUpgrades(vehicle) or {}) do
+        if tonumber(upgrade) == 1010 then
+            return true
+        end
+    end
+    return false
+end
+
 local function applyNitro(element, state)
     if not isElement(element) or getElementType(element) ~= 'vehicle' then
         return
+    end
+    if state.hasNitro == true then
+        pcall(addVehicleUpgrade, element, 1010)
+    elseif state.hasNitro == false then
+        pcall(removeVehicleUpgrade, element, 1010)
     end
     if type(state.nitroLevel) == 'number' then
         pcall(setVehicleNitroLevel, element, math.max(0, math.min(1, state.nitroLevel)))
@@ -144,6 +161,19 @@ local function applyNitro(element, state)
     if state.nitroActive ~= nil then
         pcall(setVehicleNitroActivated, element, state.nitroActive == true)
     end
+end
+
+local function syncWarpNitro(state)
+    if state.hasNitro == nil then
+        return
+    end
+    triggerServerEvent(
+        'rst:warp:nitro',
+        localPlayer,
+        state.hasNitro == true,
+        state.nitroLevel,
+        state.nitroCount
+    )
 end
 
 local function restoreMotion(element, state)
@@ -224,8 +254,16 @@ local function teleportTo(warp)
     -- 传送点保存时开的是什么车，回来就换回什么车。
     -- 客户端先本地换，服务端再同步一次；模型变化可能重置升级/血量，300ms 后补套状态。
     local savedModel = tonumber(warp.vehicle) or 0
-    if vehicle and savedModel > 0 and getElementModel(vehicle) ~= savedModel then
-        triggerServerEvent('rst:warp:model', localPlayer, savedModel)
+    local modelChanged = vehicle and savedModel > 0 and getElementModel(vehicle) ~= savedModel
+    if modelChanged then
+        triggerServerEvent(
+            'rst:warp:model',
+            localPlayer,
+            savedModel,
+            state.hasNitro,
+            state.nitroLevel,
+            state.nitroCount
+        )
         pcall(setElementModel, vehicle, savedModel)
 
         setTimer(function()
@@ -281,6 +319,9 @@ local function teleportTo(warp)
     end
     if vehicle then
         applyNitro(vehicle, state)
+        if not modelChanged then
+            syncWarpNitro(state)
+        end
         pcall(setVehicleNitroActivated, vehicle, false)
         if state.damage then
             RST.applyVehicleDamage(vehicle, state.damage)
@@ -307,6 +348,7 @@ local function captureWarpState()
     local matrix = readMatrix(target)
 
     local nitroLevel, nitroCount, nitroActive
+    local hasNitro = hasNitroUpgrade(vehicle)
     if vehicle then
         nitroLevel = getVehicleNitroLevel(vehicle)
         nitroCount = getVehicleNitroCount(vehicle)
@@ -342,6 +384,7 @@ local function captureWarpState()
             playerHealth = getElementHealth(localPlayer),
             armor = getPedArmor(localPlayer) or 0,
             damage = vehicle and RST.captureVehicleDamage(vehicle) or nil,
+            hasNitro = hasNitro,
             nitroLevel = nitroLevel,
             nitroCount = nitroCount,
             nitroActive = nitroActive,

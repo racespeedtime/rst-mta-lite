@@ -304,7 +304,7 @@ export function installMockServer(): void {
       const map = maps.find((item) => item.id === id) || maps[0]
       currentVote = voteOf(map)
       window.rst?.dispatch('state', JSON.stringify(stateOf({ vote: currentVote })))
-      window.rst?.dispatch('toast', JSON.stringify({ text: `模拟：已发起换图投票（${map.name}）` }))
+      window.rst?.dispatch('toast', JSON.stringify({ text: `模拟：已发起随机换图投票（${map.name}）` }))
       return
     }
 

@@ -6,7 +6,7 @@
     - 兼容手动丢进 resources/ 的原生 MTA map resource（type="map"）
 
     启动只读地图库索引，不打开任何 .map；只有地图被选中时才解析
-    spawnpoint / racepickup / checkpoint。运行槽位 rst_map 不进池子。
+    spawnpoint / racepickup / checkpoint。rst_map_<id> 运行槽位不进池子。
 ]]
 
 MapRegistry = {}
@@ -373,11 +373,10 @@ function MapRegistry.init()
 
     -- 2) 兼容手动丢进 resources/ 的原生 map resource
     local manual = 0
-    local slotName = MapStore and MapStore.slotName or 'rst_map'
     for _, resource in ipairs(getResources()) do
         local resourceName = getResourceName(resource)
         if resourceName
-            and resourceName ~= slotName
+            and not (MapStore and MapStore.isSlotResourceName(resourceName))
             and getResourceInfo(resource, 'type') == 'map'
             and not maps[resourceName]
         then

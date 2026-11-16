@@ -43,7 +43,7 @@ const roomRemainingMs = computed(() => {
 const voteHint = computed(() => {
   if (ui.mapPoolEmpty) return '地图池为空'
   if (ui.vote?.active) return '投票进行中'
-  if (ui.canStartVote) return '30 秒后结算'
+  if (ui.canStartVote) return '随机候选 · 30 秒后结算'
   if (ui.voteCooldown > 0) return `冷却中 ${formatTime(ui.voteCooldown)}`
   return '当前不可发起'
 })
@@ -399,7 +399,7 @@ function respawn(): void {
         <button type="button" class="menu-action" :disabled="!ui.canStartVote || ui.voteCooldown > 0" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">
-            <strong>发起换图投票</strong>
+            <strong>发起随机换图投票</strong>
             <small>{{ voteHint }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />

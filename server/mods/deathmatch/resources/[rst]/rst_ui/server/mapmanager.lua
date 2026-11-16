@@ -2,7 +2,7 @@
     rst_ui / server/mapmanager.lua
 
     同一时间只跑一张地图：
-    - 地图库里的图：先由 MapStore 装进运行槽位 rst_map，再启动槽位
+    - 地图库里的图：先由 MapStore 装进该图独立的 rst_map_<id> 槽位，再启动
     - 手动安装的原生 map resource：直接 start / stop
     地图维度由 .map 决定；地图自带 vehicle 会移除，racepickup / object / marker 保留。
 ]]
@@ -331,7 +331,7 @@ function MapManager.load(mapId, onDone)
         return true
     end
 
-    -- 地图库：先停掉当前图，再装进运行槽位后启动
+    -- 地图库：先停掉当前图，再装进地图级槽位后启动
     stopCurrent()
 
     MapStore.install(mapId, function(ok, err)
@@ -345,7 +345,7 @@ function MapManager.load(mapId, onDone)
             return
         end
 
-        local resource = getResourceFromName(MapStore.slotName)
+        local resource = getResourceFromName(MapStore.slotNameFor(mapId))
         if not resource then
             onDone(false, '地图槽位不存在')
             return
