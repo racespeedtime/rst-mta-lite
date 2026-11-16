@@ -320,6 +320,7 @@ export interface StatePayload {
   canStartVote?: boolean
   canStartRestartVote?: boolean
   canStartStartVote?: boolean
+  startVoteCooldown?: number
   voteCooldown?: number
   canStartModeVote?: boolean
   modeVoteCooldown?: number

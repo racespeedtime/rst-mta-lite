@@ -16,6 +16,9 @@ const balanced = computed(() => ui.ready.balanced !== false)
 const allReady = computed(
   () => (ui.ready.total || 0) > 0 && (ui.ready.ready || 0) >= (ui.ready.total || 0) && balanced.value,
 )
+const startVoteLabel = computed(() =>
+  ui.startVoteCooldown > 0 ? `冷却 ${ui.startVoteCooldown}s` : '发起开局投票',
+)
 
 function ready(): void {
   if (ui.ready.canReady === false) return
@@ -23,7 +26,7 @@ function ready(): void {
 }
 
 function startVote(): void {
-  if (!ui.canStartStartVote) return
+  if (!ui.canStartStartVote || ui.startVoteCooldown > 0) return
   emitAction('startvote:start')
 }
 
@@ -94,10 +97,10 @@ function spectate(): void {
         v-if="allReady && !ui.vote?.active"
         type="button"
         class="ready__button ready__button--start"
-        :disabled="!ui.canStartStartVote"
+        :disabled="!ui.canStartStartVote || ui.startVoteCooldown > 0"
         @click="startVote"
       >
-        发起开局投票
+        {{ startVoteLabel }}
       </button>
 
       <button type="button" class="ready__ob" @click="spectate">

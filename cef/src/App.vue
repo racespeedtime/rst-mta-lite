@@ -150,6 +150,7 @@ function applyState(state: StatePayload): void {
   ui.canStartVote = state.canStartVote === true
   ui.canStartRestartVote = state.canStartRestartVote === true
   ui.canStartStartVote = state.canStartStartVote === true
+  ui.startVoteCooldown = Math.max(0, Number(state.startVoteCooldown) || 0)
   ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
   ui.canStartModeVote = state.canStartModeVote === true
   ui.modeVoteCooldown = Math.max(0, Number(state.modeVoteCooldown) || 0)

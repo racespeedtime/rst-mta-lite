@@ -174,6 +174,15 @@ local function buildState(player, session)
                     end
                 end
                 state.canStartRestartVote = state.canStartVote and isCompetitivePlayer
+
+                local startCooldownLeft = 0
+                if (room.lastStartVoteAt or 0) > 0 then
+                    startCooldownLeft = math.max(
+                        0,
+                        (config.startVoteCooldown or 0) - (now() - room.lastStartVoteAt)
+                    )
+                end
+                state.startVoteCooldown = math.floor(startCooldownLeft)
                 state.canStartStartVote = room.mode == 'competitive'
                     and room.waiting
                     and room.vote == nil
@@ -182,6 +191,7 @@ local function buildState(player, session)
                     and (state.ready.total or 0) > 0
                     and (state.ready.ready or 0) >= (state.ready.total or 0)
                     and state.ready.balanced ~= false
+                    and startCooldownLeft <= 0
 
                 local modeCooldownLeft = 0
                 if (room.lastModeVoteAt or 0) > 0 then

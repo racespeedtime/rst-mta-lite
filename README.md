@@ -209,7 +209,7 @@ mtasa://127.0.0.1:22003
 - 发起人自动投赞成；观战者不能发起 / 参与，也不计入总人数
 - **超过一半参赛者同意**后进入 5 秒出发倒计时
 - 个人竞技只有一名参赛者时，发起后立即满足过半条件，直接进入倒计时
-- 未通过会回到准备阶段，不消耗投票冷却；可以重新发起
+- 未通过会回到准备阶段，只有 10 秒短冷却，不占用换图投票冷却；冷却结束可重新发起
 - 投票进行中不能取消准备或换队，避免状态和票数错位
 
 ### 重开投票
@@ -474,6 +474,7 @@ F2 →「系统」→「清除浏览器缓存」：关闭界面、强制重新�
 | `competitiveLives` | 竞技命数 |
 | `voteSeconds` / `modeVoteSeconds` | 投票时长 |
 | `voteCooldown` / `modeVoteCooldown` | 手动投票冷却 |
+| `startVoteCooldown` | 开局投票短冷却，默认 10 秒 |
 | `manualVoteImmediate` | 自发投票是否立即换图 |
 | `spawnCountdown` / `competitiveCountdown` | 出生 / 开赛倒计时 |
 | `raceEndCountdown` / `raceResultSeconds` | 竞技结算倒计时 / 排行展示时长 |

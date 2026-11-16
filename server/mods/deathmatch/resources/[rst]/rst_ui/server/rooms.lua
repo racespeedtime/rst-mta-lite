@@ -832,6 +832,7 @@ function Rooms.init(onChanged)
             ob = {},
             recentMaps = {},
             lastVoteAt = 0,
+            lastStartVoteAt = 0,
             lastModeVoteAt = 0,
             finishOrder = {},
             finished = {},
@@ -873,7 +874,7 @@ function Rooms.beginCountdown(room)
     clearStartTimer(room)
     room.startTimer = setTimer(function()
         room.startTimer = nil
-        if not room.active or room.waiting or room.mode ~= 'competitive' then
+        if not room.active or room.waiting or room.mode ~= 'competitive' or #room.players == 0 then
             return
         end
         markRaceStart(room)
@@ -1642,6 +1643,7 @@ function Rooms.leave(player)
                     room.mode = config.defaultMode or 'training'
                     room.competitiveMode = 'solo'
                     room.lastVoteAt = 0
+                    room.lastStartVoteAt = 0
                     room.lastModeVoteAt = 0
                 end
             end
@@ -1791,6 +1793,16 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
                     byPlayer and getPlayerName(byPlayer) or '?', math.ceil(remaining)
                 ))
                 return false, ('投票冷却中，还需 %d 秒'):format(math.ceil(remaining))
+            end
+        end
+    end
+
+    if reason == 'start' then
+        local cooldown = tonumber(config.startVoteCooldown) or 10
+        if cooldown > 0 and room.lastStartVoteAt then
+            local remaining = cooldown - (now() - room.lastStartVoteAt)
+            if remaining > 0 then
+                return false, ('开局投票冷却中，还需 %d 秒'):format(math.ceil(remaining))
             end
         end
     end
@@ -2013,6 +2025,13 @@ function Rooms.finishVote(room)
         local yes = counts['__start'] or 0
         local total = #room.players
         room.vote = nil
+        room.lastStartVoteAt = now()
+
+        if room.competitiveMode == 'team' and not teamsBalanced(room) then
+            broadcastNotice('开局投票通过，但红蓝人数已不相等，先调整队伍再重新发起')
+            stateChanged()
+            return
+        end
 
         if total > 0 and yes * 2 > total then
             broadcastNotice(('开局投票通过（%d/%d 同意），开始倒计时'):format(yes, total))

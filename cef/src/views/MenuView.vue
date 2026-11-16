@@ -50,6 +50,7 @@ const voteHint = computed(() => {
 
 const startMatchVoteHint = computed(() => {
   if (ui.vote?.start) return '开局投票进行中'
+  if (ui.startVoteCooldown > 0) return `冷却中 ${formatTime(ui.startVoteCooldown)}`
   if (ui.canStartStartVote) return '全员已准备 · 过半同意后出发'
   return '所有玩家准备后可发起'
 })
@@ -101,7 +102,7 @@ function startVote(): void {
 }
 
 function startMatchVote(): void {
-  if (!ui.canStartStartVote) return
+  if (!ui.canStartStartVote || ui.startVoteCooldown > 0) return
   emitAction('startvote:start')
   emitAction('menu:close')
 }
@@ -384,7 +385,7 @@ function respawn(): void {
           v-if="ui.gameMode === 'competitive' && ui.ready.waiting"
           type="button"
           class="menu-action"
-          :disabled="!ui.canStartStartVote"
+          :disabled="!ui.canStartStartVote || ui.startVoteCooldown > 0"
           @click="startMatchVote"
         >
           <span class="menu-action__icon"><IconFlag class="icon" /></span>

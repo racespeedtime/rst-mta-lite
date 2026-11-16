@@ -20,6 +20,7 @@ RST.config = {
     votePoolSize = 5,       -- 每次投票随机从地图池抽取的候选数量
     voteCooldown = 180,     -- 手动发起换图投票的冷却（秒）
     modeVoteCooldown = 120, -- 手动发起模式投票的冷却（秒）
+    startVoteCooldown = 10, -- 开局投票的短冷却（秒），投票结束/失败后计时
     recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
     manualVoteImmediate = true, -- 玩家自发投票出结果后立即换图；false = 等本回合结束再换
     chatMinIntervalMs = 900,   -- 两条聊天之间的最小间隔（毫秒）
