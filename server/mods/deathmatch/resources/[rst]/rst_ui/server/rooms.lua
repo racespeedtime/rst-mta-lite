@@ -1837,7 +1837,7 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
     if nominee and byPlayer and isElement(byPlayer) then
         room.vote.votes[byPlayer] = nominee
     elseif reason == 'restart' and byPlayer and isElement(byPlayer) then
-        -- 发起重开默认投赞成；单人竞技会立即通过
+        -- 发起重开默认投赞成；个人竞技且只有一名参赛者时会立即通过
         room.vote.votes[byPlayer] = room.mapId
     elseif reason == 'start' and byPlayer and isElement(byPlayer) then
         room.vote.votes[byPlayer] = '__start'

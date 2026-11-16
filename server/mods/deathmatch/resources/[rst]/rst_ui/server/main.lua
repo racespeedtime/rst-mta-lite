@@ -662,7 +662,7 @@ actions['maps:vote'] = function(player, session, data)
     if not ok then
         notify(player, err or '发起投票失败')
     elseif room.vote then
-        -- 单人时提名票会直接出结果，这时不再提示“已发起”
+        -- 只有一名参赛者时提名票会直接出结果，这时不再提示“已发起”
         notify(player, ('已发起换图投票：%s'):format(tostring(map and map.name or mapId)))
     end
     broadcastState()
