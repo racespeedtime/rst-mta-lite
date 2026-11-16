@@ -48,6 +48,13 @@ const voteHint = computed(() => {
   return '当前不可发起'
 })
 
+const restartVoteHint = computed(() => {
+  if (ui.vote?.active) return '投票进行中'
+  if (ui.canStartRestartVote) return '过半同意后重开当前地图'
+  if (ui.voteCooldown > 0) return `冷却中 ${formatTime(ui.voteCooldown)}`
+  return '当前不可发起'
+})
+
 const modeLabel = computed(() => {
   if (ui.gameMode !== 'competitive') return '训练模式'
   return ui.competitiveMode === 'team' ? '团队竞技' : '个人竞技'
@@ -84,6 +91,12 @@ function close(): void {
 function startVote(): void {
   if (!ui.canStartVote || ui.voteCooldown > 0) return
   emitAction('vote:start')
+  emitAction('menu:close')
+}
+
+function startRestartVote(): void {
+  if (!ui.canStartRestartVote) return
+  emitAction('vote:restart')
   emitAction('menu:close')
 }
 
@@ -360,6 +373,21 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>发起换图投票</strong>
             <small>{{ voteHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button
+          v-if="ui.gameMode === 'competitive'"
+          type="button"
+          class="menu-action"
+          :disabled="!ui.canStartRestartVote"
+          @click="startRestartVote"
+        >
+          <span class="menu-action__icon"><IconRotateCcw class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>发起重开投票</strong>
+            <small>{{ restartVoteHint }}</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>

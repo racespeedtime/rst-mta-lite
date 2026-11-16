@@ -112,6 +112,8 @@ export interface VoteState {
   active: boolean
   /** 强制投票（回合到点/完赛）自动弹全屏；false 表示玩家自发投票，按 F4 打开 */
   forced?: boolean
+  /** 重开本图投票（只有当前地图一个选项） */
+  restart?: boolean
   timeLeft: number
   timeLeftMs?: number
   options: VoteOption[]
@@ -314,6 +316,7 @@ export interface StatePayload {
   vote?: VoteState
   modeVote?: ModeVoteState
   canStartVote?: boolean
+  canStartRestartVote?: boolean
   voteCooldown?: number
   canStartModeVote?: boolean
   modeVoteCooldown?: number

@@ -148,6 +148,7 @@ function applyState(state: StatePayload): void {
   ui.modeVote = state.modeVote || null
   if (!ui.modeVote?.active) ui.modeVoteOverlayOpen = false
   ui.canStartVote = state.canStartVote === true
+  ui.canStartRestartVote = state.canStartRestartVote === true
   ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
   ui.canStartModeVote = state.canStartModeVote === true
   ui.modeVoteCooldown = Math.max(0, Number(state.modeVoteCooldown) || 0)

@@ -15,7 +15,7 @@ const teamCounts = computed(() => ui.ready.teams || { red: 0, blue: 0 })
 const balanced = computed(() => ui.ready.balanced !== false)
 
 function ready(): void {
-  if (ui.ready.me || ui.ready.canReady === false) return
+  if (ui.ready.canReady === false) return
   emitAction('ready')
 }
 
@@ -36,7 +36,7 @@ function spectate(): void {
       <p class="ready__eyebrow">竞技准备</p>
       <h1 class="ready__title">准备发车</h1>
       <p class="ready__hint">
-        {{ teamMode ? '团队竞技需要红蓝人数相等，所有玩家准备后开始倒计时。' : '竞技模式需要所有玩家准备后，才会开始 5 秒倒计时。' }}
+        {{ teamMode ? '团队竞技需要红蓝人数相等，所有玩家准备后开始倒计时；换队会取消自己的准备。' : '竞技模式需要所有玩家准备后，才会开始 5 秒倒计时；再次点击可取消准备。' }}
       </p>
 
       <div v-if="teamMode" class="ready__teams">
@@ -74,10 +74,10 @@ function spectate(): void {
         type="button"
         class="ready__button"
         :class="{ 'ready__button--done': ui.ready.me }"
-        :disabled="ui.ready.me || ui.ready.canReady === false"
+        :disabled="ui.ready.canReady === false"
         @click="ready"
       >
-        {{ ui.ready.me ? '已准备，等待其他玩家' : '准备' }}
+        {{ ui.ready.me ? '取消准备' : '准备' }}
       </button>
 
       <button type="button" class="ready__ob" @click="spectate">

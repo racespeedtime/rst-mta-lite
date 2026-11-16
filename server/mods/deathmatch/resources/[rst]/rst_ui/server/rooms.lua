@@ -848,7 +848,7 @@ function Rooms.beginCountdown(room)
     stateChanged()
 end
 
-function Rooms.setReady(player)
+function Rooms.setReady(player, ready)
     local room = Rooms.playerRoom(player)
     if not room or room.mode ~= 'competitive' then
         return false, '当前不是竞技模式'
@@ -862,12 +862,23 @@ function Rooms.setReady(player)
     if room.competitiveMode == 'team' and not room.teamOf[player] then
         return false, '请先选择红队或蓝队'
     end
-    if room.ready[player] then
+
+    local current = room.ready[player] == true
+    if ready == nil then
+        ready = not current
+    end
+    ready = ready == true
+    if ready == current then
         return true
     end
 
-    room.ready[player] = true
-    if allPlayersReady(room) then
+    if ready then
+        room.ready[player] = true
+    else
+        room.ready[player] = nil
+    end
+
+    if ready and allPlayersReady(room) then
         Rooms.beginCountdown(room)
     else
         stateChanged()
@@ -923,7 +934,8 @@ function Rooms.selectTeam(player, team)
     end
 
     putInTeam(room, player, team)
-    room.ready = {}
+    -- 换队只取消自己的准备，不要打断其他人的准备
+    room.ready[player] = nil
     stateChanged()
     return true
 end
@@ -1683,11 +1695,11 @@ function Rooms.tick()
     stateChanged()
 end
 
-function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
+function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride)
     reason = reason or 'manual'
 
-    -- auto / race-end = 回合到点或完赛触发的强制投票；manual = 玩家自发，不打断跑图
-    local forced = reason ~= 'manual'
+    -- auto / race-end = 回合到点或完赛触发的强制投票；manual = 玩家自发，不打断跑图；restart = 重开本图
+    local forced = reason ~= 'manual' and reason ~= 'restart'
 
     if not room then
         return false, '舞台不存在'
@@ -1742,16 +1754,18 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
         end
     end
 
-    local options = pickVoteOptions(room, nominatedMapId)
+    local options = optionsOverride or pickVoteOptions(room, nominatedMapId)
     if #options == 0 then
         return false, '没有可投票的地图'
     end
 
     local nominee
-    for _, option in ipairs(options) do
-        if option.id == nominatedMapId then
-            nominee = option.id
-            break
+    if nominatedMapId then
+        for _, option in ipairs(options) do
+            if option.id == nominatedMapId then
+                nominee = option.id
+                break
+            end
         end
     end
 
@@ -1779,16 +1793,26 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
     -- 发起人的提名默认算 1 票（之后可以改投别人或弃权）
     if nominee and byPlayer and isElement(byPlayer) then
         room.vote.votes[byPlayer] = nominee
+    elseif reason == 'restart' and byPlayer and isElement(byPlayer) then
+        -- 发起重开默认投赞成；单人竞技会立即通过
+        room.vote.votes[byPlayer] = room.mapId
     end
 
     -- 全场只有发起人一个可投票者时，提名票已经凑齐，直接出结果
     local instant = Rooms.allVoted(room)
 
     if not forced and not instant then
-        broadcastNotice(('%s 发起换图投票，按 F4 参与（%d 秒）'):format(
-            byPlayer and getPlayerName(byPlayer) or '玩家',
-            config.voteSeconds or 30
-        ))
+        if reason == 'restart' then
+            broadcastNotice(('%s 发起重开投票，按 F4 参与（%d 秒，过半同意才重开）'):format(
+                byPlayer and getPlayerName(byPlayer) or '玩家',
+                config.voteSeconds or 30
+            ))
+        else
+            broadcastNotice(('%s 发起换图投票，按 F4 参与（%d 秒）'):format(
+                byPlayer and getPlayerName(byPlayer) or '玩家',
+                config.voteSeconds or 30
+            ))
+        end
     end
 
     stateChanged()
@@ -1800,9 +1824,29 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
     return true
 end
 
+function Rooms.startRestartVote(player)
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'competitive' then
+        return false, '只有竞技模式可以重开投票'
+    end
+    if not contains(room.players, player) then
+        return false, '观战者不能发起重开投票'
+    end
+    if not room.mapId or not MapRegistry.peek(room.mapId) then
+        return false, '当前没有可重开的地图'
+    end
+
+    return Rooms.startVote(room, 'restart', nil, player, {
+        { id = room.mapId, name = '重新开始当前地图' },
+    })
+end
+
 function Rooms.castVote(room, player, mapId)
     if not room or not room.vote then
         return false, '当前没有投票'
+    end
+    if room.vote.reason == 'restart' and not contains(room.players, player) then
+        return false, '观战者不能参与重开投票'
     end
 
     mapId = tostring(mapId or '')
@@ -1838,6 +1882,9 @@ function Rooms.abstain(room, player)
     if not room or not room.vote then
         return false, '当前没有投票'
     end
+    if room.vote.reason == 'restart' and not contains(room.players, player) then
+        return false, '观战者不能参与重开投票'
+    end
 
     -- 允许从“已投某图”改成弃权
     room.vote.votes[player] = Rooms.ABSTAIN
@@ -1867,7 +1914,10 @@ function Rooms.allVoted(room)
         end
     end
 
-    local eligible = #room.players + #room.spectators
+    local eligible = #room.players
+    if room.vote.reason ~= 'restart' then
+        eligible = eligible + #room.spectators
+    end
     return eligible > 0 and voted >= eligible
 end
 
@@ -1885,6 +1935,38 @@ function Rooms.finishVote(room)
         else
             counts[mapId] = (counts[mapId] or 0) + 1
         end
+    end
+
+    if vote.reason == 'restart' then
+        local yes = counts[room.mapId] or 0
+        local total = #room.players
+        room.vote = nil
+        room.lastVoteAt = now()
+
+        if total > 0 and yes * 2 > total then
+            broadcastNotice(('重开投票通过（%d/%d 同意，弃权 %d），重新开始当前地图'):format(
+                yes, total, abstained
+            ))
+            startRound(room, room.mapId)
+        else
+            if room.active then
+                broadcastNotice(('重开投票未通过（%d/%d 同意，弃权 %d），比赛继续'):format(
+                    yes, total, abstained
+                ))
+                stateChanged()
+            else
+                -- 投票跨过了回合结束：没有回合可继续，转普通换图投票
+                broadcastNotice(('重开投票未通过（%d/%d 同意），进入换图投票'):format(
+                    yes, total
+                ))
+                room.active = true
+                local ok = Rooms.startVote(room, 'auto')
+                if not ok then
+                    startRound(room)
+                end
+            end
+        end
+        return
     end
 
     -- 规则：票数最多 → 流行度更高 → 随机；全员弃权时等于按热度裁决
@@ -2258,6 +2340,7 @@ function Rooms.voteState(room, player)
     return {
         active = true,
         forced = room.vote.forced ~= false,
+        restart = room.vote.reason == 'restart',
         timeLeft = math.max(0, room.vote.endsAt - now()),
         timeLeftMs = math.max(0, (room.vote.endsAtMs or 0) - RST.nowMs()),
         options = options,

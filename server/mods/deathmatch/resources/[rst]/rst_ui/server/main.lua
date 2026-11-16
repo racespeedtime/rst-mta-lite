@@ -164,6 +164,17 @@ local function buildState(player, session)
                     and cooldownLeft <= 0
                 state.voteCooldown = math.floor(cooldownLeft)
 
+                local isCompetitivePlayer = false
+                if room.mode == 'competitive' then
+                    for _, member in ipairs(room.players) do
+                        if member == player then
+                            isCompetitivePlayer = true
+                            break
+                        end
+                    end
+                end
+                state.canStartRestartVote = state.canStartVote and isCompetitivePlayer
+
                 local modeCooldownLeft = 0
                 if (room.lastModeVoteAt or 0) > 0 then
                     modeCooldownLeft = math.max(
@@ -422,6 +433,25 @@ actions['vote:start'] = function(player, session)
         notify(player, err)
     else
         notify(player, '已发起换图投票')
+    end
+    broadcastState()
+end
+
+actions['vote:restart'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return
+    end
+
+    local ok, err = Rooms.startRestartVote(player)
+    if not ok then
+        notify(player, err)
+    else
+        notify(player, '已发起重开投票')
     end
     broadcastState()
 end
