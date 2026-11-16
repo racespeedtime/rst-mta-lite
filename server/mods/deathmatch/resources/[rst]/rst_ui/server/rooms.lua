@@ -1917,6 +1917,9 @@ function Rooms.startStartVote(player)
     if not allPlayersReady(room) then
         return false, '还有玩家未准备，或红蓝人数不相等'
     end
+    if not room.mapId or not MapRegistry.peek(room.mapId) then
+        return false, '当前没有可开局的地图'
+    end
 
     return Rooms.startVote(room, 'start', nil, player, {
         { id = '__start', name = '开始比赛' },

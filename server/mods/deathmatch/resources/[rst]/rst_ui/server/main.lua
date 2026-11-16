@@ -191,6 +191,7 @@ local function buildState(player, session)
                     and (state.ready.total or 0) > 0
                     and (state.ready.ready or 0) >= (state.ready.total or 0)
                     and state.ready.balanced ~= false
+                    and room.mapId ~= nil
                     and startCooldownLeft <= 0
 
                 local modeCooldownLeft = 0

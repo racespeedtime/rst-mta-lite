@@ -103,7 +103,7 @@ function spectate(): void {
         {{ startVoteLabel }}
       </button>
 
-      <button type="button" class="ready__ob" @click="spectate">
+      <button type="button" class="ready__ob" :disabled="ui.vote?.start === true" @click="spectate">
         改为纯观战
       </button>
     </section>

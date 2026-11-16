@@ -145,6 +145,7 @@ function applyState(state: StatePayload): void {
         ? state.personalBest * 1000
         : null
   ui.vote = state.vote || null
+  if (!ui.vote?.active) ui.voteOverlayOpen = false
   ui.modeVote = state.modeVote || null
   if (!ui.modeVote?.active) ui.modeVoteOverlayOpen = false
   ui.canStartVote = state.canStartVote === true
