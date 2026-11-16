@@ -2533,6 +2533,19 @@ function Rooms.handleDeath(player)
         return
     end
 
+    -- 目标死亡后镜头会脱靶；先清掉正在跟随他的观战人数
+    room.watching = room.watching or {}
+    local watchersCleared = false
+    for spectator, target in pairs(room.watching) do
+        if target == player then
+            room.watching[spectator] = nil
+            watchersCleared = true
+        end
+    end
+    if watchersCleared then
+        stateChanged()
+    end
+
     -- 竞技模式死亡也扣 1 条命；命数耗尽直接转观战，不再安排重生
     if room.mode == 'competitive' then
         local _, _, eliminated = Rooms.consumeLife(player)
