@@ -11,6 +11,7 @@ local HISTORY_SECONDS = 8
 local SAMPLE_INTERVAL_MS = 50
 local HOLD_DELAY_MS = 250
 local RELEASE_FREEZE_MS = 500
+local REWIND_FAST_SPEED = 3
 
 local samples = {}
 local lastSampleAt = 0
@@ -20,8 +21,11 @@ local holdTimer = nil
 local active = false
 local releaseFreezing = false
 local releaseTimer = nil
-local activatedAt = 0
 local currentSampleTime = nil
+-- 倒带播放头按“累计回溯毫秒”推进，按住 Shift 时每帧多退几倍
+local rewindElapsedMs = 0
+local lastRenderAt = 0
+local rewindSpeed = 1
 local captureSample
 local frozenElement = nil
 local lastDispatchAt = 0
@@ -154,6 +158,18 @@ end
 
 local function now()
     return getTickCount()
+end
+
+local function isShiftDown()
+    if type(getKeyState) ~= 'function' then
+        return false
+    end
+    local ok, down = pcall(getKeyState, 'lshift')
+    if ok and down then
+        return true
+    end
+    ok, down = pcall(getKeyState, 'rshift')
+    return ok and down == true
 end
 
 local function applyNitroState(vehicle, level, count)
@@ -308,7 +324,7 @@ local function stopRewind()
     currentSampleTime = nil
 
     if RST.dispatch then
-        RST.dispatch('rewind', { active = false, progress = 0, seconds = 0 })
+        RST.dispatch('rewind', { active = false, progress = 0, seconds = 0, speed = 1 })
     end
 end
 
@@ -381,7 +397,9 @@ local function startRewind()
     end
 
     active = true
-    activatedAt = now()
+    rewindElapsedMs = 0
+    lastRenderAt = now()
+    rewindSpeed = 1
     lastDispatchAt = 0
     currentVX, currentVY, currentVZ = 0, 0, 0
     appliedNitroLevel = nil
@@ -446,7 +464,15 @@ rewindRender = function()
         return
     end
 
-    local elapsed = now() - activatedAt
+    local frameNow = now()
+    local delta = frameNow - (lastRenderAt or frameNow)
+    lastRenderAt = frameNow
+    if delta < 0 or delta > 250 then
+        delta = 0
+    end
+    rewindSpeed = isShiftDown() and REWIND_FAST_SPEED or 1
+    rewindElapsedMs = rewindElapsedMs + delta * rewindSpeed
+    local elapsed = rewindElapsedMs
     if elapsed >= span then
         local first = samples[1]
         setElementPosition(frozenElement, first.x, first.y, first.z)
@@ -532,6 +558,7 @@ rewindRender = function()
             active = true,
             progress = math.max(0, math.min(1, elapsed / span)),
             seconds = math.max(0, (span - elapsed) / 1000),
+            speed = rewindSpeed,
         })
     end
 end

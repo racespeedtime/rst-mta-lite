@@ -75,7 +75,10 @@ watch(
           <span class="map-detail__icon"><IconMapPinned class="icon" /></span>
           <div>
             <p class="map-detail__eyebrow">地图资料</p>
-            <h2>{{ details?.name || ui.room?.mapName || '地图详情' }}</h2>
+            <h2>
+              {{ details?.name || ui.room?.mapName || '地图详情' }}
+              <span v-if="details?.current" class="map-detail__badge">当前地图</span>
+            </h2>
             <p>{{ details?.author || ui.room?.author || '未知作者' }}</p>
           </div>
         </div>
@@ -108,6 +111,7 @@ watch(
 
           <div class="map-detail__native">
             <span>出生点 <strong>{{ details.spawns }}</strong></span>
+            <span>拾取点 <strong>{{ details.pickups ?? 0 }}</strong></span>
             <span>车辆 <strong>{{ vehicleNames(details.vehicles) }}</strong></span>
             <span>维度 <strong>{{ details.dimension }}</strong></span>
             <span>终点 <strong>{{ details.finish ? 'Hunter / 检查点' : '未配置' }}</strong></span>
@@ -148,8 +152,7 @@ watch(
   display: grid;
   place-items: center;
   padding: 40px;
-  background: rgba(2, 6, 12, 0.55);
-  backdrop-filter: blur(3px);
+  background: rgba(2, 6, 12, 0.72);
   pointer-events: auto;
 }
 
@@ -200,6 +203,18 @@ watch(
   margin: 0;
   font-size: 20px;
   font-weight: 600;
+}
+
+.map-detail__badge {
+  display: inline-block;
+  margin-left: 8px;
+  padding: 2px 7px;
+  border: 1px solid rgba(126, 226, 168, 0.4);
+  border-radius: 999px;
+  color: var(--rst-green);
+  font-size: 9px;
+  font-weight: 500;
+  vertical-align: middle;
 }
 
 .map-detail__title p:last-child {

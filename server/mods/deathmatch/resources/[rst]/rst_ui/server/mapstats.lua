@@ -60,4 +60,9 @@ function MapStats.recordPlay(mapId)
         dbExec(db, 'INSERT OR IGNORE INTO map_stats (map_id, plays) VALUES (?, 0)', mapId)
         dbExec(db, 'UPDATE map_stats SET plays = plays + 1 WHERE map_id = ?', mapId)
     end
+
+    -- 热度变了：让地图池只更新这一条，翻页时再重排
+    if MapRegistry and MapRegistry.onPlayRecorded then
+        MapRegistry.onPlayRecorded(mapId)
+    end
 end

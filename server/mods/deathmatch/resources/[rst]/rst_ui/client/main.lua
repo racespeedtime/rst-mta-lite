@@ -27,6 +27,8 @@ local scoreboardOpen = false
 local scoreboardTimer = nil
 local helpOpen = false
 local voteActive = false
+local voteForced = false
+local voteUiOpen = false
 local readyWaiting = false
 local interactive = false
 local setSpawnControlLock
@@ -54,6 +56,8 @@ RST = {
     chatOpen = false,
     helpOpen = false,
     voteActive = false,
+    voteForced = false,
+    voteUiOpen = false,
     countdownActive = false,
     readyWaiting = false,
     rewindLives = nil,
@@ -226,7 +230,7 @@ local function closeScoreboard()
 end
 
 local function openScoreboard()
-    if scoreboardOpen or phase ~= 'playing' or menuOpen or voteActive or readyWaiting or helpOpen then
+    if scoreboardOpen or phase ~= 'playing' or menuOpen or voteForced or readyWaiting or helpOpen then
         return
     end
     scoreboardOpen = true
@@ -321,7 +325,8 @@ local function isForcedCursor()
         or mapPoolOpen
         or recordsOpen
         or helpOpen
-        or voteActive
+        or voteForced
+        or voteUiOpen
         or readyWaiting
 end
 
@@ -364,6 +369,22 @@ end
 
 local function applyInteractive()
     updateCursor()
+end
+
+-- 玩家自发投票：F3 打开 / 关闭投票面板；强制投票由 VoteView 自动接管，不走这里
+local function setVoteUi(open)
+    open = open == true
+    if open and (not voteActive or voteForced) then
+        open = false
+    end
+    if open == voteUiOpen then
+        dispatch('voteui', { open = voteUiOpen })
+        return
+    end
+    voteUiOpen = open
+    RST.voteUiOpen = open
+    dispatch('voteui', { open = open })
+    applyInteractive()
 end
 
 -- 倒计时/准备阶段双保险：服务端冻结之外，本地也锁输入和载具。
@@ -761,6 +782,7 @@ local function applyState(state)
     local previousPhase = phase
     local previousMode = mode
     local previousVote = voteActive
+    local previousVoteUi = voteUiOpen
 
     local nextPhase = state.phase
     if nextPhase ~= 'auth' and nextPhase ~= 'stage' and nextPhase ~= 'playing' then
@@ -770,16 +792,33 @@ local function applyState(state)
 
     phase = nextPhase
     mode = (state.me and state.me.mode) or 'playing'
-    voteActive = (type(state.vote) == 'table' and state.vote.active == true)
-        or (type(state.modeVote) == 'table' and state.modeVote.active == true)
+    local voteTable = type(state.vote) == 'table' and state.vote or nil
+    local modeVoteTable = type(state.modeVote) == 'table' and state.modeVote or nil
+    voteActive = (voteTable ~= nil and voteTable.active == true)
+        or (modeVoteTable ~= nil and modeVoteTable.active == true)
+    -- 强制投票（回合到点/完赛）自动弹全屏；玩家自发的投票只在按 F3 时弹出
+    voteForced = (modeVoteTable ~= nil and modeVoteTable.active == true)
+        or (voteTable ~= nil and voteTable.active == true and voteTable.forced ~= false)
+    if not voteActive or voteForced then
+        voteUiOpen = false
+    elseif voteTable ~= nil and voteTable.started == true and not previousVote then
+        -- 自己发起的投票：直接打开面板，省得再按 F4
+        voteUiOpen = true
+    end
+
     readyWaiting = type(state.ready) == 'table'
         and state.ready.waiting == true
 
     RST.phase = phase
     RST.mode = mode
     RST.voteActive = voteActive
+    RST.voteForced = voteForced
+    RST.voteUiOpen = voteUiOpen
     RST.readyWaiting = readyWaiting
     RST.rewindLives = tonumber(state.lives)
+    if previousVoteUi ~= voteUiOpen then
+        dispatch('voteui', { open = voteUiOpen })
+    end
 
     local previousMapId = RST.mapId
     local previousRoomId = RST.roomId
@@ -797,11 +836,11 @@ local function applyState(state)
     end
 
     disableMotionBlur()
-    setChatSuppressed(phase ~= 'playing' or voteActive or readyWaiting)
-    if (phase ~= 'playing' or voteActive or readyWaiting) and RST.stopWarp then
+    setChatSuppressed(phase ~= 'playing' or voteForced or readyWaiting)
+    if (phase ~= 'playing' or voteForced or readyWaiting) and RST.stopWarp then
         RST.stopWarp()
     end
-    if scoreboardOpen and (phase ~= 'playing' or voteActive or readyWaiting) then
+    if scoreboardOpen and (phase ~= 'playing' or voteForced or readyWaiting) then
         closeScoreboard()
     end
 
@@ -811,13 +850,13 @@ local function applyState(state)
         dispatch('menu', { open = false })
     end
 
-    if chatOpen and (phase ~= 'playing' or voteActive or readyWaiting) then
+    if chatOpen and (phase ~= 'playing' or voteForced or readyWaiting) then
         chatOpen = false
         RST.chatOpen = false
         dispatch('chat', { open = false })
     end
 
-    if helpOpen and (phase ~= 'playing' or voteActive) then
+    if helpOpen and (phase ~= 'playing' or voteForced) then
         helpOpen = false
         RST.helpOpen = false
         dispatch('help', { open = false })
@@ -897,7 +936,7 @@ local function setHelpOpen(open)    open = open == true
     if open == helpOpen then
         return
     end
-    if open and (phase ~= 'playing' or voteActive) then
+    if open and (phase ~= 'playing' or voteForced) then
         return
     end
 
@@ -1085,7 +1124,6 @@ local function injectBrowserWheel(delta)
         var selectors = [
             '.menu-panel',
             '.vote__options',
-            '.chat__list',
             '.competition__body',
             '.map-pool__list',
             '.records__table-wrap',
@@ -1162,7 +1200,7 @@ addEventHandler('onClientKey', root, function(button, press)
         if isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
             return
         end
-        if phase ~= 'playing' or menuOpen or voteActive or readyWaiting or helpOpen then
+        if phase ~= 'playing' or menuOpen or voteForced or readyWaiting or helpOpen then
             return
         end
         cancelEvent()
@@ -1183,6 +1221,9 @@ addEventHandler('onClientKey', root, function(button, press)
     local handled = false
     if scoreboardOpen then
         closeScoreboard()
+        handled = true
+    elseif voteUiOpen then
+        setVoteUi(false)
         handled = true
     elseif mapDetailsOpen then
         mapDetailsOpen = false
@@ -1228,6 +1269,25 @@ addEventHandler('onClientKey', root, function(button, press)
     setMenuOpen(not menuOpen)
 end)
 
+-- F4：换图投票面板。玩家自发的投票不弹全屏，按 F4 才打开（F3 已经被自由鼠标占用）
+addEventHandler('onClientKey', root, function(button, press)
+    if not press or tostring(button):lower() ~= 'f4' then
+        return
+    end
+    if phase ~= 'playing' or isChatBoxInputActive() or isConsoleActive() or isMTAWindowActive() then
+        return
+    end
+    cancelEvent()
+    if not voteActive then
+        dispatch('toast', { text = '当前没有换图投票' })
+        return
+    end
+    if voteForced then
+        return
+    end
+    setVoteUi(not voteUiOpen)
+end)
+
 -- CEF 是 dxDrawImage 绘制的，不是 GUI 元素，onClientMouseWheel 在部分客户端不会触发；
 -- 用 onClientKey 的滚轮事件补充。
 addEventHandler('onClientKey', root, function(button, press)
@@ -1264,6 +1324,7 @@ addEvent('rst:ui:state', true)
 addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
 addEvent('rst:ui:maps', true)
+addEvent('rst:ui:mapdetail', true)
 addEvent('rst:ui:records', true)
 addEvent('rst:scoreboard:data', true)
 addEvent('rst:ui:countdown', true)
@@ -1291,6 +1352,8 @@ addEventHandler('rst:ui:action', root, function(json)
 
     if data.action == 'sound' then
         playUiSound(tostring(data.name or 'click'))
+    elseif data.action == 'voteui' then
+        setVoteUi(data.open == true)
     elseif data.action == 'mapdetails' then
         mapDetailsOpen = data.open == true
         applyInteractive()
@@ -1424,6 +1487,13 @@ addEventHandler('rst:ui:maps', root, function(json)
     local data = fromJSON(json or '')
     if type(data) == 'table' then
         dispatch('mapsPage', data)
+    end
+end)
+
+addEventHandler('rst:ui:mapdetail', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' then
+        dispatch('mapDetail', data)
     end
 end)
 

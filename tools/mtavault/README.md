@@ -83,13 +83,21 @@ node tools/mtavault/install-mapmeta-db.mjs --force
 
 使用或再分发地图前请确认作者授权。
 
-地图 zip 放到：
+地图 zip **不要**直接堆进 `resources/`：MTA 启动时会加载每个 resource 并对其
+`meta.xml` 声明的文件算 MD5，4486 张地图约 26 GB，会让开服从几秒变成十几分钟。
+
+放到备份目录，再展开成按需地图库：
 
 ```text
-server/mods/deathmatch/resources/
+server/mods/deathmatch/map-cache/zips/    ← zip（download-all-maps.mjs 默认输出在外面，可搬进来）
+server/mods/deathmatch/resources/[rst]/maplib/   ← 展开后的地图库 + index.json
 ```
 
-MTA 支持 zip resource，不需要解压。资源名就是 zip 文件名去掉 `.zip`。
+```bash
+node tools/mapstore/build-library.mjs
+```
+
+说明见 `tools/mapstore/README.md`。
 
 客户端只下载当前被选中的地图。
 

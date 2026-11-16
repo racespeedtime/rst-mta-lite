@@ -13,6 +13,7 @@
     <script src="server/mapstats.lua" type="server" />
     <script src="server/records.lua" type="server" />
     <script src="server/mapmeta.lua" type="server" />
+    <script src="server/mapstore.lua" type="server" />
     <script src="server/mapregistry.lua" type="server" />
     <script src="server/mapmanager.lua" type="server" />
     <script src="server/rooms.lua" type="server" />
@@ -60,10 +61,14 @@
     <!-- 核心 UI / 模型 fallback 先于地图资源启动，地图模型随后覆盖 -->
     <download_priority_group>100</download_priority_group>
 
-    <!-- 需要管理员批准：允许读取/切换 mtavault 地图资源 -->
+    <!-- 需要管理员批准：按需装载地图库 / 切换地图资源 -->
     <aclrequest>
         <right name="function.startResource" access="true" />
         <right name="function.stopResource" access="true" />
+        <right name="function.restartResource" access="true" />
+        <right name="function.createResource" access="true" />
+        <right name="function.deleteResource" access="true" />
+        <right name="function.refreshResources" access="true" />
         <right name="function.xmlLoadFile" access="true" />
     </aclrequest>
 </meta>

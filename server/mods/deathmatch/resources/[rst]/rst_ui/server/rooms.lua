@@ -59,6 +59,21 @@ local function removePlayer(list, player)
     return false
 end
 
+-- 弃权标记：投票里合法的一票，但不计入任何地图
+Rooms.ABSTAIN = '__abstain'
+
+-- 强制投票（回合到点 / 完赛自动发起）会接管画面并停掉当前回合；
+-- 玩家自发的换图投票不打断跑图，只在回合结束时生效。
+local function voteBlocksRound(room)
+    return room.vote ~= nil and room.vote.forced ~= false
+end
+
+local function broadcastNotice(text)
+    for _, player in ipairs(getElementsByType('player')) do
+        triggerClientEvent(player, 'rst:ui:notice', player, tostring(text))
+    end
+end
+
 local TEAM_NAMES = { red = '红队', blue = '蓝队' }
 
 local function teamColor(team)
@@ -180,7 +195,9 @@ local function shuffle(list)
 end
 
 -- 随机图池：优先不包含最近玩过和当前地图
-local function pickVoteOptions(room)
+-- 随机图池：优先不包含最近玩过和当前地图。
+-- nominatedMapId（地图池里点名的那张）固定放在第一个候选位。
+local function pickVoteOptions(room, nominatedMapId)
     if MapRegistry.count() == 0 then
         return {}
     end
@@ -191,10 +208,20 @@ local function pickVoteOptions(room)
         recent[mapId] = true
     end
 
+    local nominated
+    if nominatedMapId and nominatedMapId ~= ''
+        and nominatedMapId ~= room.mapId
+        and MapRegistry.peek(nominatedMapId)
+        and not mapUsedByOtherRoom(room, nominatedMapId)
+    then
+        nominated = nominatedMapId
+    end
+
     local fresh, old = {}, {}
     for _, mapId in ipairs(MapRegistry.list()) do
         if
             mapId ~= room.mapId
+            and mapId ~= nominated
             and MapRegistry.peek(mapId)
             and not mapUsedByOtherRoom(room, mapId)
         then
@@ -210,6 +237,9 @@ local function pickVoteOptions(room)
     shuffle(old)
 
     local selected = {}
+    if nominated then
+        selected[1] = nominated
+    end
     for _, list in ipairs({ fresh, old }) do
         for _, mapId in ipairs(list) do
             if #selected < poolSize then
@@ -397,51 +427,12 @@ local function spawnPlayerInRoom(player, room, countdown, waiting)
     end
 end
 
-local function startRound(room, forcedMapId)
-    if MapRegistry.count() == 0 then
-        room.active = false
-        room.roundEnds = 0
-        room.vote = nil
-        room.modeVote = nil
-        room.waiting = false
-        outputServerLog('[MAP] 地图池为空，无法开始回合')
-        stateChanged()
-        return false, '地图池为空，请联系管理员添加地图'
-    end
-
-    if room.mapId then
-        table.insert(room.recentMaps, 1, room.mapId)
-        while #room.recentMaps > (config.recentMapLimit or 2) do
-            table.remove(room.recentMaps)
-        end
-    end
-
-    room.mapId = forcedMapId or pickMap(room)
-    if not room.mapId or not MapRegistry.peek(room.mapId) then
-        room.active = false
-        room.roundEnds = 0
-        room.waiting = false
-        outputServerLog('[MAP] 没有可用地图')
-        stateChanged()
-        return false, '没有可用地图'
-    end
-
-    outputServerLog(('[ROUND] start map=%s players=%d spectators=%d'):format(
-        tostring(room.mapId), #room.players, #room.spectators
-    ))
-    local mapOk, mapErr = MapManager.load(room.mapId)
-    if not mapOk then
-        room.active = false
-        room.roundEnds = 0
-        room.vote = nil
-        room.modeVote = nil
-        room.waiting = false
-        outputServerLog(('[MAP] 加载失败：%s'):format(tostring(mapErr)))
-        stateChanged()
-        return false, mapErr or '地图加载失败'
-    end
-
+-- 地图装载是异步的：首次换图要把文件复制进运行槽位再 refresh，
+-- 所以「真正开局」拆成 applyRoundStart，由 MapManager 的回调触发。
+local function applyRoundStart(room)
+    room.loadingMap = false
     MapStats.recordPlay(room.mapId)
+
     -- 统一使用全局单图时长；地图 meta 里的 #duration 不再覆盖它
     local roundSeconds = config.roundSeconds
     room.active = true
@@ -502,6 +493,97 @@ local function startRound(room, forcedMapId)
     return true, 'started'
 end
 
+local function abortRound(room, err)
+    room.loadingMap = false
+    room.active = false
+    room.roundEnds = 0
+    room.roundEndsMs = 0
+    room.vote = nil
+    room.modeVote = nil
+    room.waiting = false
+    for _, player in ipairs(room.players) do
+        if isElement(player) then
+            setPlayerFrozen(player, false)
+        end
+    end
+    outputServerLog(('[MAP] 加载失败：%s'):format(tostring(err)))
+    stateChanged()
+end
+
+local function startRound(room, forcedMapId, attempt)
+    attempt = attempt or 1
+    room.nextMapId = nil
+
+    if MapRegistry.count() == 0 then
+        room.active = false
+        room.roundEnds = 0
+        room.vote = nil
+        room.modeVote = nil
+        room.waiting = false
+        outputServerLog('[MAP] 地图池为空，无法开始回合')
+        stateChanged()
+        return false, '地图池为空，请联系管理员添加地图'
+    end
+
+    if room.mapId then
+        table.insert(room.recentMaps, 1, room.mapId)
+        while #room.recentMaps > (config.recentMapLimit or 2) do
+            table.remove(room.recentMaps)
+        end
+    end
+
+    room.mapId = forcedMapId or pickMap(room)
+    if not room.mapId or not MapRegistry.peek(room.mapId) then
+        room.active = false
+        room.roundEnds = 0
+        room.waiting = false
+        outputServerLog('[MAP] 没有可用地图')
+        stateChanged()
+        return false, '没有可用地图'
+    end
+
+    outputServerLog(('[ROUND] start map=%s players=%d spectators=%d'):format(
+        tostring(room.mapId), #room.players, #room.spectators
+    ))
+
+    -- 装载期间先关掉回合状态，避免 tick 在异步装载窗口里重复触发投票
+    room.loadingMap = true
+    room.active = false
+    room.roundEnds = 0
+    room.roundEndsMs = 0
+    room.raceFinal = false
+
+    -- 装载期间先冻住，避免旧图停掉后玩家在空世界里乱跑
+    for _, player in ipairs(room.players) do
+        if isElement(player) then
+            setPlayerFrozen(player, true)
+        end
+    end
+
+    MapManager.load(room.mapId, function(ok, err)
+        if ok then
+            applyRoundStart(room)
+            return
+        end
+
+        -- 装不出来的图直接从池子里摘掉，避免每回合都撞上同一张坏图
+        local failedId = room.mapId
+        MapRegistry.drop(failedId)
+        if attempt < 3 and MapRegistry.count() > 0 then
+            outputServerLog(('[MAP] %s 装载失败，换一张重试：%s'):format(
+                tostring(failedId), tostring(err)
+            ))
+            room.mapId = nil
+            startRound(room, nil, attempt + 1)
+            return
+        end
+
+        abortRound(room, err)
+    end)
+
+    return true, 'starting'
+end
+
 local function topEntries(room, player)
     local top = {}
     for index = 1, math.min(3, #room.finishOrder) do
@@ -556,7 +638,7 @@ end
 -- Hunter 终点 pickup 命中的瞬间直接判定完赛，不再只依赖坐标半径
 function Rooms.hunterFinish(player)
     local room = Rooms.playerRoom(player)
-    if not room or not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+    if not room or not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
         return false
     end
     if not contains(room.players, player) or not room.playerStartedAtMs[player] then
@@ -587,7 +669,7 @@ local function finishRace(room)
 end
 
 local function checkFinishes(room, time)
-    if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+    if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
         return
     end
 
@@ -699,6 +781,7 @@ function Rooms.init(onChanged)
             dimension = def.dimension,
             mapId = nil,
             active = false,
+            loadingMap = false,
             roundEnds = 0,
             roundEndsMs = 0,
             players = {},
@@ -1160,7 +1243,7 @@ function Rooms.respawn(player)
     if room.mode ~= 'training' then
         return false, '仅训练模式支持主动重生'
     end
-    if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+    if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
         return false, '当前不能重生'
     end
 
@@ -1237,6 +1320,16 @@ function Rooms.join(player, roomId)
 
     Rooms.leave(player)
     setElementDimension(player, room.dimension)
+
+    -- 地图装载中：加入者直接算参赛，装载完成后一起出生
+    if room.loadingMap then
+        room.players[#room.players + 1] = player
+        outputServerLog(('[ROOM] join %s -> %s (loading map) players=%d'):format(
+            tostring(getPlayerName(player)), tostring(room.id), #room.players
+        ))
+        stateChanged()
+        return 'playing', room
+    end
 
     -- 投票 / 回合进行中：加入者为观战
     if room.vote or room.modeVote or (room.active and #room.players > 0) then
@@ -1338,33 +1431,50 @@ function Rooms.tick()
     local time = now()
 
     for _, room in pairs(rooms) do
-        if room.modeVote then
-            if time >= room.modeVote.endsAt then
-                Rooms.finishModeVote(room)
-            end
-        elseif room.vote then
-            if time >= room.vote.endsAt then
-                Rooms.finishVote(room)
-            end
-        else
+        local modeVoteRunning = room.modeVote ~= nil
+
+        if room.modeVote and time >= room.modeVote.endsAt then
+            Rooms.finishModeVote(room)
+            modeVoteRunning = room.modeVote ~= nil
+        end
+        if room.vote and time >= room.vote.endsAt then
+            Rooms.finishVote(room)
+        end
+
+        -- 强制投票接管画面时不做回合判定；玩家自发的投票不打断跑图，回合照常推进
+        local blockingVote = voteBlocksRound(room)
+
+        if not blockingVote and not modeVoteRunning then
             checkFinishes(room, time)
 
             if room.mode == 'competitive' and room.active and room.raceEndsAt > 0 and not room.raceFinal and time >= room.raceEndsAt then
                 finishRace(room)
             elseif room.raceFinal and room.resultsUntil > 0 and time >= room.resultsUntil then
-                local ok = Rooms.startVote(room, 'race-end')
-                if ok then
+                if room.nextMapId then
+                    -- 自发投票已经出结果：直接切图，不再发起新的换图投票
+                    local nextMapId = room.nextMapId
+                    room.nextMapId = nil
                     room.raceFinal = false
                     room.raceEndsAt = 0
                     room.raceEndsAtMs = 0
                     room.resultsUntil = 0
                     room.resultsUntilMs = 0
+                    startRound(room, nextMapId)
                 else
-                    room.resultsUntil = 0
-                    room.resultsUntilMs = 0
-                    for _, player in ipairs(room.players) do
-                        if isElement(player) then
-                            setPlayerFrozen(player, false)
+                    local ok = Rooms.startVote(room, 'race-end')
+                    if ok then
+                        room.raceFinal = false
+                        room.raceEndsAt = 0
+                        room.raceEndsAtMs = 0
+                        room.resultsUntil = 0
+                        room.resultsUntilMs = 0
+                    else
+                        room.resultsUntil = 0
+                        room.resultsUntilMs = 0
+                        for _, player in ipairs(room.players) do
+                            if isElement(player) then
+                                setPlayerFrozen(player, false)
+                            end
                         end
                     end
                 end
@@ -1372,7 +1482,20 @@ function Rooms.tick()
                 and room.raceEndsAt == 0 and not room.raceFinal
                 and time >= room.roundEnds
             then
-                Rooms.startVote(room, 'auto')
+                if room.nextMapId then
+                    -- 自发投票出过结果：回合到点直接换到那张图
+                    local nextMapId = room.nextMapId
+                    room.nextMapId = nil
+                    startRound(room, nextMapId)
+                elseif room.vote then
+                    -- 回合到点但自发投票还没结束：先结束本回合，等投票结果出来再开下一张
+                    room.active = false
+                    room.roundEnds = 0
+                    room.roundEndsMs = 0
+                    broadcastNotice('回合时间到，等待换图投票结果')
+                else
+                    Rooms.startVote(room, 'auto')
+                end
             end
 
             for player, returnAt in pairs(room.trainingReturns) do
@@ -1386,8 +1509,11 @@ function Rooms.tick()
     stateChanged()
 end
 
-function Rooms.startVote(room, reason)
+function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
     reason = reason or 'manual'
+
+    -- auto / race-end = 回合到点或完赛触发的强制投票；manual = 玩家自发，不打断跑图
+    local forced = reason ~= 'manual'
 
     if not room then
         return false, '舞台不存在'
@@ -1410,8 +1536,19 @@ function Rooms.startVote(room, reason)
     if room.startingUntil and RST.nowMs() < room.startingUntil then
         return false, '出发倒计时中，无法发起投票'
     end
+    if room.raceFinal or (room.resultsUntil or 0) > 0 then
+        return false, '回合正在结算，稍后再发起投票'
+    end
     if #room.players == 0 and #room.spectators == 0 then
         return false, '舞台里没有玩家'
+    end
+    if nominatedMapId then
+        if nominatedMapId == room.mapId then
+            return false, '当前正在玩这张图'
+        end
+        if not MapRegistry.peek(nominatedMapId) then
+            return false, '地图池里没有这张图'
+        end
     end
 
     if reason ~= 'auto' and (config.voteCooldown or 0) > 0 then
@@ -1424,29 +1561,72 @@ function Rooms.startVote(room, reason)
         end
     end
 
-    local options = pickVoteOptions(room)
+    local options = pickVoteOptions(room, nominatedMapId)
     if #options == 0 then
         return false, '没有可投票的地图'
     end
 
+    local nominee
+    for _, option in ipairs(options) do
+        if option.id == nominatedMapId then
+            nominee = option.id
+            break
+        end
+    end
+
     room.lastVoteAt = now()
-    room.active = false
-    room.roundEnds = 0
-    room.roundEndsMs = 0
+
+    -- 强制投票接管画面前先结束回合；自发投票保持回合继续跑
+    if forced then
+        room.active = false
+        room.roundEnds = 0
+        room.roundEndsMs = 0
+    end
+
     room.vote = {
         options = options,
         votes = {},
         endsAt = now() + config.voteSeconds,
         endsAtMs = RST.nowMs() + config.voteSeconds * 1000,
+        nominee = nominee,
+        nomineeBy = nominee and byPlayer and getPlayerName(byPlayer) or nil,
+        forced = forced,
+        reason = reason,
+        byPlayer = byPlayer,
     }
 
+    -- 发起人的提名默认算 1 票（之后可以改投别人或弃权）
+    if nominee and byPlayer and isElement(byPlayer) then
+        room.vote.votes[byPlayer] = nominee
+    end
+
+    -- 全场只有发起人一个可投票者时，提名票已经凑齐，直接出结果
+    local instant = Rooms.allVoted(room)
+
+    if not forced and not instant then
+        broadcastNotice(('%s 发起换图投票，按 F4 参与（%d 秒）'):format(
+            byPlayer and getPlayerName(byPlayer) or '玩家',
+            config.voteSeconds or 30
+        ))
+    end
+
     stateChanged()
+
+    if instant then
+        Rooms.finishVote(room)
+    end
+
     return true
 end
 
 function Rooms.castVote(room, player, mapId)
     if not room or not room.vote then
         return false, '当前没有投票'
+    end
+
+    mapId = tostring(mapId or '')
+    if mapId == Rooms.ABSTAIN then
+        return Rooms.abstain(room, player)
     end
 
     local valid = false
@@ -1460,11 +1640,26 @@ function Rooms.castVote(room, player, mapId)
     if not valid then
         return false, '无效的选项'
     end
-    if room.vote.votes[player] then
-        return false, '你已经投过票了'
+
+    -- 允许改票：以最后一次选择为准
+    room.vote.votes[player] = mapId
+    stateChanged()
+
+    if Rooms.allVoted(room) then
+        Rooms.finishVote(room)
     end
 
-    room.vote.votes[player] = mapId
+    return true
+end
+
+-- 弃权：算作已表态（可以让投票提前结束），但不计入任何地图票数
+function Rooms.abstain(room, player)
+    if not room or not room.vote then
+        return false, '当前没有投票'
+    end
+
+    -- 允许从“已投某图”改成弃权
+    room.vote.votes[player] = Rooms.ABSTAIN
     stateChanged()
 
     if Rooms.allVoted(room) then
@@ -1502,11 +1697,16 @@ function Rooms.finishVote(room)
 
     local vote = room.vote
     local counts = {}
+    local abstained = 0
     for _, mapId in pairs(vote.votes) do
-        counts[mapId] = (counts[mapId] or 0) + 1
+        if mapId == Rooms.ABSTAIN then
+            abstained = abstained + 1
+        else
+            counts[mapId] = (counts[mapId] or 0) + 1
+        end
     end
 
-    -- 规则：票数最多 → 流行度更高 → 随机
+    -- 规则：票数最多 → 流行度更高 → 随机；全员弃权时等于按热度裁决
     local bestCount = -1
     local bestPopularity = -1
     local tied = {}
@@ -1525,8 +1725,48 @@ function Rooms.finishVote(room)
     end
 
     local winner = tied[math.random(#tied)] or vote.options[1].id
+    local winnerName = winner
+    for _, option in ipairs(vote.options) do
+        if option.id == winner then
+            winnerName = option.name or winner
+            break
+        end
+    end
 
     room.vote = nil
+
+    local roundRunning = room.active and not room.raceFinal and (room.roundEnds or 0) > 0
+    local manual = vote and vote.forced == false
+
+    -- 自发投票选中当前地图 = 保留，不重开本回合
+    if manual and winner == room.mapId then
+        broadcastNotice(('换图投票结果：%s（弃权 %d 票），保留当前地图，本回合继续'):format(
+            tostring(winnerName), abstained
+        ))
+        stateChanged()
+        return
+    end
+
+    -- 自发投票出结果立即换图（不弹全屏，但当前回合会结束）
+    if manual and roundRunning and config.manualVoteImmediate ~= false then
+        broadcastNotice(('换图投票结果：%s（弃权 %d 票），立即切换'):format(
+            tostring(winnerName), abstained
+        ))
+        startRound(room, winner)
+        stateChanged()
+        return
+    end
+
+    -- 配置成延后生效时：回合还在跑就先记下来，等回合结束再换
+    if manual and roundRunning then
+        room.nextMapId = winner
+        broadcastNotice(('换图投票结果：%s（弃权 %d 票），本回合结束后切换'):format(
+            tostring(winnerName), abstained
+        ))
+        stateChanged()
+        return
+    end
+
     startRound(room, winner)
     stateChanged()
 end
@@ -1778,8 +2018,13 @@ function Rooms.voteState(room, player)
     end
 
     local counts = {}
+    local abstained = 0
     for _, mapId in pairs(room.vote.votes) do
-        counts[mapId] = (counts[mapId] or 0) + 1
+        if mapId == Rooms.ABSTAIN then
+            abstained = abstained + 1
+        else
+            counts[mapId] = (counts[mapId] or 0) + 1
+        end
     end
 
     local options = {}
@@ -1792,14 +2037,20 @@ function Rooms.voteState(room, player)
             popularity = MapStats.popularity(option.id),
             plays = MapStats.getPlays(option.id),
             votes = counts[option.id] or 0,
+            nominee = option.id == room.vote.nominee,
         }
     end
 
     return {
         active = true,
+        forced = room.vote.forced ~= false,
         timeLeft = math.max(0, room.vote.endsAt - now()),
         timeLeftMs = math.max(0, (room.vote.endsAtMs or 0) - RST.nowMs()),
         options = options,
+        nominee = room.vote.nominee,
+        nomineeBy = room.vote.nomineeBy,
+        abstain = abstained,
+        started = room.vote.byPlayer == player,
         mine = room.vote.votes[player],
     }
 end
@@ -1809,7 +2060,7 @@ function Rooms.handleDeath(player)
     if not room or not room.active or not contains(room.players, player) then
         return
     end
-    if room.waiting or room.vote or room.modeVote or room.raceFinal then
+    if room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
         return
     end
     if room.finished[player] or room.trainingReturns[player] then
@@ -1828,7 +2079,7 @@ function Rooms.handleDeath(player)
         if currentRoom ~= room or room.mapId ~= mapId then
             return
         end
-        if not room.active or room.waiting or room.vote or room.modeVote or room.raceFinal then
+        if not room.active or room.waiting or voteBlocksRound(room) or room.modeVote or room.raceFinal then
             return
         end
         if not contains(room.players, player) or room.finished[player] then

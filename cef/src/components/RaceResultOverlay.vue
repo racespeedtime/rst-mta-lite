@@ -151,7 +151,6 @@ const remainingMs = computed(() => {
   border-radius: 11px;
   background: rgba(8, 16, 28, 0.9);
   box-shadow: 0 14px 36px rgba(0, 0, 0, 0.35);
-  backdrop-filter: blur(8px);
 }
 
 .race-result__banner-title {

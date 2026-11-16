@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
+import { ElConfigProvider } from 'element-plus'
+import zhCn from 'element-plus/es/locale/lang/zh-cn'
+
 import GameHud from '@/components/GameHud.vue'
 import ChatPanel from '@/components/ChatPanel.vue'
 import MapTimer from '@/components/MapTimer.vue'
@@ -99,6 +102,8 @@ function applyState(state: StatePayload): void {
   const previousPhase = ui.phase
   const previousRaceResult = ui.raceResult
   const previousLives = ui.lives
+  const previousVote = ui.vote
+  const previousModeVote = ui.modeVote
 
   ui.phase = state.phase
   if (state.serverName) ui.serverName = state.serverName
@@ -151,6 +156,15 @@ function applyState(state: StatePayload): void {
 
   ui.stateAt = performance.now()
 
+  // 刚开始投票时收起地图池/详情，直接让玩家看到投票界面（投票进行中仍可手动再打开）
+  const voteJustStarted =
+    (!previousVote?.active && ui.vote?.active) || (!previousModeVote?.active && ui.modeVote?.active)
+  if (voteJustStarted) {
+    ui.mapPoolOpen = false
+    ui.mapDetailsOpen = false
+    ui.recordsOpen = false
+  }
+
   if (previousPhase !== state.phase) {
     ui.busy = false
     if (state.phase !== 'auth') ui.authError = ''
@@ -172,6 +186,10 @@ function applyState(state: StatePayload): void {
     ui.helpOpen = false
   }
   if (state.phase !== 'playing') ui.countdown.active = false
+}
+
+function openVotePanel(): void {
+  emitAction('voteui', { open: true })
 }
 
 function onAnyClick(event: MouseEvent): void {
@@ -232,6 +250,21 @@ function onCursorKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
+  // 纯浏览器调试：?pool 自动打开地图池，?vote 直接进入投票面板（只在 dev 生效）
+  if (import.meta.env.DEV) {
+    let devOpened = false
+    watch(
+      () => ui.phase,
+      (phase) => {
+        if (phase !== 'playing' || devOpened) return
+        devOpened = true
+        if (window.location.search.includes('pool')) ui.mapPoolOpen = true
+        if (window.location.search.includes('vote')) ui.voteOverlayOpen = true
+      },
+      { immediate: true },
+    )
+  }
+
   const theme = loadThemeSettings()
   ui.themeMode = theme.mode
   ui.accentColor = theme.accent
@@ -298,6 +331,28 @@ onMounted(() => {
       if (Number(payload.requestId) !== ui.mapPoolRequestId) return
       ui.mapPool = payload
       ui.mapPoolLoading = false
+    }),
+    onBridge('voteui', (payload) => {
+      ui.voteOverlayOpen = payload.open === true
+    }),
+    // Lua 侧按 Esc 关闭弹窗时，把 CEF 里的开关同步关掉（否则只能靠按钮关闭）
+    onBridge('mappool', (payload) => {
+      ui.mapPoolOpen = payload.open === true
+    }),
+    onBridge('mapdetails', (payload) => {
+      ui.mapDetailsOpen = payload.open === true
+    }),
+    onBridge('recordsmodal', (payload) => {
+      ui.recordsOpen = payload.open === true
+    }),
+    onBridge('mapDetail', (payload) => {
+      if (Number(payload.requestId) !== ui.mapPoolDetailRequestId) return
+      if (!payload.detail) {
+        showToast('地图详情加载失败')
+        return
+      }
+      ui.mapDetails = payload.detail
+      ui.mapDetailsOpen = true
     }),
     onBridge('recordsPage', (payload) => {
       if (Number(payload.requestId) !== ui.recordsRequestId) return
@@ -382,42 +437,52 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="app-root">
-    <AuthView v-if="ui.phase === 'auth'" />
-    <StageView v-else-if="ui.phase === 'stage'" />
-    <template v-else-if="ui.phase === 'playing'">
-      <template v-if="!ui.hudHidden">
-        <GameHud v-if="ui.showHud" />
-        <MapTimer v-if="ui.showHud && ui.room" />
-        <Transition name="speedo">
-          <Speedometer v-if="ui.showHud && ui.vehicle" />
+  <ElConfigProvider :locale="zhCn">
+    <div class="app-root">
+      <AuthView v-if="ui.phase === 'auth'" />
+      <StageView v-else-if="ui.phase === 'stage'" />
+      <template v-else-if="ui.phase === 'playing'">
+        <template v-if="!ui.hudHidden">
+          <GameHud v-if="ui.showHud" />
+          <MapTimer v-if="ui.showHud && ui.room" />
+          <Transition name="speedo">
+            <Speedometer v-if="ui.showHud && ui.vehicle" />
+          </Transition>
+          <SpawnCountdown v-if="ui.countdown.active" />
+          <CompetitionPanel v-if="ui.showHud && ui.competition" />
+          <RaceResultOverlay v-if="ui.raceResult" />
+          <ReadyOverlay v-if="ui.ready.waiting" />
+          <RewindOverlay v-if="ui.rewind.active" />
+          <ChatPanel v-if="ui.showChat" />
+        </template>
+        <Transition name="menu">
+          <MenuView v-if="ui.menuOpen" />
         </Transition>
-        <SpawnCountdown v-if="ui.countdown.active" />
-        <CompetitionPanel v-if="ui.showHud && ui.competition" />
-        <RaceResultOverlay v-if="ui.raceResult" />
-        <ReadyOverlay v-if="ui.ready.waiting" />
-        <RewindOverlay v-if="ui.rewind.active" />
-        <ChatPanel v-if="ui.showChat" />
+        <VoteView v-if="ui.vote?.active && (ui.vote.forced !== false || ui.voteOverlayOpen)" />
+        <button
+          v-if="ui.vote?.active && ui.vote.forced === false && !ui.voteOverlayOpen"
+          type="button"
+          class="vote-hint"
+          @click="openVotePanel"
+        >
+          换图投票中 · 按 F4 参与
+        </button>
+        <ModeVoteView v-if="ui.modeVote?.active" />
+        <HelpOverlay v-if="ui.helpOpen" />
       </template>
-      <Transition name="menu">
-        <MenuView v-if="ui.menuOpen" />
+      <AuthView v-else />
+      <Transition name="modal">
+        <MapDetailsModal v-if="ui.mapDetailsOpen" />
       </Transition>
-      <VoteView v-if="ui.vote?.active" />
-      <ModeVoteView v-if="ui.modeVote?.active" />
-      <HelpOverlay v-if="ui.helpOpen" />
-    </template>
-    <AuthView v-else />
-    <Transition name="modal">
-      <MapDetailsModal v-if="ui.mapDetailsOpen" />
-    </Transition>
-    <Transition name="modal">
-      <MapPoolModal v-if="ui.mapPoolOpen" />
-    </Transition>
-    <Transition name="modal">
-      <RecordsModal v-if="ui.recordsOpen" />
-    </Transition>
-    <ScoreboardPanel v-if="ui.scoreboardOpen" />
-    <BuildTag v-if="!ui.hudHidden && ui.showHud" />
-    <ToastMessage :items="toasts" />
-  </div>
+      <Transition name="modal">
+        <MapPoolModal v-if="ui.mapPoolOpen" />
+      </Transition>
+      <Transition name="modal">
+        <RecordsModal v-if="ui.recordsOpen" />
+      </Transition>
+      <ScoreboardPanel v-if="ui.scoreboardOpen" />
+      <BuildTag v-if="!ui.hudHidden && ui.showHud" />
+      <ToastMessage :items="toasts" />
+    </div>
+  </ElConfigProvider>
 </template>

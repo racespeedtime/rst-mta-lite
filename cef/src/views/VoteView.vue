@@ -9,6 +9,7 @@ import IconFlame from '~icons/lucide/flame'
 import IconPenLine from '~icons/lucide/pen-line'
 import IconSearch from '~icons/lucide/search'
 import IconVote from '~icons/lucide/vote'
+import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
@@ -48,10 +49,36 @@ const visibleOptions = computed(() => {
   })
 })
 
+const pinnedOption = computed(() => visibleOptions.value.find((option) => option.nominee) ?? null)
+
+const orderedOptions = computed(() => {
+  const pinned = pinnedOption.value
+  if (!pinned) return visibleOptions.value
+  return [pinned, ...visibleOptions.value.filter((option) => option.id !== pinned.id)]
+})
+
 const votedName = computed(() => {
   const mine = ui.vote?.mine
   if (!mine) return ''
   return options.value.find((option) => option.id === mine)?.name || ''
+})
+
+const forced = computed(() => ui.vote?.forced !== false)
+const abstained = computed(() => ui.vote?.abstain || 0)
+const mineAbstain = computed(() => ui.vote?.mine === '__abstain')
+
+function close(): void {
+  emitAction('voteui', { open: false })
+}
+
+function abstain(): void {
+  emitAction('vote:abstain')
+}
+
+const nomineeName = computed(() => {
+  const id = ui.vote?.nominee
+  if (!id) return ''
+  return options.value.find((option) => option.id === id)?.name || ''
 })
 
 function percent(votes: number): number {
@@ -60,7 +87,6 @@ function percent(votes: number): number {
 }
 
 function vote(mapId: string): void {
-  if (ui.vote?.mine) return
   emitAction('vote:cast', { map: mapId })
 }
 </script>
@@ -76,13 +102,28 @@ function vote(mapId: string): void {
             <h1 class="vote__title">换图投票</h1>
           </div>
         </div>
-        <span class="vote__timer">
-          <IconClock class="icon icon--sm" />
-          {{ formatMs(remainingMs) }}
-        </span>
+        <div class="vote__head-right">
+          <span class="vote__timer">
+            <IconClock class="icon icon--sm" />
+            {{ formatMs(remainingMs) }}
+          </span>
+          <button v-if="!forced" type="button" class="vote__close" aria-label="关闭投票面板" @click="close">
+            <IconX class="icon" />
+          </button>
+        </div>
       </header>
 
-      <p class="vote__hint">从随机图池中选择下一张赛道，票数最多者胜出；平票按热度、再随机决定。</p>
+      <p class="vote__hint">
+        <template v-if="forced">
+          从随机图池中选择下一张赛道，票数最多者胜出；平票按热度、再随机决定。
+        </template>
+        <template v-else>
+          玩家自发的换图投票，不打断当前比赛；票数最多者胜出，结果立即生效（选中的就是当前地图时本回合继续）。发起人的提名自动计 1 票，投票可改（改投或弃权，以最后一次为准）。按 F4 可随时开关本面板。
+        </template>
+        <template v-if="nomineeName">
+          · 本场由 {{ ui.vote?.nomineeBy || '玩家' }} 提名：{{ nomineeName }}（自动计 1 票）
+        </template>
+      </p>
 
       <div class="vote__toolbar">
         <label class="vote__search">
@@ -122,24 +163,29 @@ function vote(mapId: string): void {
           </button>
         </div>
 
-        <span class="vote__count">{{ visibleOptions.length }} 张</span>
+        <span class="vote__count">{{ orderedOptions.length }} 张</span>
       </div>
 
       <div class="vote__options">
-        <p v-if="visibleOptions.length === 0" class="vote__empty">没有匹配的地图</p>
+        <p v-if="orderedOptions.length === 0" class="vote__empty">没有匹配的地图</p>
 
-        <button
-          v-for="option in visibleOptions"
-          :key="option.id"
-          type="button"
-          class="vote__option"
-          :class="{ 'vote__option--mine': option.id === ui.vote?.mine }"
-          :disabled="!!ui.vote?.mine"
-          @click="vote(option.id)"
-        >
+        <template v-for="(option, index) in orderedOptions" :key="option.id">
+          <div v-if="pinnedOption && index === 1" class="vote__divider">
+            <span>系统随机推荐</span>
+          </div>
+
+          <button
+            type="button"
+            class="vote__option"
+            :class="{ 'vote__option--mine': option.id === ui.vote?.mine, 'vote__option--nominee': option.nominee }"
+            @click="vote(option.id)"
+          >
           <span class="vote__fill" :style="{ width: `${percent(option.votes)}%` }" />
           <span class="vote__option-main">
-            <span class="vote__option-name">{{ option.name }}</span>
+            <span class="vote__option-name">
+              {{ option.name }}
+              <em v-if="option.nominee" class="vote__option-nominee">提名 +1</em>
+            </span>
             <span class="vote__option-meta">
               <span class="vote__option-author">
                 <IconPenLine class="icon icon--sm" />
@@ -156,14 +202,25 @@ function vote(mapId: string): void {
             <strong>{{ option.votes }}</strong>
             <IconCheck v-if="option.id === ui.vote?.mine" class="icon vote__check" />
           </span>
-        </button>
+          </button>
+        </template>
       </div>
 
-      <p v-if="votedName" class="vote__mine">
-        <IconCheck class="icon icon--sm" />
-        已投给：{{ votedName }}
+      <div class="vote__foot">
+        <button type="button" class="vote__abstain" @click="abstain">
+          弃权（交给系统按热度裁决）
+        </button>
+        <span v-if="abstained" class="vote__abstain-count">{{ abstained }} 人已弃权</span>
+      </div>
+
+      <p v-if="mineAbstain" class="vote__mine vote__mine--abstain">
+        已弃权：结果按票数、再按热度裁决（点其它地图可改票）
       </p>
-      <p v-else class="vote__mine vote__mine--wait">等待其他玩家投票…</p>
+      <p v-else-if="votedName" class="vote__mine">
+        <IconCheck class="icon icon--sm" />
+        已投给：{{ votedName }}（点其它地图可改票）
+      </p>
+      <p v-else class="vote__mine vote__mine--wait">等待其他玩家投票…（也可以弃权）</p>
     </section>
   </div>
 </template>
@@ -390,6 +447,40 @@ function vote(mapId: string): void {
   font-size: 13px;
 }
 
+.vote__option-nominee {
+  margin-left: 6px;
+  padding: 1px 5px;
+  border: 1px solid rgba(255, 212, 121, 0.4);
+  border-radius: 999px;
+  color: var(--rst-gold);
+  font-size: 8px;
+  font-style: normal;
+  font-weight: 500;
+  vertical-align: middle;
+}
+
+.vote__option--nominee {
+  border-color: rgba(255, 212, 121, 0.34);
+}
+
+.vote__divider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 2px 2px;
+  color: var(--rst-muted);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+}
+
+.vote__divider::before,
+.vote__divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--rst-border);
+}
+
 .vote__option-meta {
   display: flex;
   flex-wrap: wrap;
@@ -445,5 +536,59 @@ function vote(mapId: string): void {
 
 .vote__mine--wait {
   color: var(--rst-muted);
+}
+.vote__head-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.vote__close {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid var(--rst-border);
+  border-radius: 8px;
+  color: var(--rst-muted);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.vote__close:hover {
+  color: var(--rst-text);
+}
+
+.vote__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.vote__abstain {
+  padding: 6px 10px;
+  border: 1px solid var(--rst-border);
+  border-radius: 8px;
+  color: var(--rst-muted);
+  font-size: 10px;
+}
+
+.vote__abstain:hover:not(:disabled) {
+  color: var(--rst-text);
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
+}
+
+.vote__abstain:disabled {
+  opacity: 0.4;
+}
+
+.vote__abstain-count {
+  color: var(--rst-gold);
+  font-size: 10px;
+}
+
+.vote__mine--abstain {
+  color: var(--rst-gold);
 }
 </style>

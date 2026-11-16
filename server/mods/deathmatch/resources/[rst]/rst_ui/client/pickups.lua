@@ -18,6 +18,33 @@ local pickupById = {}
 local currentMapId = nil
 local pickupStartTick = getTickCount()
 
+-- 换车 pickup 上方显示车型名（白色）：模型名是静态的，缓存一次即可
+local vehicleNameCache = {}
+local PICKUP_LABEL_RANGE = 120
+
+local function vehicleLabel(model)
+    model = tonumber(model)
+    if not model then
+        return nil
+    end
+
+    local cached = vehicleNameCache[model]
+    if cached ~= nil then
+        return cached or nil
+    end
+
+    local name
+    if type(getVehicleNameFromModel) == 'function' then
+        local ok, value = pcall(getVehicleNameFromModel, model)
+        if ok and type(value) == 'string' and value ~= '' then
+            name = value
+        end
+    end
+
+    vehicleNameCache[model] = name or false
+    return name
+end
+
 local function loadModels()
     for pickupType, model in pairs(MODELS) do
         local dff = engineLoadDFF('pickups/' .. pickupType .. '.dff')
@@ -168,6 +195,41 @@ addEventHandler('onClientRender', root, function()
     for _, entry in pairs(pickupById) do
         if entry.visible and isElement(entry.object) then
             setElementRotation(entry.object, 0, 0, angle)
+        end
+    end
+
+    if not currentMapId then
+        return
+    end
+
+    local px, py, pz = getElementPosition(localPlayer)
+    if not px then
+        return
+    end
+
+    -- 换车 pickup：正上方白色车型名，远了淡出、超距离不画
+    for _, entry in pairs(pickupById) do
+        if entry.visible and entry.type == 'vehiclechange' and entry.vehicle then
+            local dx, dy, dz = entry.x - px, entry.y - py, entry.z - pz
+            local distanceSq = dx * dx + dy * dy + dz * dz
+            if distanceSq <= PICKUP_LABEL_RANGE * PICKUP_LABEL_RANGE then
+                local label = vehicleLabel(entry.vehicle)
+                if label then
+                    local screenX, screenY = getScreenFromWorldPosition(entry.x, entry.y, entry.z + 1.35)
+                    if screenX and screenY then
+                        local distance = math.sqrt(distanceSq)
+                        local alpha = math.max(90, math.min(235, math.floor(255 - distance * 1.2)))
+                        dxDrawText(
+                            label, screenX + 1, screenY + 2, screenX + 1, screenY + 2,
+                            tocolor(0, 0, 0, math.floor(alpha * 0.75)), 1, 'default-bold', 'center', 'bottom'
+                        )
+                        dxDrawText(
+                            label, screenX, screenY, screenX, screenY,
+                            tocolor(255, 255, 255, alpha), 1, 'default-bold', 'center', 'bottom'
+                        )
+                    end
+                end
+            end
         end
     end
 end)

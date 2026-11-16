@@ -52,10 +52,13 @@ export interface RaceResultState {
 }
 
 export interface MapDetails {
+  id?: string
   name: string
   author: string
   resource: string
+  mapSrc?: string
   spawns: number
+  pickups?: number
   vehicles: number[]
   dimension: number
   finish: boolean
@@ -67,6 +70,9 @@ export interface MapDetails {
   difficulty?: string | null
   fileSize?: number
   tags?: string[]
+  plays?: number
+  popularity?: number
+  current?: boolean
 }
 
 export interface RoomSummary {
@@ -95,13 +101,20 @@ export interface VoteOption {
   popularity: number
   plays?: number
   votes: number
+  nominee?: boolean
 }
 
 export interface VoteState {
   active: boolean
+  /** 强制投票（回合到点/完赛）自动弹全屏；false 表示玩家自发投票，按 F4 打开 */
+  forced?: boolean
   timeLeft: number
   timeLeftMs?: number
   options: VoteOption[]
+  nominee?: string | null
+  nomineeBy?: string | null
+  abstain?: number
+  started?: boolean
   mine?: string
 }
 
@@ -165,7 +178,19 @@ export interface MapPoolItem {
   dimension: number
   downloads?: number
   popularity?: number
+  plays?: number
+  uploadedAt?: string | null
+  current?: boolean
 }
+
+export interface MapPoolDetailPayload {
+  requestId?: number
+  mapId?: string
+  detail?: MapDetails | null
+}
+
+export type MapPoolSortField = 'popularity' | 'downloads' | 'plays' | 'name' | 'uploaded'
+export type MapPoolSortOrder = 'asc' | 'desc'
 
 export interface MapPoolPage {
   page: number
@@ -173,6 +198,8 @@ export interface MapPoolPage {
   total: number
   pages: number
   search: string
+  sort?: MapPoolSortField
+  order?: MapPoolSortOrder
   requestId?: number
   items: MapPoolItem[]
 }
@@ -271,6 +298,7 @@ export interface RewindPayload {
   active: boolean
   progress: number
   seconds: number
+  speed?: number
 }
 
 export interface MenuPayload {
@@ -336,6 +364,14 @@ export interface CursorPayload {
   free: boolean
 }
 
+export interface VoteUiPayload {
+  open?: boolean
+}
+
+export interface ModalPayload {
+  open?: boolean
+}
+
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
@@ -349,6 +385,11 @@ export type BridgeEventMap = {
   countdown: CountdownPayload
   cursor: CursorPayload
   mapsPage: MapPoolPage
+  voteui: VoteUiPayload
+  mappool: ModalPayload
+  mapdetails: ModalPayload
+  recordsmodal: ModalPayload
+  mapDetail: MapPoolDetailPayload
   recordsPage: MapRecordsPage
   scoreboard: ScoreboardPayload
   scoreboardScroll: ScoreboardScrollPayload

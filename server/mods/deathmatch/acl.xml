@@ -728,6 +728,9 @@
         <right name="command.listscreenshots" access="false"></right>
     </acl>
     <acl name="raceACL">
+        <right name="function.createResource" access="true"></right>
+        <right name="function.deleteResource" access="true"></right>
+        <right name="function.refreshResources" access="true"></right>
         <right name="general.ModifyOtherObjects" access="true"></right>
         <right name="function.xmlLoadFile" access="true"></right>
         <right name="function.startResource" access="true"></right>

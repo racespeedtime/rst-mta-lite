@@ -1,25 +1,30 @@
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 
-import IconChevronLeft from '~icons/lucide/chevron-left'
-import IconChevronRight from '~icons/lucide/chevron-right'
 import IconTimer from '~icons/lucide/timer'
 import IconTrophy from '~icons/lucide/trophy'
 import IconX from '~icons/lucide/x'
+import { ElOption, ElPagination, ElSelect, ElTable, ElTableColumn } from 'element-plus'
+import 'element-plus/es/components/table/style/css'
+import 'element-plus/es/components/pagination/style/css'
+import 'element-plus/es/components/select/style/css'
 import { emitAction } from '@/mta/bridge'
 import type { MapRecordsPage } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 import { formatMs } from '@/utils/format'
 
-const PAGE_SIZE = 20
+const PAGE_SIZES = [10, 20, 50, 100]
+
+const pageSize = ref(ui.recordsPageSize || 20)
 
 function request(page: number): void {
   const requestId = ui.recordsRequestId + 1
   ui.recordsRequestId = requestId
   ui.recordsLoading = true
+  ui.recordsPageSize = pageSize.value
   emitAction('records:page', {
     page,
-    pageSize: PAGE_SIZE,
+    pageSize: pageSize.value,
     requestId,
   })
 }
@@ -27,6 +32,10 @@ function request(page: number): void {
 function go(page: number): void {
   if (!ui.records) return
   request(Math.max(1, Math.min(ui.records.pages, page)))
+}
+
+function changePageSize(): void {
+  request(1)
 }
 
 function close(): void {
@@ -68,50 +77,51 @@ onMounted(() => request(1))
       </header>
 
       <div class="records__table-wrap">
-        <table class="records__table">
-          <thead>
-            <tr>
-              <th class="records__rank">#</th>
-              <th>玩家</th>
-              <th>最佳成绩</th>
-              <th class="records__date">日期</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr v-for="item in ui.records?.items || []" :key="item.rank">
-              <td class="records__rank">{{ item.rank }}</td>
-              <td class="records__name">{{ item.name }}</td>
-              <td class="records__time">
+        <ElTable
+          class="records__table"
+          :data="ui.records?.items || []"
+          size="small"
+          row-key="rank"
+          :empty-text="ui.recordsLoading ? '加载中…' : '这张地图还没有完赛记录'"
+        >
+          <ElTableColumn prop="rank" label="#" width="56" />
+          <ElTableColumn prop="name" label="玩家" min-width="160" show-overflow-tooltip />
+          <ElTableColumn label="最佳成绩" width="150">
+            <template #default="{ row }">
+              <span class="records__time">
                 <IconTimer class="icon icon--sm" />
-                {{ formatMs(item.bestMs) }}
-              </td>
-              <td class="records__date">{{ formatDate(item.updatedAt) }}</td>
-            </tr>
-          </tbody>
-        </table>
-
-        <p v-if="ui.recordsLoading" class="records__empty">加载中…</p>
-        <p v-else-if="!ui.records?.items.length" class="records__empty">这张地图还没有完赛记录</p>
+                {{ formatMs(row.bestMs) }}
+              </span>
+            </template>
+          </ElTableColumn>
+          <ElTableColumn label="日期" width="120">
+            <template #default="{ row }">{{ formatDate(row.updatedAt) }}</template>
+          </ElTableColumn>
+        </ElTable>
       </div>
 
       <footer class="records__foot">
-        <button
-          type="button"
-          :disabled="!ui.records || ui.records.page <= 1"
-          @click="go((ui.records?.page || 1) - 1)"
+        <ElPagination
+          :current-page="ui.records?.page || 1"
+          :page-size="pageSize"
+          :total="ui.records?.total || 0"
+          :disabled="ui.recordsLoading"
+          size="small"
+          background
+          layout="prev, pager, next"
+          @current-change="go"
+        />
+        <ElSelect
+          v-model="pageSize"
+          class="records__page-size"
+          size="small"
+          :teleported="false"
+          placement="top"
+          :disabled="ui.recordsLoading"
+          @change="changePageSize"
         >
-          <IconChevronLeft class="icon icon--sm" />
-          上一页
-        </button>
-        <span>{{ formatPages(ui.records) }}</span>
-        <button
-          type="button"
-          :disabled="!ui.records || ui.records.page >= ui.records.pages"
-          @click="go((ui.records?.page || 1) + 1)"
-        >
-          下一页
-          <IconChevronRight class="icon icon--sm" />
-        </button>
+          <ElOption v-for="size in PAGE_SIZES" :key="size" :label="`每页 ${size} 条`" :value="size" />
+        </ElSelect>
       </footer>
     </section>
   </div>
@@ -124,8 +134,7 @@ onMounted(() => request(1))
   display: grid;
   place-items: center;
   padding: 26px;
-  background: rgba(2, 6, 12, 0.62);
-  backdrop-filter: blur(10px);
+  background: rgba(2, 6, 12, 0.74);
   pointer-events: auto;
   z-index: 40;
 }
@@ -198,92 +207,59 @@ onMounted(() => request(1))
 
 .records__table {
   width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
+  background: transparent;
 }
 
-.records__table th {
-  padding: 8px 6px;
-  color: var(--rst-muted);
+.records__table :deep(th.el-table__cell) {
+  padding: 6px 0;
   font-size: 9px;
   font-weight: 500;
-  text-align: left;
-  text-transform: uppercase;
   letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
-.records__table td {
-  padding: 10px 6px;
-  border-top: 1px solid rgba(255, 255, 255, 0.045);
-  color: var(--rst-muted);
+.records__table :deep(td.el-table__cell) {
+  padding: 7px 0;
   font-size: 11px;
 }
 
-.records__table tbody tr:hover {
-  background: rgba(var(--rst-accent-rgb), 0.05);
+.records__table :deep(.cell) {
+  padding: 0 6px;
 }
 
-.records__rank {
-  width: 40px;
-  color: var(--rst-accent);
-  font-variant-numeric: tabular-nums;
+.records__table :deep(.el-table__inner-wrapper::before) {
+  background-color: transparent;
 }
 
-.records__name {
-  overflow: hidden;
-  color: var(--rst-text);
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.records__table :deep(.el-table__empty-block) {
+  min-height: 140px;
 }
 
 .records__time {
-  display: flex;
+  display: inline-flex;
   align-items: center;
   gap: 4px;
   color: var(--rst-text);
   font-variant-numeric: tabular-nums;
-}
-
-.records__date {
-  width: 110px;
-  font-variant-numeric: tabular-nums;
-}
-
-.records__empty {
-  padding: 32px 0;
-  color: var(--rst-muted);
-  font-size: 12px;
-  text-align: center;
 }
 
 .records__foot {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 12px;
-  padding: 12px 18px;
+  gap: 10px;
+  padding: 10px 18px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.records__page-size {
+  width: 118px;
+}
+
+.records__foot :deep(.el-pagination) {
+  --el-pagination-font-size: 10px;
+  --el-pagination-button-height: 24px;
+  --el-pagination-button-width: 24px;
   color: var(--rst-muted);
-  font-size: 10px;
-}
-
-.records__foot button {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  padding: 6px 9px;
-  border: 1px solid var(--rst-border);
-  border-radius: 7px;
-  color: var(--rst-muted);
-  font-size: 10px;
-}
-
-.records__foot button:hover:not(:disabled) {
-  color: var(--rst-text);
-  border-color: var(--rst-accent);
-}
-
-.records__foot button:disabled {
-  opacity: 0.4;
 }
 </style>

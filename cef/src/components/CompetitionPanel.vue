@@ -96,7 +96,6 @@ const groups = computed<TeamGroup[]>(() => {
   border-radius: 14px;
   background: linear-gradient(160deg, rgba(19, 31, 48, 0.9), rgba(7, 11, 19, 0.92));
   box-shadow: var(--rst-shadow);
-  backdrop-filter: blur(14px);
 }
 
 .competition__head {

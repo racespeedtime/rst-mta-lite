@@ -6,16 +6,23 @@ import { ui } from '@/stores/ui'
 import { formatClock } from '@/utils/format'
 
 const CHAT_IDLE_MS = 15_000
-const CHAT_VISIBLE_LINES = 10
+// 只展示最新几条：不提供历史滚动，面板高度正好放得下
+const CHAT_VISIBLE_LINES = 15
 
 const listRef = ref<HTMLElement | null>(null)
-const stickToBottom = ref(true)
-const unread = ref(0)
 const idle = ref(false)
 let idleTimer: number | undefined
 let lastMessageId = ui.messages.at(-1)?.id ?? 0
 
 const visibleMessages = computed(() => ui.messages.slice(-CHAT_VISIBLE_LINES))
+
+// 不做历史滚动，但要让最新几条始终留在可视区（内容超出时由这里程序化贴底）
+function keepLatestVisible(): void {
+  void nextTick(() => {
+    const element = listRef.value
+    if (element) element.scrollTop = element.scrollHeight
+  })
+}
 
 function resetIdleTimer(): void {
   idle.value = false
@@ -42,26 +49,16 @@ function nativeStyle(message: ChatEntry): Record<string, string> | undefined {
   return { color: `rgb(${r}, ${g}, ${b})` }
 }
 
-function scrollToBottom(force = false): void {
-  if (!force && !stickToBottom.value) return
-  void nextTick(() => {
-    const element = listRef.value
-    if (element) element.scrollTop = element.scrollHeight
-    stickToBottom.value = true
-    unread.value = 0
-  })
-}
-
-function isNearBottom(): boolean {
-  const element = listRef.value
-  if (!element) return true
-  return element.scrollHeight - element.scrollTop - element.clientHeight < 28
-}
-
-function onScroll(): void {
-  stickToBottom.value = isNearBottom()
-  if (stickToBottom.value) unread.value = 0
-}
+// 新消息只负责续上淡出计时；进场动画交给 TransitionGroup
+watch(
+  () => ui.messages.at(-1)?.id ?? 0,
+  (id) => {
+    if (id === lastMessageId) return
+    lastMessageId = id
+    resetIdleTimer()
+    keepLatestVisible()
+  },
+)
 
 watch(
   () => ui.chatOpen,
@@ -69,32 +66,15 @@ watch(
     if (open) {
       idle.value = false
       window.clearTimeout(idleTimer)
-      stickToBottom.value = true
-      unread.value = 0
-      void nextTick(() => scrollToBottom(true))
     } else {
       resetIdleTimer()
     }
   },
 )
 
-watch(
-  () => ui.messages.at(-1)?.id ?? 0,
-  (id) => {
-    if (id === lastMessageId) return
-    lastMessageId = id
-    resetIdleTimer()
-    if (stickToBottom.value) {
-      scrollToBottom(true)
-    } else {
-      unread.value += 1
-    }
-  },
-)
-
 onMounted(() => {
-  scrollToBottom(true)
   resetIdleTimer()
+  keepLatestVisible()
 })
 
 onUnmounted(() => {
@@ -104,41 +84,32 @@ onUnmounted(() => {
 
 <template>
   <section class="chat" :class="{ 'chat--open': ui.chatOpen, 'chat--idle': idle && !ui.chatOpen }">
-    <div ref="listRef" class="chat__list" @scroll="onScroll">
+    <div ref="listRef" class="chat__list">
       <p v-if="ui.messages.length === 0" class="chat__empty">按 T 发送第一条消息</p>
 
       <TransitionGroup name="chat-line" tag="div" class="chat__messages">
         <div v-for="message in visibleMessages" :key="message.id" class="chat__line">
-        <span class="chat__time">{{ formatClock(message.time) }}</span>
+          <span class="chat__time">{{ formatClock(message.time) }}</span>
 
-        <template v-if="message.kind === 'player'">
-          <span class="chat__name" :style="{ color: nameColor(message) }">
-            {{ message.name }}
-          </span>
-          <span class="chat__text">{{ message.text }}</span>
-        </template>
+          <template v-if="message.kind === 'player'">
+            <span class="chat__name" :style="{ color: nameColor(message) }">
+              {{ message.name }}
+            </span>
+            <span class="chat__text">{{ message.text }}</span>
+          </template>
 
-        <template v-else-if="message.kind === 'native'">
-          <span class="chat__text chat__text--native" :style="nativeStyle(message)">
-            {{ message.text }}
-          </span>
-        </template>
+          <template v-else-if="message.kind === 'native'">
+            <span class="chat__text chat__text--native" :style="nativeStyle(message)">
+              {{ message.text }}
+            </span>
+          </template>
 
-        <template v-else>
-          <span class="chat__text chat__text--system">{{ message.text }}</span>
-        </template>
-      </div>
+          <template v-else>
+            <span class="chat__text chat__text--system">{{ message.text }}</span>
+          </template>
+        </div>
       </TransitionGroup>
     </div>
-
-    <button
-      v-if="ui.chatOpen && unread > 0"
-      type="button"
-      class="chat__new"
-      @click="scrollToBottom(true)"
-    >
-      {{ unread }} 条新消息 ↓
-    </button>
   </section>
 </template>
 
@@ -148,7 +119,7 @@ onUnmounted(() => {
   top: 36%;
   left: 24px;
   width: 400px;
-  height: 236px;
+  height: 336px;
   display: flex;
   flex-direction: column;
   border: 0;
@@ -192,69 +163,15 @@ onUnmounted(() => {
   transition: transform 0.18s ease;
 }
 
-.chat__head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  padding: 8px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
-}
-
-.chat__title {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  font-weight: 600;
-  letter-spacing: 0.14em;
-  color: var(--rst-muted);
-}
-
-.chat__hint {
-  font-size: 9px;
-  letter-spacing: 0.05em;
-  color: var(--rst-muted);
-}
-
-.chat--open .chat__hint {
-  color: var(--rst-accent);
-}
-
 .chat__list {
   flex: 1;
-  min-height: 34px;
+  min-height: 0;
   padding: 7px 11px 9px;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   gap: 4px;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.72);
-}
-
-.chat__list::-webkit-scrollbar {
-  width: 4px;
-}
-
-.chat__list::-webkit-scrollbar-thumb {
-  border-radius: 2px;
-  background: rgba(140, 180, 255, 0.22);
-}
-
-.chat__new {
-  margin: 0 10px 7px;
-  padding: 5px 9px;
-  border: 1px solid rgba(var(--rst-accent-rgb), 0.28);
-  border-radius: 7px;
-  background: rgba(var(--rst-accent-rgb), 0.12);
-  color: var(--rst-accent);
-  font-size: 10px;
-  text-align: center;
-}
-
-.chat__new:hover {
-  background: rgba(var(--rst-accent-rgb), 0.2);
 }
 
 .chat__empty {
@@ -300,33 +217,5 @@ onUnmounted(() => {
 .chat__text--system {
   color: var(--rst-gold);
   opacity: 0.9;
-}
-
-.chat__native-hint {
-  padding: 7px 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  background: rgba(0, 0, 0, 0.14);
-  color: var(--rst-muted);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-}
-
-.chat__button {
-  display: grid;
-  place-items: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 7px;
-  color: var(--rst-muted);
-  transition: color 0.15s ease, background 0.15s ease;
-}
-
-.chat__button:hover {
-  color: var(--rst-text);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.chat__button--send {
-  color: var(--rst-accent);
 }
 </style>

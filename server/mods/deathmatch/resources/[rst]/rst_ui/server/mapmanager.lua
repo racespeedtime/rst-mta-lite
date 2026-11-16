@@ -1,10 +1,10 @@
 --[[
     rst_ui / server/mapmanager.lua
 
-    原生地图资源加载：
-    - 一次只保留一个 map resource（MTA map 资源单实例）
-    - 地图维度由 .map 决定
-    - 移除地图自带 vehicle，保留 pickup / marker / object
+    同一时间只跑一张地图：
+    - 地图库里的图：先由 MapStore 装进运行槽位 rst_map，再启动槽位
+    - 手动安装的原生 map resource：直接 start / stop
+    地图维度由 .map 决定；地图自带 vehicle 会移除，racepickup / object / marker 保留。
 ]]
 
 MapManager = {}
@@ -12,9 +12,11 @@ MapManager = {}
 local config = RST.config
 local currentResource
 local currentMapId
+local currentSource
 local currentPickups = {}
 local pickupState = {}
 local pickupTimers = {}
+local loadSeq = 0  -- 每次换图自增，异步装载回来时用它判断请求是否已被取代
 
 local function clearPickupTimers()
     for _, timer in pairs(pickupTimers) do
@@ -214,6 +216,7 @@ local function stopCurrent()
     end
     currentResource = nil
     currentMapId = nil
+    currentSource = nil
 
     for _, player in ipairs(getElementsByType('player')) do
         triggerClientEvent(player, 'rst:pickups:sync', player, toJSON({ mapId = nil, pickups = {} }))
@@ -224,46 +227,15 @@ function MapManager.currentMapId()
     return currentMapId
 end
 
-function MapManager.load(mapId)
-    local map = MapRegistry.details(mapId)
-    if not map then
-        return false, '地图资源未发现'
-    end
-    if not map.resource then
-        return false, '地图没有绑定资源'
-    end
+function MapManager.currentSource()
+    return currentSource
+end
 
-    local resource = getResourceFromName(map.resource)
-    if not resource then
-        return false, ('地图资源未安装：%s'):format(tostring(map.resource))
-    end
-
-    if currentMapId == mapId and getResourceState(resource) == 'running' then
-        -- 同一张图重开也要重置 pickup 状态，避免上一回合的隐藏/计时器残留
-        resetPickups(map)
-        broadcastPickups()
-        return true
-    end
-
-    stopCurrent()
-
-    if getResourceState(resource) == 'running' then
-        stopResource(resource)
-    end
-
-    -- 先恢复服务器默认 Infernus；地图客户端脚本随后加载并可覆盖 411
-    triggerClientEvent(root, 'rst:ui:custommodel', root)
-
-    local ok, err = startResource(resource)
-    if not ok then
-        outputServerLog(
-            ('[MAP] failed to start %s: %s'):format(tostring(map.resource), tostring(err))
-        )
-        return false, '地图资源启动失败'
-    end
-
+local function applyLoadedMap(mapId, map, resource)
     currentResource = resource
     currentMapId = mapId
+    currentSource = map.source
+
     resetPickups(map)
     applyMapSettings(map.settings)
 
@@ -275,14 +247,99 @@ function MapManager.load(mapId)
     end
 
     outputServerLog(('[MAP] loaded %s (%s) pickups=%d'):format(
-        tostring(map.name), tostring(map.resource), #currentPickups
+        tostring(map.name), tostring(resource and getResourceName(resource) or mapId), #currentPickups
     ))
     broadcastPickups()
+end
+
+-- 加载地图。onDone(ok, err) 在资源真正就绪后回调；
+-- 地图已在槽位里时是同步回调，其它情况（首次装载）会在复制 + refresh 之后回调。
+function MapManager.load(mapId, onDone)
+    onDone = type(onDone) == 'function' and onDone or function() end
+
+    local map = MapRegistry.details(mapId)
+    if not map then
+        onDone(false, '地图资源未发现')
+        return false
+    end
+
+    if currentMapId == mapId and currentResource and getResourceState(currentResource) == 'running' then
+        -- 同一张图重开也要重置 pickup 状态，避免上一回合的隐藏/计时器残留
+        resetPickups(map)
+        broadcastPickups()
+        onDone(true)
+        return true
+    end
+
+    -- 新一轮换图：让还在路上的旧装载失效
+    loadSeq = loadSeq + 1
+    local seq = loadSeq
+
+    if map.source == 'resource' then
+        -- 手动安装的原生 map resource：沿用原来的直接启动
+        local resource = getResourceFromName(map.resource)
+        if not resource then
+            onDone(false, ('地图资源未安装：%s'):format(tostring(map.resource)))
+            return false
+        end
+
+        stopCurrent()
+        triggerClientEvent(root, 'rst:ui:custommodel', root)
+
+        local ok, err = startResource(resource)
+        if not ok then
+            outputServerLog(('[MAP] failed to start %s: %s'):format(tostring(map.resource), tostring(err)))
+            onDone(false, '地图资源启动失败')
+            return false
+        end
+
+        applyLoadedMap(mapId, map, resource)
+        onDone(true)
+        return true
+    end
+
+    -- 地图库：先停掉当前图，再装进运行槽位后启动
+    stopCurrent()
+
+    MapStore.install(mapId, function(ok, err)
+        if seq ~= loadSeq then
+            onDone(false, '已发起新的换图请求')
+            return
+        end
+        if not ok then
+            outputServerLog(('[MAP] failed to install %s: %s'):format(tostring(mapId), tostring(err)))
+            onDone(false, err or '地图装载失败')
+            return
+        end
+
+        local resource = getResourceFromName(MapStore.slotName)
+        if not resource then
+            onDone(false, '地图槽位不存在')
+            return
+        end
+
+        -- 先恢复服务器默认 Infernus；地图客户端脚本随后加载并可覆盖 411
+        triggerClientEvent(root, 'rst:ui:custommodel', root)
+
+        local started, startErr = startResource(resource)
+        if not started then
+            outputServerLog(('[MAP] failed to start slot for %s: %s'):format(tostring(mapId), tostring(startErr)))
+            onDone(false, '地图资源启动失败')
+            return
+        end
+
+        applyLoadedMap(mapId, map, resource)
+        onDone(true)
+    end)
+
     return true
 end
 
 function MapManager.stop()
     stopCurrent()
+    if MapStore then
+        MapStore.stop()
+    end
 end
 
 addEventHandler('onResourceStop', resourceRoot, function()

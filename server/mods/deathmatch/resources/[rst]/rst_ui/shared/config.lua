@@ -21,6 +21,10 @@ RST.config = {
     voteCooldown = 180,     -- 手动发起换图投票的冷却（秒）
     modeVoteCooldown = 120, -- 手动发起模式投票的冷却（秒）
     recentMapLimit = 2,     -- 最近玩过的地图数量，抽池时尽量避开
+    manualVoteImmediate = true, -- 玩家自发投票出结果后立即换图；false = 等本回合结束再换
+    chatMinIntervalMs = 900,   -- 两条聊天之间的最小间隔（毫秒）
+    chatBurstWindowMs = 10000, -- 聊天频率窗口（毫秒）
+    chatBurstLimit = 6,        -- 窗口内最多条数，超出丢弃
     playPopularityWeight = 5, -- 服务器内每玩一场给热度加分
     respawnDelay = 4000,    -- 死亡后重生间隔
     spawnCountdown = 3,     -- 训练模式出生倒计时（秒）

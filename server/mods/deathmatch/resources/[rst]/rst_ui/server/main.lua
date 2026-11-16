@@ -405,6 +405,23 @@ actions['vote:cast'] = function(player, session, data)
     broadcastState()
 end
 
+actions['vote:abstain'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return
+    end
+
+    local ok, err = Rooms.abstain(room, player)
+    if not ok then
+        notify(player, err or '弃权失败')
+    end
+    broadcastState()
+end
+
 actions['modevote:start'] = function(player, session)
     if not session.roomId then
         return
@@ -513,9 +530,45 @@ actions['maps:page'] = function(player, session, data)
     if not session.authed then
         return
     end
-    local payload = MapRegistry.page(data.page, data.pageSize, data.search)
+    local payload = MapRegistry.page(data.page, data.pageSize, data.search, data.sort, data.order, data.dateFrom, data.dateTo)
     payload.requestId = data.requestId
     triggerClientEvent(player, 'rst:ui:maps', player, toJSON(payload))
+end
+
+-- 地图池里点开某张图：按需解析这张图的 .map 和外部元数据
+actions['maps:detail'] = function(player, session, data)
+    if not session.authed then
+        return
+    end
+    local mapId = tostring(data.mapId or '')
+    triggerClientEvent(player, 'rst:ui:mapdetail', player, toJSON({
+        requestId = data.requestId,
+        mapId = mapId,
+        detail = MapRegistry.detail(mapId),
+    }))
+end
+
+-- 地图池里点名一张图，发起换图投票（这张图会作为候选之一，并标注提名者）
+actions['maps:vote'] = function(player, session, data)
+    if not session.authed then
+        return
+    end
+    local room = session.roomId and Rooms.get(session.roomId)
+    if not room then
+        notify(player, '请先进入舞台')
+        return
+    end
+
+    local mapId = tostring(data.mapId or '')
+    local map = MapRegistry.peek(mapId)
+    local ok, err = Rooms.startVote(room, 'manual', mapId, player)
+    if not ok then
+        notify(player, err or '发起投票失败')
+    elseif room.vote then
+        -- 单人时提名票会直接出结果，这时不再提示“已发起”
+        notify(player, ('已发起换图投票：%s'):format(tostring(map and map.name or mapId)))
+    end
+    broadcastState()
 end
 
 actions['records:page'] = function(player, session, data)
@@ -667,12 +720,45 @@ addEventHandler('onPlayerChat', root, function(message, messageType)
         end
     end
 
-    local time = now()
-    if time - (session.lastChatAt or 0) < 1 then
+    -- 聊天限速：两条之间至少 minInterval，另外 burstWindow 内最多 burstLimit 条
+    local nowMs = RST.nowMs()
+    local minInterval = config.chatMinIntervalMs or 900
+    local burstWindow = config.chatBurstWindowMs or 10000
+    local burstLimit = config.chatBurstLimit or 6
+
+    if nowMs - (session.lastChatAtMs or 0) < minInterval then
         cancelEvent()
+        if nowMs - (session.lastChatWarnAtMs or 0) > 1500 then
+            session.lastChatWarnAtMs = nowMs
+            notify(player, '说话太快了，稍等一下再发')
+        end
         return
     end
-    session.lastChatAt = time
+
+    local cutoff = nowMs - burstWindow
+    local recent = session.chatTimes or {}
+    local kept = {}
+    for _, at in ipairs(recent) do
+        if at > cutoff then
+            kept[#kept + 1] = at
+        end
+    end
+
+    if #kept >= burstLimit then
+        cancelEvent()
+        session.chatTimes = kept
+        if nowMs - (session.lastChatWarnAtMs or 0) > 1500 then
+            session.lastChatWarnAtMs = nowMs
+            notify(player, ('发言太频繁，%d 秒内最多 %d 条'):format(math.ceil(burstWindow / 1000), burstLimit))
+        end
+        return
+    end
+
+    kept[#kept + 1] = nowMs
+    session.chatTimes = kept
+    session.lastChatAtMs = nowMs
+
+    local time = now()
 
     cancelEvent()
     local name = getPlayerName(player) or 'player'

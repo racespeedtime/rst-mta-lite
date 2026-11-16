@@ -8,6 +8,8 @@ import { formatSeconds } from '@/utils/format'
 const progressWidth = computed(
   () => `${Math.round(Math.max(0, Math.min(1, ui.rewind.progress)) * 100)}%`,
 )
+
+const speed = computed(() => ui.rewind.speed ?? 1)
 </script>
 
 <template>
@@ -17,12 +19,15 @@ const progressWidth = computed(
         <IconRewind class="icon" />
         倒带
       </span>
-      <span class="rewind__time">{{ formatSeconds(ui.rewind.seconds) }}</span>
+      <span class="rewind__time">
+        <em v-if="speed > 1" class="rewind__speed">×{{ speed }}</em>
+        {{ formatSeconds(ui.rewind.seconds) }}
+      </span>
     </div>
     <div class="rewind__track">
       <div class="rewind__fill" :style="{ width: progressWidth }" />
     </div>
-    <p class="rewind__hint">松开 Y 后 0.5 秒继续</p>
+    <p class="rewind__hint">按住 Shift 加速倒带 · 松开 Y 后 0.5 秒继续</p>
   </div>
 </template>
 
@@ -59,9 +64,22 @@ const progressWidth = computed(
 }
 
 .rewind__time {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   font-size: 12px;
   font-variant-numeric: tabular-nums;
   color: var(--rst-muted);
+}
+
+.rewind__speed {
+  padding: 1px 5px;
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.4);
+  border-radius: 999px;
+  color: var(--rst-accent);
+  font-size: 9px;
+  font-style: normal;
+  font-weight: 600;
 }
 
 .rewind__track {

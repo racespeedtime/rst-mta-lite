@@ -136,31 +136,53 @@ https://mtavault.com
 - 在 mtavault 上按需下载单张地图
 - 使用自己的地图备份
 
-拿到 zip 后直接放进：
+MTA 地图 zip 不要直接堆进 `resources/`。MTA 启动时会加载 `resources/` 下每个
+resource，并对 `meta.xml` 里声明的每个文件算一遍 MD5；zip resource 还会先整包解压到
+`resource-cache/unzipped`。4486 张地图约 26 GB，直接放进去每次开服都要读一遍，
+启动会从 1 秒变成 8 分钟以上（2026-11-16 实测：字母序处理到 E 就花了 145 秒）。
 
-```text
-server/mods/deathmatch/resources/
+正确做法是展开成「按需地图库」：
+
+```bash
+# 地图 zip 放在备份目录（download-all-maps.mjs 默认输出就在这里）
+#   server/mods/deathmatch/map-cache/zips/*.zip
+
+# 展开 + 生成地图池索引
+node tools/mapstore/build-library.mjs
+
+# 迁移：把 resources/ 里已经堆着的 zip 一起搬过去（同盘改名，很快）
+node tools/mapstore/build-library.mjs \
+  --zips server/mods/deathmatch/resources \
+  --move-zips server/mods/deathmatch/map-cache/zips
 ```
 
-MTA 支持 zip resource，**不需要解压**：
+展开结果：
 
 ```text
-resources/
-  <map-name>.zip
+server/mods/deathmatch/resources/[rst]/maplib/
+  meta.xml            ← 不声明任何文件，开服只读它
+  index.json          ← 地图池索引（id / 名称 / 作者 / .map / 文件数）
+  maps/<map-id>/...   ← 展开后的地图文件
 ```
+
+之后开服只加载 `[rst]` 下的资源，地图数量不再影响启动时间（2026-11-16 实测：
+3 个 resource、`Server started` 0.65 秒）；换图时 `rst_ui` 把选中那张图的文件复制到
+运行槽位 `resources/rst_map` 再启动，客户端也只下载当前这一张图。
+`maplib/maps/`、`index.json` 和 `rst_map/` 都在 `.gitignore` 里。
 
 要求：
 
-- zip 根目录直接有 `meta.xml`
-- 资源名就是 zip 文件名去掉 `.zip`
-- 不要同时保留同名解压目录和 zip
-- 不要把 `manifest.json` / `download.log` 放进 resources
+- zip 根目录直接有 `meta.xml`（多套一层目录也能识别）
+- 地图 ID 就是 zip 文件名去掉 `.zip`
+- 展开时会校验 `meta.xml` 引用的文件；缺文件的图标记为无效、不进地图池
+- 修好 zip 后重跑一次 `build-library.mjs` 即可补上，已展开的图会跳过
+- 不要把 `manifest.json` / `download.log` 放进 `maplib`
 
 截至 **2026-11-15**，mtavault DM/HDM 元数据共 **4509 张**，但这只是元数据，不代表仓库附带了 4509 张地图。
 
 其中源站目前还能提供文件的是 **4486 张**（2026-11-16 实测）；另外 23 张只剩元数据，mtavault 下载端点返回 HTTP 500（`versions: 0`），不是本地漏下。
 
-全新克隆时地图池是 **0 张**；没有放地图时服务器仍能启动，但无法开局。
+全新克隆时地图库是空的，地图池 **0 张**；服务器仍能启动，但无法开局。
 
 ### 4. 构建 CEF UI
 
@@ -185,6 +207,13 @@ server/mods/deathmatch/resources/[rst]/rst_ui/ui/
 ```
 
 没有这个目录时，进入服务器可能只看到空白 CEF 页面。
+
+前端技术栈：
+
+- Vue **3.5.x**（保持稳定版；3.6 的 Vapor 还是 RC，且与 Element Plus 的 VDOM 组件不兼容，暂不升级）
+- **Element Plus 按需引入**：只引 `ElTable` / `ElTableColumn` / `ElPagination` / `ElConfigProvider`（排行榜、地图池）+ 组件级 CSS
+- 主题在 `cef/src/styles/element.css` 里把 `--el-*` 映射到 `--rst-*`，弹层（下拉、分页尺寸）也在全局覆盖
+- 当前产物约 `app.js` 422 KB / `style.css` 143 KB（gzip 约 141 + 23 KB）；再引组件时记得看一眼构建体积
 
 ### 5. 配置服务端
 
@@ -233,6 +262,10 @@ server/mods/deathmatch/acl.xml
 
 - `function.startResource`
 - `function.stopResource`
+- `function.restartResource`
+- `function.createResource`
+- `function.deleteResource`
+- `function.refreshResources`
 - `function.xmlLoadFile`
 
 如果安装官方服务端时用官方 `acl.xml` 覆盖了仓库版本，需要恢复仓库的 `acl.xml`，或者在 MTA 管理面板批准 `rst_ui` 的地图资源权限。
@@ -360,10 +393,11 @@ mtasa://127.0.0.1:22003
 | `F1` | 帮助 |
 | `F2` | 菜单 |
 | `F3` | 临时显示 / 隐藏光标 |
+| `F4` | 打开 / 关闭换图投票面板（玩家自发的投票，不弹全屏） |
 | `Tab` | 按住查看全服玩家列表（不显示鼠标） |
 | 短按左 `Alt` | 训练模式保存当前位置为传送点 |
 | 长按左 `Alt` | 训练模式回到最近保存的传送点 |
-| 长按 `Y` | 倒带最近 8 秒 |
+| 长按 `Y` | 倒带最近 8 秒；倒带过程中按住 `Shift` 3 倍速快退 |
 | 观战 | 左上角显示正在跟随的玩家名 / 车辆；鼠标转向 · `WASD` 平移 · 左/右键切换玩家 · 空格 / Ctrl 升降；其他玩家保留头顶名字牌 |
 | 菜单 | 训练模式可主动重生；观战时可直接返回训练赛道 |
 
@@ -430,17 +464,19 @@ mtasa://127.0.0.1:22003
 
 地图使用原生 MTA 格式，不维护第二份地图清单：
 
-- `server/mapregistry.lua` 自动发现 `type="map"` resource
-- 直接读取 `meta.xml` 和 `.map`
+- `maplib/index.json` 是地图池索引（`build-library.mjs` 从 zip 生成）
+- `server/mapregistry.lua` 启动只读索引，不打开任何 `.map`
+- 选中地图时才从 `maplib/maps/<id>/` 解析 `.map`
 - 从 `.map` 读取全部 spawnpoint、vehicle、racepickup、Hunter 终点 / checkpoint
 - `racepickup` 由客户端按官方 race 资源方式创建自定义模型 object + colshape
 - 支持 nitro / repair / vehiclechange；respawn=0 为永久可重复拾取，respawn>=50 才隐藏并按毫秒重生
 - 官方 race pickup 模型放在 `pickups/`
+- 换车 pickup 正上方显示白色车型名（120 米内，越远越淡）
 - 解析并应用 `<settings>`：时间、天气、重力、游戏速度、浪高、车辆武器、云层、地图时长
-- 地图车辆模型替换由地图 resource 自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行
-- 地图 ID 就是 resource 名
-- 地图池就是发现到的地图列表
-- 启动只读 `meta.xml`，`.map` 的 spawn / pickup / finish 在选中地图时才解析
+- 地图车辆模型替换由地图自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行
+- 地图 ID 就是 `maplib/maps/` 下的目录名（= zip 文件名去掉 `.zip`）
+- 地图池就是索引里的可玩地图（`meta.xml` 引用缺失文件的图会被排除）
+- 运行期只有一个槽位 resource `rst_map`，换图时复制文件 + refresh，不常驻 4486 个 resource
 
 ## mtavault 地图集
 
@@ -461,38 +497,23 @@ https://mtavault.com
 
 地图 zip 需要自行获取，可以找其他人打包的完整包，也可以在 mtavault 按需下载单张地图。使用和再分发前请确认作者授权。
 
-拿到地图后不需要解压，直接放到：
+拿到 zip 后按上面「自行准备地图文件」展开成地图库：
 
-```text
-server/mods/deathmatch/resources/
+```bash
+node tools/mapstore/build-library.mjs
 ```
 
-例如：
+地图库有了之后不用 `refresh` 单个地图，也不用把地图往 `resources/` 里塞：
 
 ```text
-resources/<map-name>.zip
-```
-
-MTA 支持 zip resource，资源名就是 zip 去掉 `.zip` 的名字。
-
-然后：
-
-```text
-refresh
 restart rst_ui
 ```
 
-或者直接重启服务器，地图会进入地图池。
+F2 →「地图池」可以分页浏览（页码可点，每页 10/20/30/50/100 可选）、实时搜索（输入即搜，不用按搜索按钮）、表头点击排序（名称 / 上传日期 / 下载量 / 热度，默认热度降序，再点切换升降序，第三次恢复默认）、按上传日期范围过滤（YYYY-MM-DD，留空不限）；
+点击任意地图查看详情；每行右侧的「投票」可以点名一张图发起换图投票（该图固定作为候选之一，并标注提名者）。
 
-要求：
-
-- zip 根目录直接有 `meta.xml`，不能多套一层文件夹
-- 不要同时保留同名解压目录和 zip
-- 客户端只会下载当前被选中的地图，不会因为装了 4509 张就全部下载
-
-F2 →「地图池」可以分页浏览和搜索已安装地图。
-
-启动只读取轻量 meta；只有地图被选中时才解析 `.map`。全量 4509 张会扫描 4509 个 resource/meta，但不会启动时解析全部地图细节。
+开服只读 `maplib/index.json`（约几百 KB）；`.map` 的 spawn / pickup / finish 在选中地图时才解析；
+客户端只会下载当前被选中的地图，不会因为库里有 4486 张就全部下载。
 
 元数据数据库的安装、seed DB 和抓取/下载脚本说明见：
 
@@ -509,7 +530,9 @@ tools/mtavault/README.md
 
 切换地图：
 
-- `server/mapmanager.lua` 负责 start / stop 地图资源
+- `server/mapstore.lua` 把地图库里的目标地图复制进运行槽位 `rst_map`
+- `server/mapmanager.lua` 负责 stop 旧图 / start 槽位（或手动安装的原生 map resource）
+- 换图是异步的：复制 + `refreshResources` + `startResource` 完成后才真正开局；装不出来的图会自动从地图池移除并换一张重试
 - 地图自带 vehicle 会移除，racepickup / object / marker 保留
 - 单服务器只运行一个比赛舞台，同一时间一张地图；并行舞台需要地图实例化或双服务器
 
@@ -517,6 +540,7 @@ tools/mtavault/README.md
 
 - 非投票时 `pickMap()` 从当前可用地图池里纯随机，排除当前地图
 - 投票候选随机抽取，只区分“最近玩过 / 没玩过”
+- 在地图池里点名投票时，选中的图固定占第一个候选位，其余候选仍随机补足；投票界面会标注提名者和「提名」标签，结果仍按票数决定
 - 服务器内游玩次数记录在 `rst_ui_mapstats.db`
 - mtavault 下载量来自 `rst_ui_mapmeta.db`
 - 热度公式：
@@ -529,6 +553,19 @@ popularity = mtavault 下载量 + 服务器内游玩次数 × playPopularityWeig
 - 投票票数相同时用这个热度做平票裁决
 - 随机选图仍然是纯随机，不会因为下载量高就固定出某张图
 - 投票候选抽取本身不做热度加权；热度只影响地图池显示排序和平票
+
+### 换图投票的两种类型
+
+| 类型 | 触发 | 表现 |
+| --- | --- | --- |
+| 强制投票 | 回合时间到 / 竞技回合结束 | 自动弹全屏投票界面，停掉当前回合，投票结束后直接换图 |
+| 玩家自发投票 | F2 菜单、地图池「投票」按钮 | 不打断跑图、不弹全屏；屏幕上方提示「按 F4 参与」，投票结束后立即换图（会结束当前回合；选中的就是当前地图时本回合继续） |
+
+- 玩家自发投票进行中，跑图、完赛判定、聊天、计分板都照常；投票结束后立即换图，如果此时本回合时间先到，则先结束回合、等投票结果再开下一张（`manualVoteImmediate = false` 可改回「回合结束后换」）
+- 发起者自己的投票面板会自动打开，其他人按 `F4` 打开 / 关闭
+- 玩家自发投票时，**发起人的提名自动算 1 票**；投票面板里提名图固定在最上面，用「系统随机推荐」分界线隔开其余候选
+- 投票可以**改投**（以最后一次选择为准），也可以改成**弃权**：弃权算作已表态（可以让投票提前结束），但不会给任何地图加票；全员弃权时按热度裁决
+- 票数相同时按热度、再随机决定
 
 地图详情：
 
@@ -645,9 +682,10 @@ local ENABLED = true
 
 - 输入使用 MTA 原生 chatbox，支持中文输入法
 - 原生聊天输出被拦截，由 CEF 显示聊天记录
-- 保留最近 100 条；列表可滚动，超出后删除最早一条
+- 面板只显示最新 10 条，不提供历史滚动（滚轮不再滚动聊天内容）
 - 往上翻历史时不会被新消息拉到底部，新消息有提示按钮
 - 单条消息按 UTF-8 字符数限制 160 字
+- 限速：两条之间至少 900ms，10 秒内最多 6 条；超出的消息丢弃并提示（`chatMinIntervalMs` / `chatBurstWindowMs` / `chatBurstLimit` 可调）
 - 玩家普通消息由服务端 `onPlayerChat` 转发到 CEF
 - `/` 开头的消息交给 MTA 原生指令处理
 - 可用指令：`/help`、`/car [模型]`
@@ -729,11 +767,14 @@ local ENABLED = true
 ```text
 cef/                         Vue 3 + Vite 前端
 server/                      MTA 服务端运行时
-  mods/deathmatch/resources/[rst]/rst_ui/
-    client/                  CEF、输入、倒带、ghost
-    server/                  账号、地图、房间、投票
-    shared/config.lua        玩法配置
-    covers/                  地图封面
+  mods/deathmatch/resources/[rst]/
+    rst_ui/
+      client/                CEF、输入、倒带、ghost
+      server/                账号、地图、房间、投票、按需地图装载
+      shared/config.lua      玩法配置
+      covers/                地图封面
+    maplib/meta.xml          按需地图库（maps/ 与 index.json 由脚本生成，不入库）
+tools/mapstore/build-library.mjs  zip → 地图库 + 索引
 tools/mtavault/              mtavault 抓取 / 扫描
 tools/mtavault/seed/         只读地图元数据 seed DB
 tools/setup-map-acl.mjs      地图 ACL 设置
@@ -752,10 +793,11 @@ tools/setup-map-acl.mjs      地图 ACL 设置
 
 - `pnpm type-check`、`pnpm build`、Lua 5.1 语法检查通过
 - 真实客户端验证注册、登录、游客、HUD、地图加载、地图详情、地图池分页
-- 服务端启动：`Resources: 5 loaded, 0 failed`
-- 地图发现：4 个原生 map resource
+- 服务端启动：只加载 `[rst]` 下的资源 + 运行槽位，地图数量不影响启动时间
+- 地图库：`maplib/index.json` 里的可玩地图数 = F2 地图池总数
+- 换图：复制 → `refreshResources` → `startResource`，先停旧图再起新图
 - mtavault 元数据：4509 张，SQLite 已导入
-- 地图资源 ACL、随机 spawn、无默认氮气、地图详情已在客户端验证
+- 地图 ACL、随机 spawn、无默认氮气、地图详情已在客户端验证
 
 ## 约定
 

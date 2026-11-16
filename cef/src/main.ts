@@ -5,6 +5,7 @@ import { installBridge, installMockServer } from './mta/bridge'
 import { applyTheme, loadThemeSettings } from './theme'
 import { installUiScale } from './ui-scale'
 import './styles/main.css'
+import './styles/element.css'
 
 installBridge()
 installUiScale()

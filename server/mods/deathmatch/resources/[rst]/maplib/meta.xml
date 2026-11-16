@@ -1,0 +1,18 @@
+<!--
+    rst-mta-lite 按需地图库（数据资源）
+
+    maps/<map-id>/ 下是展开后的地图文件，index.json 是地图池索引。
+    这里故意不声明任何 <file>：MTA 启动时会对 meta.xml 里声明的每个文件算 MD5，
+    并把 zip resource 整包解压到 resource-cache/unzipped。4486 张地图约 26 GB，
+    声明进来就会让每次开服多读 26 GB。地图文件由 rst_ui 在换图时用 fileCopy
+    复制到运行槽位 resources/rst_map，再 refresh 启动。
+-->
+<meta>
+    <info
+        author="rst"
+        name="maplib"
+        version="1.0.0"
+        type="script"
+        description="rst-mta-lite 按需地图库：只存数据，不声明文件，不进客户端下载列表"
+    />
+</meta>

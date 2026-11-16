@@ -315,3 +315,24 @@ html[data-theme='light'] .app-root .warp-hint kbd {
   border-color: var(--rst-border);
   background: rgba(35, 75, 115, 0.06);
 }
+/* 玩家自发换图投票：不弹全屏，只给一个提示；按 F4 打开投票面板 */
+.vote-hint {
+  position: absolute;
+  top: 62px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 30;
+  padding: 6px 12px;
+  border: 1px solid rgba(var(--rst-accent-rgb), 0.35);
+  border-radius: 999px;
+  background: rgba(9, 15, 25, 0.82);
+  color: var(--rst-text);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.vote-hint:hover {
+  border-color: rgba(var(--rst-accent-rgb), 0.6);
+}

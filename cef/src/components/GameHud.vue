@@ -80,7 +80,7 @@ const gameModeLabel = computed(() => {
       <span><IconCircleQuestionMark class="icon icon--sm" />F1 帮助</span>
       <span><IconKeyboard class="icon icon--sm" />F2 菜单</span>
       <span><IconMousePointer2 class="icon icon--sm" />F3 光标</span>
-      <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 倒带<span v-if="ui.lives !== null"> · {{ ui.lives }} 命</span></span>
+      <span v-if="!spectating"><IconRewind class="icon icon--sm" />长按 Y 倒带 · Shift 加速<span v-if="ui.lives !== null"> · {{ ui.lives }} 命</span></span>
     </div>
 
     <div v-if="ui.room" class="track" :title="`${ui.room.mapName} by ${ui.room.author}`">

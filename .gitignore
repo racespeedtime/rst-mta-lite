@@ -21,6 +21,13 @@
 /server/mods/deathmatch/resources/*
 !/server/mods/deathmatch/resources/\[rst\]/
 
+# 按需地图库：maplib/meta.xml 入库，展开出来的地图内容由 build-library.mjs 生成
+/server/mods/deathmatch/resources/\[rst\]/maplib/maps/
+/server/mods/deathmatch/resources/\[rst\]/maplib/index.json
+/server/mods/deathmatch/resources/\[rst\]/maplib/build-report.json
+# 运行槽位：换图时把库里的地图复制到这里
+/server/mods/deathmatch/resources/rst_map/
+
 # -----------------------------------------------------------------------------
 # 2) 客户端 CEF UI：源码在 cef/（入库），构建产物输出到 rst_ui/ui/（见第 5 节）
 # -----------------------------------------------------------------------------
