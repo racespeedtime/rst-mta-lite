@@ -18,6 +18,7 @@
 //   node tools/mapstore/build-library.mjs --zips server/mods/deathmatch/map-cache/zips
 //   node tools/mapstore/build-library.mjs --zips server/mods/deathmatch/resources --move-zips server/mods/deathmatch/map-cache/zips
 //   node tools/mapstore/build-library.mjs --only a-new-dawn,silent-hill --force
+//   node tools/mapstore/build-library.mjs --reindex
 //
 // 参数：
 //   --zips <dir>        zip 所在目录（默认 server/mods/deathmatch/map-cache/zips）
@@ -27,6 +28,8 @@
 //   --force             已存在的展开目录也重新解压
 //   --move-zips <dir>   展开成功后把 zip 移动到该目录（迁移用；同盘是改名，很快）
 //   --delete-zips       展开成功后删除源 zip（危险，默认关闭）
+//   --reindex           不碰 zip：扫描 maplib/maps/ 下已有的目录，补 _files.txt 并重建索引
+//                       （手动解压 / 从别的机器拷地图库时用）
 //
 // 失败/无效地图写进 <out>/build-report.json；修好后重跑即可补上，已展开的图会跳过。
 
@@ -62,6 +65,7 @@ function parseArgs(argv) {
     force: false,
     moveZips: '',
     deleteZips: false,
+    reindex: false,
   }
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -78,8 +82,9 @@ function parseArgs(argv) {
     else if (arg === '--force') options.force = true
     else if (arg === '--move-zips') options.moveZips = path.resolve(next())
     else if (arg === '--delete-zips') options.deleteZips = true
+    else if (arg === '--reindex') options.reindex = true
     else if (arg === '--help' || arg === '-h') {
-      console.log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 36).join('\n'))
+      console.log(readFileSync(new URL(import.meta.url), 'utf8').split('\n').slice(0, 48).join('\n'))
       process.exit(0)
     } else {
       throw new Error(`未知参数：${arg}`)
@@ -439,8 +444,14 @@ function inspectExtracted(id, targetDir, previous) {
 }
 
 function main() {
+  if (options.reindex) {
+    runReindex()
+    return
+  }
+
   if (!existsSync(options.zips)) {
     console.error(`zip 目录不存在：${options.zips}`)
+    console.error('把地图 zip 放进该目录，或用 --zips <目录> 指定（每个 zip = 一张地图资源）')
     process.exit(1)
   }
 
@@ -460,6 +471,9 @@ function main() {
   // 只重算索引（zip 都搬走之后补 valid / 清单）：--only 为空且 zip 目录为空时也能跑
   console.log(`地图库目录：${options.out}`)
   console.log(`zip 来源  ：${options.zips}（${zips.length} 个）`)
+  if (zips.length === 0) {
+    console.log('没有找到 zip：默认目录是 server/mods/deathmatch/map-cache/zips，也可以用 --zips <目录> 指定')
+  }
 
   const failures = []
   let extracted = 0
@@ -501,7 +515,12 @@ function main() {
     }
   }
 
+  writeResults(byId, failures)
+}
+
+function writeResults(byId, failures) {
   // 索引只保留展开目录仍然存在的地图；目录被删掉的条目也清掉
+  const index = loadIndex()
   const maps = [...byId.values()].filter((entry) => existsSync(path.join(MAPS_DIR, entry.id, 'meta.xml')))
   index.maps = maps
   saveIndex(index)
@@ -531,6 +550,57 @@ function main() {
   if (invalid.length) console.log(`无效原因  ：见 ${REPORT_PATH}`)
   if (failures.length) console.log(`展开失败  ：${failures.length} 张，详见 ${REPORT_PATH}`)
   if (failures.length || invalid.length) process.exitCode = 2
+}
+
+// 手动解压 / 从别的机器拷库：只扫描 maps/<id>/，补 _files.txt，重建 index.json
+function scanFilesList(targetDir) {
+  const files = []
+  const walk = (dir, prefix) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+      if (entry.isDirectory()) walk(path.join(dir, entry.name), rel)
+      else if (entry.isFile() && entry.name !== '_files.txt') files.push(rel)
+    }
+  }
+  walk(targetDir, '')
+  files.sort()
+  writeFileSync(path.join(targetDir, '_files.txt'), `${files.join('\n')}\n`, 'utf8')
+  return files
+}
+
+function runReindex() {
+  mkdirSync(MAPS_DIR, { recursive: true })
+  const previous = new Map(loadIndex().maps.map((entry) => [entry.id, entry]))
+  const byId = new Map(previous)
+  const failures = []
+  let scanned = 0
+  let generated = 0
+
+  for (const entry of readdirSync(MAPS_DIR, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const id = entry.name
+    const targetDir = path.join(MAPS_DIR, id)
+    if (!existsSync(path.join(targetDir, 'meta.xml'))) continue
+    scanned += 1
+    try {
+      if (!existsSync(path.join(targetDir, '_files.txt'))) {
+        scanFilesList(targetDir)
+        generated += 1
+      }
+      byId.set(id, inspectExtracted(id, targetDir, previous.get(id)))
+    } catch (error) {
+      failures.push({ id, error: error.message })
+      console.error(`  ✗ ${id}: ${error.message}`)
+    }
+  }
+
+  console.log(`地图库目录：${options.out}`)
+  console.log(`索引方式  ：--reindex（扫描已有目录 ${scanned} 个）`)
+  if (generated) console.log(`补齐 _files.txt：${generated} 个`)
+  if (scanned === 0) {
+    console.log('maps/ 下没有找到带 meta.xml 的目录：先把地图解压到 maps/<地图id>/，或用 --zips 展开 zip')
+  }
+  writeResults(byId, failures)
 }
 
 main()

@@ -969,6 +969,49 @@ local function setMenuOpen(open)
     playUiSound('click')
 end
 
+-- 统一关闭最上层弹窗：Esc / F1 / F2 / 清除缓存共用，避免每个键各自维护一套顺序
+local function closeTopOverlay()
+    if scoreboardOpen then
+        closeScoreboard()
+        return true
+    end
+    if voteUiOpen then
+        setVoteUi(false)
+        return true
+    end
+    if mapDetailsOpen then
+        mapDetailsOpen = false
+        dispatch('mapdetails', { open = false })
+        applyInteractive()
+        return true
+    end
+    if mapPoolOpen then
+        mapPoolOpen = false
+        dispatch('mappool', { open = false })
+        applyInteractive()
+        return true
+    end
+    if recordsOpen then
+        recordsOpen = false
+        dispatch('recordsmodal', { open = false })
+        applyInteractive()
+        return true
+    end
+    if helpOpen then
+        setHelpOpen(false)
+        return true
+    end
+    if menuOpen then
+        setMenuOpen(false)
+        return true
+    end
+    return false
+end
+
+local function closeAllOverlays()
+    while closeTopOverlay() do end
+end
+
 -- ---------------------------------------------------------------------------
 -- 渲染
 -- ---------------------------------------------------------------------------
@@ -1218,37 +1261,7 @@ addEventHandler('onClientKey', root, function(button, press)
         return
     end
 
-    local handled = false
-    if scoreboardOpen then
-        closeScoreboard()
-        handled = true
-    elseif voteUiOpen then
-        setVoteUi(false)
-        handled = true
-    elseif mapDetailsOpen then
-        mapDetailsOpen = false
-        dispatch('mapdetails', { open = false })
-        applyInteractive()
-        handled = true
-    elseif mapPoolOpen then
-        mapPoolOpen = false
-        dispatch('mappool', { open = false })
-        applyInteractive()
-        handled = true
-    elseif recordsOpen then
-        recordsOpen = false
-        dispatch('recordsmodal', { open = false })
-        applyInteractive()
-        handled = true
-    elseif helpOpen then
-        setHelpOpen(false)
-        handled = true
-    elseif menuOpen then
-        setMenuOpen(false)
-        handled = true
-    end
-
-    if handled then
+    if closeTopOverlay() then
         cancelEvent()
     end
 end)
@@ -1266,7 +1279,14 @@ addEventHandler('onClientKey', root, function(button, press)
     end
     lastF2At = nowTick
     cancelEvent()
-    setMenuOpen(not menuOpen)
+    if voteForced then
+        return
+    end
+    -- 有弹窗时先关弹窗（地图池 / 排行榜 / 帮助…），没有才打开菜单
+    if closeTopOverlay() then
+        return
+    end
+    setMenuOpen(true)
 end)
 
 -- F4：换图投票面板。玩家自发的投票不弹全屏，按 F4 才打开（F3 已经被自由鼠标占用）
@@ -1407,6 +1427,22 @@ addEventHandler('rst:ui:action', root, function(json)
     elseif data.action == 'cursor:toggle' then
         if phase == 'playing' and not isForcedCursor() and not RST.countdownActive then
             toggleCursorVisibility()
+        end
+    elseif data.action == 'cache:clear' then
+        closeAllOverlays()
+        pageReady = false
+
+        local reloaded = false
+        if browser and isElement(browser) then
+            local ok, result = pcall(reloadBrowserPage, browser, true)
+            reloaded = ok and result == true
+        end
+
+        if not reloaded then
+            pageReady = true
+            dispatch('toast', { text = '清除缓存失败，请重试' })
+        else
+            dispatch('toast', { text = '已清除浏览器缓存，界面重新加载' })
         end
     elseif data.action == 'devtools' then
         if browser then
@@ -1773,15 +1809,11 @@ bindUiKey('V', function()
 end)
 
 bindUiKey('F1', function()
-    if phase ~= 'playing' then
+    if phase ~= 'playing' or voteForced then
         return
     end
-    if helpOpen then
-        setHelpOpen(false)
+    if closeTopOverlay() then
         return
-    end
-    if menuOpen then
-        setMenuOpen(false)
     end
     setHelpOpen(true)
 end)

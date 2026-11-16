@@ -1,229 +1,381 @@
 # rst-mta-lite
 
-轻量 MTA:SA 竞速服务器。服务端使用 MTA Lua，客户端界面使用 CEF + Vue 3 + TypeScript + Vite。
+轻量 MTA:SA 竞速服务器：服务端用 Lua，客户端界面用 CEF + Vue 3 + TypeScript + Vite + Element Plus。
 
-## License 与地图版权
+它主要解决一个问题：**几千张地图不能当作几千个 resource 常驻**。地图平时放在“地图库”里，换图时只把选中那张复制进运行槽位，所以开服从 8 分钟降到 1 秒内，客户端也只下载当前地图。
 
-本项目代码和文档使用 **MIT License**，见 [LICENSE](LICENSE)。
+功能一眼看：
 
-地图展示元数据来自：
+- 训练 / 个人竞技 / 团队竞技
+- 按需地图库；F2 地图池支持分页、实时搜索、表头排序、上传日期范围过滤、详情、点名投票
+- 换图投票分“强制”和“玩家自发”：自发投票不弹全屏，F4 打开，提名自动 1 票，可弃权 / 改投
+- CEF HUD、聊天、计分板、投票面板、地图详情、赛道排行榜
+- 倒带（按住 Shift 3 倍速）、训练传送点、落水后按住 R 重生
+- SQLite 账号、地图热度、个人最佳
+- 默认深色主题
 
-```text
-https://mtavault.com
-```
+---
 
-地图模型、贴图、脚本和地图本身的版权属于制作这些地图的作者。**本仓库不提供任何地图文件、完整地图包或网盘链接**；需要地图请自行向作者/社区获取，或在 mtavault 按需下载单张地图。使用、修改和再分发地图前请确认作者授权。
+## 快速开始
 
-MTA:SA、GTA: San Andreas 及相关名称、资源归其各自权利人所有。
+这个仓库**只有源码**。MTA 服务端本体、地图 zip、运行时数据库、日志、CEF 构建产物都不在仓库里，克隆后需要补齐。
 
-## 从零部署
+### 0. 你需要什么
 
-这个仓库是**源码仓库**，不包含 MTA 服务端本体、地图 zip、运行时数据库、日志和 CEF 构建产物。克隆后需要手动补齐这些文件。
-
-### 0. 环境依赖
-
-| 依赖 | 要求 | 用途 |
-| --- | --- | --- |
-| Windows | Windows 10/11 x64 | MTA 服务端 / 客户端 |
-| Git | 任意较新版本 | 克隆仓库 |
-| Node.js | 22 LTS 或更新 | 构建 CEF UI |
-| pnpm | 9+，实测 12.11.2 | 安装 / 构建前端 |
-| MTA:SA Server | 1.6 | 服务端运行时 |
-| MTA:SA Client | 1.6 | 玩家客户端 |
-| GTA: San Andreas | 1.0 | MTA 客户端依赖 |
+| 依赖 | 要求 |
+| --- | --- |
+| Windows | 10 / 11 x64 |
+| Git | 任意较新版本 |
+| Node.js | 22 LTS 或更新 |
+| pnpm | 9+（实测 12.11.2） |
+| MTA:SA Server | 1.6 |
+| MTA:SA Client + GTA: San Andreas | 客户端 1.6 + GTA SA 1.0 |
 
 正常开服不需要 MySQL、Redis、Python。
 
-### 1. 克隆仓库
+### 1. 克隆
 
 ```bash
 git clone git@github.com:racespeedtime/rst-mta-lite.git
 cd rst-mta-lite
 ```
 
-没有 SSH key 时用 HTTPS：
+没有 SSH key 就用 `https://github.com/racespeedtime/rst-mta-lite.git`。
+
+### 2. 放入 MTA 服务端
+
+从 <https://multitheftauto.com/> 下载 **MTA:SA Server 1.6**，把完整安装目录合并进仓库的 `server/`。
+
+- 不能只复制 `MTA Server.exe`：根目录和 `mods/deathmatch` 下的 DLL、配置必须来自同一版本
+- 合并后确认仓库的 `server/mods/deathmatch/resources/[rst]/` 没有被覆盖
+- 用仓库自带的 `mtaserver.conf`、`acl.xml` 覆盖官方默认文件
+
+### 3. 准备地图库
+
+服务器必须有一个地图库，否则地图池是 0 张、无法开局。按 [地图库](#地图库) 一章里的「从 zip 生成」执行一次即可。
+
+### 4. 构建界面
+
+仓库不含 `rst_ui/ui/` 构建产物：
 
 ```bash
-git clone https://github.com/racespeedtime/rst-mta-lite.git
-```
-
-### 2. 手动安装 MTA 服务端
-
-从 MTA 官网下载 **MTA:SA Server 1.6**：
-
-```text
-https://multitheftauto.com/
-```
-
-不要只复制 `MTA Server.exe`。MTA 服务端依赖根目录和 `mods/deathmatch` 下的一整套 DLL / 配置文件，必须完整保留同一版本的安装目录。
-
-当前这套服务端实际包含：
-
-```text
-server/
-  MTA Server.exe
-  core.dll
-  net.dll
-  pthread.dll
-  xmll.dll
-  dumps/
-  mods/
-    deathmatch/
-      deathmatch.dll
-      dbconmy.dll
-      libcrypto-3.dll
-      libmysql.dll
-      libssl-3.dll
-      lua5.1.dll
-      pcre3.dll
-      mtaserver.conf
-      acl.xml
-      banlist.xml
-      editor_acl.xml
-      editor.conf
-      internal.db
-      registry.db
-      settings.xml
-      vehiclecolors.conf
-      local.conf
-      server-id.keys
-      resources/
-        [rst]/
-          rst_ui/         ← 仓库自带
-```
-
-说明：
-
-- 根目录 DLL：`core.dll`、`net.dll`、`pthread.dll`、`xmll.dll`
-- `mods/deathmatch` DLL：`deathmatch.dll`、`dbconmy.dll`、`libcrypto-3.dll`、`libmysql.dll`、`libssl-3.dll`、`lua5.1.dll`、`pcre3.dll`
-- `mtaserver.conf`、`acl.xml`、`banlist.xml`、`settings.xml` 等是服务端配置
-- `internal.db`、`registry.db`、`server-id.keys` 是运行时文件
-- 所有文件必须来自同一版本 MTA 服务端，不能混用不同版本 DLL
-
-安装时最稳妥的做法：
-
-1. 先把官方 MTA 服务端完整解压到临时目录
-2. 把完整目录合并到仓库的 `server/`
-3. 确认仓库里的 `[rst]/rst_ui` 没有被覆盖
-4. 用仓库自带的 `mtaserver.conf` / `acl.xml` 覆盖官方默认文件
-
-注意：
-
-- `server/` 大部分文件在 `.gitignore` 中，只显式跟踪：
-  - `server/mods/deathmatch/resources/[rst]/`
-  - `server/mods/deathmatch/mtaserver.conf`
-  - `server/mods/deathmatch/acl.xml`
-- `MTA Server.exe`、DLL、`mods/deathmatch` 核心文件需要本地准备。
-- `mtaserver.conf` 和 `acl.xml` 仓库已经提供默认配置，可以直接用，也可以按部署环境修改。
-- 官方服务端安装包自带的配置会覆盖仓库版本，合并后要把仓库版本恢复回来。
-- `libmysql.dll` 只是 MTA 服务端自带的客户端库，正常开服不需要安装 MySQL Server。
-
-### 3. 自行准备地图文件
-
-本仓库**不提供地图文件、地图资源包或网盘链接**。
-
-仓库只包含 mtavault 的展示元数据，地图数据的来源是：
-
-```text
-https://mtavault.com
-```
-
-地图模型、贴图、脚本和地图本身的版权属于各自作者。使用、修改或再分发地图前，请自行确认作者授权和 mtavault 的使用条款。
-
-地图可以按自己的需要获取：
-
-- 向地图作者或社区寻找其他人打包的完整资源包
-- 在 mtavault 上按需下载单张地图
-- 使用自己的地图备份
-
-MTA 地图 zip 不要直接堆进 `resources/`。MTA 启动时会加载 `resources/` 下每个
-resource，并对 `meta.xml` 里声明的每个文件算一遍 MD5；zip resource 还会先整包解压到
-`resource-cache/unzipped`。4486 张地图约 26 GB，直接放进去每次开服都要读一遍，
-启动会从 1 秒变成 8 分钟以上（2026-11-16 实测：字母序处理到 E 就花了 145 秒）。
-
-正确做法是展开成「按需地图库」：
-
-```bash
-# 地图 zip 放在备份目录（download-all-maps.mjs 默认输出就在这里）
-#   server/mods/deathmatch/map-cache/zips/*.zip
-
-# 展开 + 生成地图池索引
-node tools/mapstore/build-library.mjs
-
-# 迁移：把 resources/ 里已经堆着的 zip 一起搬过去（同盘改名，很快）
-node tools/mapstore/build-library.mjs \
-  --zips server/mods/deathmatch/resources \
-  --move-zips server/mods/deathmatch/map-cache/zips
-```
-
-展开结果：
-
-```text
-server/mods/deathmatch/resources/[rst]/maplib/
-  meta.xml            ← 不声明任何文件，开服只读它
-  index.json          ← 地图池索引（id / 名称 / 作者 / .map / 文件数）
-  maps/<map-id>/...   ← 展开后的地图文件
-```
-
-之后开服只加载 `[rst]` 下的资源，地图数量不再影响启动时间（2026-11-16 实测：
-3 个 resource、`Server started` 0.65 秒）；换图时 `rst_ui` 把选中那张图的文件复制到
-运行槽位 `resources/rst_map` 再启动，客户端也只下载当前这一张图。
-`maplib/maps/`、`index.json` 和 `rst_map/` 都在 `.gitignore` 里。
-
-要求：
-
-- zip 根目录直接有 `meta.xml`（多套一层目录也能识别）
-- 地图 ID 就是 zip 文件名去掉 `.zip`
-- 展开时会校验 `meta.xml` 引用的文件；缺文件的图标记为无效、不进地图池
-- 修好 zip 后重跑一次 `build-library.mjs` 即可补上，已展开的图会跳过
-- 不要把 `manifest.json` / `download.log` 放进 `maplib`
-
-截至 **2026-11-15**，mtavault DM/HDM 元数据共 **4509 张**，但这只是元数据，不代表仓库附带了 4509 张地图。
-
-其中源站目前还能提供文件的是 **4486 张**（2026-11-16 实测）；另外 23 张只剩元数据，mtavault 下载端点返回 HTTP 500（`versions: 0`），不是本地漏下。
-
-全新克隆时地图库是空的，地图池 **0 张**；服务器仍能启动，但无法开局。
-
-### 4. 构建 CEF UI
-
-仓库不包含 `ui/` 构建产物，必须本地构建：
-
-```bash
-# 第一次使用 pnpm 时
-corepack enable
-corepack prepare pnpm@12 --activate
-
 cd cef
 pnpm install --frozen-lockfile
 pnpm build
 ```
 
-`pnpm-lock.yaml` 是 lockfile v9；pnpm 9、10、11、12 均可，仓库当前实测 pnpm 12.11.2。不要使用过老的 pnpm 8。
+输出到 `server/mods/deathmatch/resources/[rst]/rst_ui/ui/`。没有它，进服只能看到空白 CEF。
 
-输出：
+### 5. 地图元数据 + ACL
 
-```text
-server/mods/deathmatch/resources/[rst]/rst_ui/ui/
+```bash
+# 安装 mtavault 地图元数据（下载量、上传日期、封面等）
+node tools/mtavault/install-mapmeta-db.mjs
+
+# 如果官方 acl.xml 覆盖了仓库版本，补齐地图资源权限
+node tools/setup-map-acl.mjs
 ```
 
-没有这个目录时，进入服务器可能只看到空白 CEF 页面。
+### 6. 启动并连接
 
-前端技术栈：
-
-- Vue **3.5.x**（保持稳定版；3.6 的 Vapor 还是 RC，且与 Element Plus 的 VDOM 组件不兼容，暂不升级）
-- **Element Plus 按需引入**：只引 `ElTable` / `ElTableColumn` / `ElPagination` / `ElConfigProvider`（排行榜、地图池）+ 组件级 CSS
-- 主题在 `cef/src/styles/element.css` 里把 `--el-*` 映射到 `--rst-*`，弹层（下拉、分页尺寸）也在全局覆盖
-- 当前产物约 `app.js` 422 KB / `style.css` 143 KB（gzip 约 141 + 23 KB）；再引组件时记得看一眼构建体积
-
-### 5. 配置服务端
-
-仓库自带：
-
-```text
-server/mods/deathmatch/mtaserver.conf
+```powershell
+cd server
+.\MTA Server.exe
 ```
 
-默认配置已经包含：
+首次启动会自动创建 `databases/`、`logs/`、`server-id.keys`。日志在 `server/mods/deathmatch/logs/server.log`，看到这两行即正常：
+
+```text
+Resources: 3 loaded, 0 failed
+Server started and is ready to accept connections!
+```
+
+客户端连接：
+
+```text
+mtasa://127.0.0.1:22003
+```
+
+远程服需要放行 UDP `22003`（游戏）和 TCP `22005`（HTTP）。
+
+### 仓库里有什么
+
+| 内容 | 在 Git 里 | 说明 |
+| --- | --- | --- |
+| `cef/` 前端源码 | 是 | 需要 `pnpm build` |
+| `rst_ui/` Lua / 页面 | 是 | 构建产物 `ui/` 除外 |
+| `mapmeta` seed 数据库 | 是 | 安装成运行时 DB |
+| MTA 服务端本体、DLL | 否 | 官方服务端完整安装 |
+| `mtaserver.conf` / `acl.xml` | 是 | 默认配置 |
+| 地图 zip、`maplib/maps`、`index.json` | 否 | 自行准备 / 脚本生成 |
+| `databases/`、`logs/`、`server-id.keys` | 否 | 运行时生成 |
+
+---
+
+## 玩法
+
+### 进入服务器
+
+登录、注册或游客进入后，会自动加入唯一比赛舞台。训练模式可以反复重生 / 观战；竞技模式如果比赛进行中，先观战，等下一回合参赛。
+
+### 操作
+
+| 按键 | 功能 |
+| --- | --- |
+| `T` | 聊天输入 |
+| `F1` | 帮助；有弹窗时先关闭弹窗 |
+| `F2` | 菜单；有弹窗时先关闭弹窗 |
+| `F3` | 临时显示 / 隐藏光标 |
+| `F4` | 打开 / 关闭玩家自发投票面板 |
+| `Tab` | 按住查看全服玩家列表 |
+| 短按左 `Alt` | 训练模式保存当前位置为传送点 |
+| 长按左 `Alt` | 训练模式回到最近传送点 |
+| 长按 `Y` | 倒带最近 8 秒；倒带时按住 `Shift` 3 倍速 |
+| 按住 `R` | 训练模式落水且速度不快时，按住 0.8 秒重生 |
+| 观战 | 鼠标转向 · `WASD` 平移 · 左/右键切人 · 空格 / Ctrl 升降 |
+
+`Esc` 关闭最上层弹窗。
+
+### 模式
+
+- **训练**：默认模式，无限倒带，完赛后 5 秒回随机出生点，可主动重生 / 观战
+- **个人竞技**：按个人冲线名次计分，每人 10 条命，每次倒带扣 1 条
+- **团队竞技**：红 / 蓝队，人数必须相等才能开始；按队伍总分结算，总分相同比最好名次
+
+冲线积分：第 1 名 10 分，第 2 名 8 分，第 3 名 6 分，之后 4 / 3 / 2 / 1 分。模式投票可以在训练 / 个人竞技 / 团队竞技之间切换。
+
+### 完赛与结算
+
+- 车辆进入终点半径即完赛
+- 竞技模式第一个完赛后进入 30 秒结算倒计时，其他人还能继续冲线；倒计时结束显示前 3 名，约 8 秒后进入换图投票
+- 训练模式按个人结算，5 秒后回到随机出生点
+- 地图剩余时间、本图计时、投票倒计时、结算倒计时统一显示 `mm:ss.mmm`，客户端在两次状态之间本地插值
+- 个人最佳按“玩家 + 地图”保存在 `rst_ui_records.db`
+
+### 倒带
+
+- 客户端本地记录最近 8 秒：位置、朝向、速度、血量、车身损坏、氮气状态
+- 松开 `Y` 后先冻结 0.5 秒，再从倒带点继续
+- 倒带期间按住 `Shift` 可以 3 倍速快退，浮层会显示 `×3`
+- 竞技模式每次倒带扣 1 条命；客户端本地执行，没有服务端反作弊校验
+
+### 落水重生
+
+- 仅训练模式：人 / 车在水里，且速度低于阈值并持续 0.8 秒
+- 屏幕上出现 toast「落水了 · 按住 R 重生」，每 6 秒提醒一次
+- 按住 `R` 0.8 秒后回到随机出生点，之后 3 秒内不再提示
+- 阈值在 `client/waterhint.lua` 顶部（速度、按住时长、冷却）
+
+### 聊天
+
+- 输入用 MTA 原生 chatbox，中文输入法可用；消息由 CEF 显示
+- 面板只显示最新 15 条，不提供历史滚动
+- 单条最多 160 字
+- 限速：两条至少间隔 900ms，10 秒内最多 6 条，超出丢弃并提示
+- `/` 开头交给 MTA 原生指令，内置 `/help`、`/car [模型]`
+- `Y` 只用于倒带，不打开团队聊天
+
+### 换图投票
+
+| 类型 | 触发 | 表现 |
+| --- | --- | --- |
+| 强制投票 | 回合时间到 / 竞技结算完 | 自动弹全屏投票，停掉当前回合，出结果直接换图 |
+| 玩家自发投票 | F2 菜单 / 地图池「投票」 | 不弹全屏、不打断跑图；屏幕提示按 `F4` 参与；出结果立即换图 |
+
+自发投票的细节：
+
+- 发起人的提名**自动算 1 票**；提名图固定在最上面，用「系统随机推荐」分界线隔开其余随机候选
+- 可以改投（以最后一次为准），也可以改成弃权；弃权算已表态，但不给任何地图加票
+- 如果票选结果就是当前地图，保留本回合继续
+- 投票结束后冷却 180 秒才能再发起；回合到点的**自动投票不受这个冷却限制**
+- 发起人的面板会自动打开，其他人按 `F4` 开关
+- 票数相同时按热度、再随机决定
+
+想改回“回合结束后再换图”，把 `shared/config.lua` 的 `manualVoteImmediate = false`。
+
+### 地图池
+
+F2 →「地图池」：
+
+- 分页，每页 10 / 20 / 30 / 50 / 100
+- 输入即搜，不用点搜索按钮
+- 表头点名称 / 上传日期 / 下载量 / 热度排序，点三次恢复默认（热度降序）
+- 上传日期范围过滤，格式 `YYYY-MM-DD`，留空不限
+- 点任意行看详情；行尾「投票」可以点名一张图发起投票
+
+热度公式：
+
+```text
+热度 = mtavault 下载量 + 服务器内游玩次数 × playPopularityWeight
+```
+
+随机选图仍是纯随机；热度只影响地图池排序和平票裁决。
+
+### 排行榜
+
+F2 →「赛道排行榜」查看当前地图历史最佳，按时间升序、每页 20 条。
+
+---
+
+## 地图库
+
+### 为什么不能直接把 zip 堆进 `resources/`
+
+MTA 启动会加载 `resources/` 下的每个 resource，并对 `meta.xml` 声明的每个文件算 MD5；zip resource 还会整包解压。4486 张地图约 26 GB，实测启动 145 秒才处理到字母 E，全量 8 分钟以上，还会额外占 18 GB 缓存。
+
+地图库的做法：地图文件放在 `[rst]/maplib/` 这个**数据 resource** 里，它的 `meta.xml` 不声明任何文件，所以开服只读一个 meta；换图时再复制选中那张到运行槽位 `rst_map`。
+
+### 目录结构
+
+```text
+server/mods/deathmatch/
+  map-cache/zips/*.zip          ← 你的 zip 备份（不入库）
+  resources/[rst]/maplib/
+    meta.xml                    ← 入库，不声明文件
+    index.json                  ← 地图池索引（脚本生成，不入库）
+    build-report.json           ← 无效 / 失败清单（脚本生成，不入库）
+    maps/<地图id>/              ← 展开后的地图（脚本生成，不入库）
+      meta.xml
+      _files.txt                ← 换图时按它复制文件
+```
+
+地图 id 就是 zip 文件名去掉 `.zip`，也是 `maps/` 下的目录名。
+
+### zip 备份要不要留？
+
+`map-cache/zips/` 只是**备份 / 源包**，服务端运行时完全不读它。服务器只读：
+
+- `maplib/maps/<id>/`（换图时从这里复制文件）
+- `maplib/index.json`（地图池索引）
+
+所以 `map-cache/zips/` 和 `maplib/maps/` 是同一批地图的两份拷贝，会占双份空间。本机实测：
+
+| 内容 | 大小 | 文件数 |
+| --- | --- | --- |
+| `map-cache/zips/` | 25.6 GB | 4486 个 zip |
+| `maplib/maps/` | 36.0 GB | 展开后的地图文件 |
+| 两份都留 | **61.6 GB** | |
+
+展开后比 zip 大是正常的：zip 是压缩过的，展开后是原始文件。
+
+磁盘紧的话有三种做法：
+
+- **只留展开后的库**：生成时加 `--delete-zips`，或确认无误后手动删 `map-cache/`
+- **把 zip 挪到外置盘**：`--move-zips D:\backup\zips`，以后重建时用 `--zips D:\backup\zips`
+- **只留 zip、不留展开库**（不推荐）：每次换图都要临时解压，装载会慢，而且没法提前校验
+
+不保留 zip 的代价：以后想 `--force` 重建、或地图库损坏时，需要重新下载 / 找 zip。
+
+### 从 zip 生成
+
+```bash
+# 默认读 server/mods/deathmatch/map-cache/zips/*.zip
+node tools/mapstore/build-library.mjs
+
+# 用别的目录
+node tools/mapstore/build-library.mjs --zips "D:\maps\zips"
+```
+
+| 参数 | 作用 |
+| --- | --- |
+| `--zips <目录>` | zip 目录 |
+| `--out <目录>` | 地图库目录（一般不用改） |
+| `--only a,b` | 只处理指定地图 id |
+| `--limit n` | 只处理前 n 张 |
+| `--force` | 已展开的也重新解压 |
+| `--move-zips <目录>` | 展开成功后把 zip 移走（迁移用） |
+| `--delete-zips` | 展开成功后删除 zip（危险） |
+| `--reindex` | 不碰 zip，只扫描 `maps/` 重建索引 |
+
+zip 要求：
+
+- 一个 zip = 一张 MTA 地图 resource
+- 根目录（或只套一层目录）要有 `meta.xml`
+- `meta.xml` 引用的 `.map` / 文件缺失时，这张图会被标成无效，不进地图池
+
+### 跑两次会怎样？
+
+默认幂等，不会覆盖：
+
+- 已经展开的图跳过解压，只重新校验和重算索引
+- 加 `--force` 才会删掉目录重新解压
+- zip 没了但目录还在，地图保留；目录删了，索引条目会被清掉
+- `index.json` 和 `build-report.json` 每次重写
+
+### 手动解压
+
+把每个 zip 解压到 `.../maplib/maps/<地图id>/`（`meta.xml` 在目录根部），然后：
+
+```bash
+node tools/mapstore/build-library.mjs --reindex
+```
+
+它会自动补 `_files.txt` 和 `index.json`，不需要 zip。更细的格式说明见 `tools/mapstore/README.md`。
+
+### 无效地图
+
+校验不通过的地图会写进 `build-report.json`，不进地图池。当前实测 4486 张 zip 中 4482 张可玩，4 张缺文件：`atlas`、`foggy-swamp`、`just-cant-map-x4`、`transformers`。
+
+### 换图流程
+
+1. 选出目标地图
+2. `MapStore` 把 `maplib/maps/<id>/` 的文件复制进运行槽位 `resources/rst_map`
+3. `refreshResources` + `startResource` 启动槽位
+4. 解析 `.map`，生成出生点、载具、pickup、终点
+
+换图是异步的，装载失败的地图会自动从地图池移除并换一张重试。客户端只会下载当前这张地图。
+
+### 出生与拾取物
+
+- 每人优先分配未占用的 spawnpoint，全占满后才允许重复
+- 使用 spawnpoint 对应载具；不默认装氮气
+- 支持 nitro / repair / vehiclechange 三种 pickup
+- `respawn = 0` 是永久可重复拾取；`respawn >= 50` 才会隐藏并按毫秒重生
+- 换车 pickup 正上方显示白色车型名，120 米内可见，越远越淡
+- 地图 `<settings>` 里的时间、天气、重力、游戏速度、浪高、车辆武器、云层会被应用
+- 地图自带的 vehicle 会被移除，racepickup / object / marker 保留
+
+### 自定义载具模型（可选）
+
+模型文件不入库，按模型 ID 命名放进 `rst_ui/models/`：
+
+```text
+models/411.dff   411.txd     ← Infernus
+models/522.dff   522.txd     ← NRG-500
+```
+
+也支持车名 slug，例如 `infernus.dff`、`nrg500.txd`。数字 ID 优先。放好后 `restart rst_ui` 或重启服务器；地图自带的模型覆盖优先于服务器默认模型。
+
+---
+
+## 界面
+
+- CEF 全屏透明，只有 HUD 面板有背景；1080p 为 1.0×，其他分辨率自动缩放
+- 原生血条、武器、金钱隐藏，保留雷达和准星
+- F2 菜单分「玩法 / 训练 / 界面 / 系统」四个页签
+- 界面页可以总开关或单独开关 HUD、聊天、小地图、准星、玩家名字牌
+- 按住 `Tab` 显示全服玩家：ID / 昵称 / 状态 / FPS / Ping，不弹鼠标、不暂停操作
+- 右下角显示构建日期和 git hash
+
+### 主题
+
+- 默认**深色**；浅色可选，但标了“实验”，目前效果一般
+- 预设主题色或自定义颜色；点「还原默认主题」恢复深色 + 默认青色
+- 设置保存在本机 CEF 的 localStorage，不跟账号走
+
+### 清除缓存
+
+F2 →「系统」→「清除浏览器缓存」：关闭界面、强制重新加载 CEF 资源（忽略缓存），本地主题和键位设置保留。界面异常、样式不更新时用。
+
+客户端换图多了以后，MTA 安装目录下的资源缓存会变大，停服后清掉 `mods/deathmatch/resources` 缓存即可，MTA 会按需重建。
+
+---
+
+## 配置与运维
+
+### 服务端配置
+
+`server/mods/deathmatch/mtaserver.conf` 默认值：
 
 ```xml
 <servername>rst-mta-lite</servername>
@@ -231,517 +383,10 @@ server/mods/deathmatch/mtaserver.conf
 <httpport>22005</httpport>
 <maxplayers>32</maxplayers>
 <fpslimit>60</fpslimit>
-
-<!-- 启动核心资源 -->
 <resource src="rst_ui" startup="1" protected="0"/>
 ```
 
-可以按部署环境修改端口、服务器名和下载地址。`rst_ui` 必须保持 `startup="1"`，否则服务器启动后没有比赛逻辑。
-
-脚本启动时也会统一设置：
-
-```lua
-setFPSLimit(60)
-```
-
-### 6. 配置地图 ACL
-
-仓库自带：
-
-```text
-server/mods/deathmatch/acl.xml
-```
-
-其中的 `raceACLGroup` 已经包含：
-
-```xml
-<object name="resource.rst_ui"></object>
-```
-
-并授予：
-
-- `function.startResource`
-- `function.stopResource`
-- `function.restartResource`
-- `function.createResource`
-- `function.deleteResource`
-- `function.refreshResources`
-- `function.xmlLoadFile`
-
-如果安装官方服务端时用官方 `acl.xml` 覆盖了仓库版本，需要恢复仓库的 `acl.xml`，或者在 MTA 管理面板批准 `rst_ui` 的地图资源权限。
-
-也可以停止服务器后运行：
-
-```bash
-node tools/setup-map-acl.mjs
-```
-
-如果脚本提示找不到 `raceACLGroup`，需要手动把：
-
-```xml
-<object name="resource.rst_ui"></object>
-```
-
-加入拥有上述权限的 ACL group，然后重启服务器。
-
-### 7. 安装 mtavault 元数据库
-
-仓库**不包含运行时数据库**，只包含一份只读 seed DB：
-
-```text
-tools/mtavault/seed/rst_ui_mapmeta.db
-```
-
-安装到 MTA 运行目录：
-
-```bash
-node tools/mtavault/install-mapmeta-db.mjs
-```
-
-目标：
-
-```text
-server/mods/deathmatch/databases/global/rst_ui_mapmeta.db
-```
-
-已存在时覆盖：
-
-```bash
-node tools/mtavault/install-mapmeta-db.mjs --force
-```
-
-这个 DB 只包含地图展示元数据，不包含地图本体、账号或玩家记录。
-
-### 8. 启动服务端
-
-```powershell
-cd server
-.\MTA Server.exe
-```
-
-首次启动会自动创建：
-
-```text
-server/mods/deathmatch/databases/
-server/mods/deathmatch/logs/
-server-id.keys
-```
-
-日志：
-
-```text
-server/mods/deathmatch/logs/server.log
-```
-
-看到下面两行说明正常：
-
-```text
-Resources: N loaded, 0 failed
-Server started and is ready to accept connections!
-```
-
-### 9. 客户端连接
-
-安装：
-
-- [MTA:SA Client 1.6](https://multitheftauto.com/)
-- GTA: San Andreas 1.0（MTA 客户端依赖）
-
-连接：
-
-```text
-mtasa://127.0.0.1:22003
-```
-
-远程服务器把 IP 换成公网地址，并放行：
-
-- UDP `22003` 游戏端口
-- TCP `22005` HTTP 端口
-
-登录、注册或游客进入后会自动加入唯一比赛舞台。
-
-### 仓库里有什么 / 需要手动补什么
-
-| 内容 | 是否在 Git | 说明 |
-| --- | --- | --- |
-| `cef/` 前端源码 | 是 | 需要 `pnpm build` |
-| `rst_ui/` Lua / CEF 页面 | 是 | UI 构建产物 `ui/` 除外 |
-| `mapmeta` seed DB | 是 | 安装为运行时 `rst_ui_mapmeta.db` |
-| `MTA Server.exe` + `core.dll` / `net.dll` / `pthread.dll` / `xmll.dll` | 否 | 官方 MTA 服务端完整安装 |
-| `mods/deathmatch` 的 DLL | 否 | `deathmatch.dll`、`lua5.1.dll`、`libssl-3.dll` 等 |
-| `mtaserver.conf` / `acl.xml` | 是 | 默认配置，含 `rst_ui` 启动项和地图 ACL |
-| `banlist.xml` / `settings.xml` / `internal.db` | 否 | 本地配置或运行时文件 |
-| `server-id.keys` | 否 | 运行时生成，不能共享 |
-| 地图 zip | 否 | 本仓库不提供；自行向作者/社区获取 |
-| `map-cache` / `databases` / `logs` | 否 | 运行时生成 |
-| `rst_ui/ui/` | 否 | `pnpm build` 生成 |
-
-## 玩法
-
-1. 登录、注册或游客进入。
-2. 一个服务器只有一个比赛舞台，登录后直接进入。
-3. 竞技模式下，已有玩家进行中则先观战，下回合参赛；训练模式可以直接重生，也可以在观战和重生之间反复切换。
-4. 训练模式默认无限倒带；竞技模式 10 条命。
-5. 地图 60 分钟一轮，可发起换图投票。
-6. 服务端统一限制最高 60 FPS。
-
-### 操作
-
-| 按键 | 功能 |
-| --- | --- |
-| `T` | 聊天输入 |
-| `F1` | 帮助 |
-| `F2` | 菜单 |
-| `F3` | 临时显示 / 隐藏光标 |
-| `F4` | 打开 / 关闭换图投票面板（玩家自发的投票，不弹全屏） |
-| `Tab` | 按住查看全服玩家列表（不显示鼠标） |
-| 短按左 `Alt` | 训练模式保存当前位置为传送点 |
-| 长按左 `Alt` | 训练模式回到最近保存的传送点 |
-| 长按 `Y` | 倒带最近 8 秒；倒带过程中按住 `Shift` 3 倍速快退 |
-| 观战 | 左上角显示正在跟随的玩家名 / 车辆；鼠标转向 · `WASD` 平移 · 左/右键切换玩家 · 空格 / Ctrl 升降；其他玩家保留头顶名字牌 |
-| 菜单 | 训练模式可主动重生；观战时可直接返回训练赛道 |
-
-训练模式的观战和重生可以反复切换；竞技模式进行中只能先观战，等下回合参赛。
-
-竞技模式：全员准备后倒计时开始；每次倒带扣 1 命；命数耗尽转观战。
-
-### 个人竞技 / 团队竞技
-
-竞技模式分两种：
-
-- **个人竞技**：按个人冲线名次计分
-- **团队竞技**：红队 / 蓝队，按队伍总分结算
-
-团队竞技规则：
-
-- 开局前玩家在准备面板选择红队或蓝队
-- 红蓝人数必须相等，且每名玩家都有队伍，才能开始倒计时
-- 人数不相等时显示队伍人数警告，可以切队或改为观战
-- 玩家头顶名字按队伍颜色显示，聊天、排行、结算也带队伍颜色
-- 得分：第 1 名 10 分，第 2 名 8 分，第 3 名 6 分，之后依次 4 / 3 / 2 / 1 分
-- 团队总分为队员得分之和；总分相同时比较最好名次
-
-模式投票现在有三个选项：训练、个人竞技、团队竞技。
-
-### 计时精度
-
-- 地图剩余、本图计时、换图 / 模式投票剩余、结算倒计时统一显示 `mm:ss.mmm`
-- 服务端提供毫秒基准，客户端在两次 state 之间本地插值，避免每秒跳一次
-- 个人最佳也按毫秒存储和显示
-- 冲线按 100ms 独立检测，避免 1 秒 tick 把成绩量化成整秒
-
-### 竞技排行
-
-- 已到达 Hunter / 终点完赛的玩家优先
-- 完赛玩家按冲线名次排序
-- 其余玩家按剩余命数降序排序
-
-## 完赛与结算
-
-- 车辆进入终点半径即算完赛
-- 竞速模式第一名完赛后进入 **30 秒结算倒计时**
-  - 其他玩家仍可继续冲线
-  - 倒计时结束后显示前三，约 8 秒后自动进入换图投票
-- 训练模式按玩家个人结算
-  - 完赛显示个人成绩
-  - **5 秒后回到随机出生点**，其他人不受影响
-- 终点半径、倒计时、结算展示时间、训练返回延迟都在 `shared/config.lua` 调整
-- 顶部计时和右下角赛道面板显示**当前地图个人最佳**
-- 个人最佳按 serial + 地图 resource 存入 `rst_ui_records.db`，训练 / 竞速完赛都会更新
-
-## 音效
-
-- 出生倒计时：每下数字一声短提示音
-- GO：独立发车音
-- 冲线完赛：上行结算音
-- 比赛结束但未完成 / 被淘汰：下行失败音
-- 团队结算按红蓝胜负播放对应完赛 / 失败音
-- 按钮和确认保留点击 / 确认音
-
-音效文件在 `sounds/`，通过 `meta.xml` 下载。
-
-## 地图
-
-地图使用原生 MTA 格式，不维护第二份地图清单：
-
-- `maplib/index.json` 是地图池索引（`build-library.mjs` 从 zip 生成）
-- `server/mapregistry.lua` 启动只读索引，不打开任何 `.map`
-- 选中地图时才从 `maplib/maps/<id>/` 解析 `.map`
-- 从 `.map` 读取全部 spawnpoint、vehicle、racepickup、Hunter 终点 / checkpoint
-- `racepickup` 由客户端按官方 race 资源方式创建自定义模型 object + colshape
-- 支持 nitro / repair / vehiclechange；respawn=0 为永久可重复拾取，respawn>=50 才隐藏并按毫秒重生
-- 官方 race pickup 模型放在 `pickups/`
-- 换车 pickup 正上方显示白色车型名（120 米内，越远越淡）
-- 解析并应用 `<settings>`：时间、天气、重力、游戏速度、浪高、车辆武器、云层、地图时长
-- 地图车辆模型替换由地图自己的 client 脚本完成（例如 Silent Hill 的 Sandking 495），加载地图时自动执行
-- 地图 ID 就是 `maplib/maps/` 下的目录名（= zip 文件名去掉 `.zip`）
-- 地图池就是索引里的可玩地图（`meta.xml` 引用缺失文件的图会被排除）
-- 运行期只有一个槽位 resource `rst_map`，换图时复制文件 + refresh，不常驻 4486 个 resource
-
-## mtavault 地图集
-
-地图展示元数据来自：
-
-```text
-https://mtavault.com
-```
-
-截至 **2026-11-15**：
-
-- 已抓取并写入 SQLite 的 mtavault **DM / HDM** 元数据：**4509 张**
-- HDM 15 张同时带 DM 标签，按地图 ID 去重后为 4509
-- 本仓库**不包含任何地图文件**
-- 地图模型、贴图、脚本和地图本身的版权属于各自作者
-
-元数据条数不等于能下载到的数量：2026-11-16 实测源站可取到 **4486 张**，另 **23 张**只有元数据、下载返回 HTTP 500（`versions: 0`），清单见 `tools/mtavault/README.md`。
-
-地图 zip 需要自行获取，可以找其他人打包的完整包，也可以在 mtavault 按需下载单张地图。使用和再分发前请确认作者授权。
-
-拿到 zip 后按上面「自行准备地图文件」展开成地图库：
-
-```bash
-node tools/mapstore/build-library.mjs
-```
-
-地图库有了之后不用 `refresh` 单个地图，也不用把地图往 `resources/` 里塞：
-
-```text
-restart rst_ui
-```
-
-F2 →「地图池」可以分页浏览（页码可点，每页 10/20/30/50/100 可选）、实时搜索（输入即搜，不用按搜索按钮）、表头点击排序（名称 / 上传日期 / 下载量 / 热度，默认热度降序，再点切换升降序，第三次恢复默认）、按上传日期范围过滤（YYYY-MM-DD，留空不限）；
-点击任意地图查看详情；每行右侧的「投票」可以点名一张图发起换图投票（该图固定作为候选之一，并标注提名者）。
-
-开服只读 `maplib/index.json`（约几百 KB）；`.map` 的 spawn / pickup / finish 在选中地图时才解析；
-客户端只会下载当前被选中的地图，不会因为库里有 4486 张就全部下载。
-
-元数据数据库的安装、seed DB 和抓取/下载脚本说明见：
-
-```text
-tools/mtavault/README.md
-```
-
-出生：
-
-- 每名玩家优先分配一个未被占用的 spawnpoint
-- 只有在 spawnpoint 全部分满后才允许重复
-- 使用该 spawnpoint 对应的 vehicle
-- 不默认安装氮气
-
-切换地图：
-
-- `server/mapstore.lua` 把地图库里的目标地图复制进运行槽位 `rst_map`
-- `server/mapmanager.lua` 负责 stop 旧图 / start 槽位（或手动安装的原生 map resource）
-- 换图是异步的：复制 + `refreshResources` + `startResource` 完成后才真正开局；装不出来的图会自动从地图池移除并换一张重试
-- 地图自带 vehicle 会移除，racepickup / object / marker 保留
-- 单服务器只运行一个比赛舞台，同一时间一张地图；并行舞台需要地图实例化或双服务器
-
-### 地图选择与热度
-
-- 非投票时 `pickMap()` 从当前可用地图池里纯随机，排除当前地图
-- 投票候选随机抽取，只区分“最近玩过 / 没玩过”
-- 在地图池里点名投票时，选中的图固定占第一个候选位，其余候选仍随机补足；投票界面会标注提名者和「提名」标签，结果仍按票数决定
-- 服务器内游玩次数记录在 `rst_ui_mapstats.db`
-- mtavault 下载量来自 `rst_ui_mapmeta.db`
-- 热度公式：
-
-```text
-popularity = mtavault 下载量 + 服务器内游玩次数 × playPopularityWeight
-```
-
-- F2「地图池」按这个热度降序分页，热度相同再按名称
-- 投票票数相同时用这个热度做平票裁决
-- 随机选图仍然是纯随机，不会因为下载量高就固定出某张图
-- 投票候选抽取本身不做热度加权；热度只影响地图池显示排序和平票
-
-### 换图投票的两种类型
-
-| 类型 | 触发 | 表现 |
-| --- | --- | --- |
-| 强制投票 | 回合时间到 / 竞技回合结束 | 自动弹全屏投票界面，停掉当前回合，投票结束后直接换图 |
-| 玩家自发投票 | F2 菜单、地图池「投票」按钮 | 不打断跑图、不弹全屏；屏幕上方提示「按 F4 参与」，投票结束后立即换图（会结束当前回合；选中的就是当前地图时本回合继续） |
-
-- 玩家自发投票进行中，跑图、完赛判定、聊天、计分板都照常；投票结束后立即换图，如果此时本回合时间先到，则先结束回合、等投票结果再开下一张（`manualVoteImmediate = false` 可改回「回合结束后换」）
-- 发起者自己的投票面板会自动打开，其他人按 `F4` 打开 / 关闭
-- 玩家自发投票时，**发起人的提名自动算 1 票**；投票面板里提名图固定在最上面，用「系统随机推荐」分界线隔开其余候选
-- 投票可以**改投**（以最后一次选择为准），也可以改成**弃权**：弃权算作已表态（可以让投票提前结束），但不会给任何地图加票；全员弃权时按热度裁决
-- 票数相同时按热度、再随机决定
-
-地图详情：
-
-- F2 →「地图详情」查看当前地图
-- 显示封面、作者、上传日期、下载量、大小、难度、标签、spawn / vehicle / 终点
-- YouTube、mtavault 链接支持复制，不内嵌视频
-- 原生信息来自 `.map`；封面和链接来自 mtavault 元数据 SQLite（由 seed DB 安装），按需查询，不参与加载
-
-排行榜：
-
-- 比赛结算面板显示当局前 3 名
-- 右侧竞技面板显示当前所有玩家，按完赛顺序 / 剩余命数排序
-- F2 →「赛道排行榜」查看**当前地图历史最佳成绩**
-- 按个人最佳完赛时间升序，每页 20 条
-- 记录来自 `rst_ui_records.db`，按 serial + 地图保存个人最佳
-
-地图本体、压缩包、地图缓存都不进 Git。
-
-### 自定义载具模型（可选）
-
-代码已经内置服务器默认载具 DFF/TXD 加载，但默认没有模型文件，所以不会生效。
-
-推荐用**载具模型 ID**命名：
-
-```text
-server/mods/deathmatch/resources/[rst]/rst_ui/models/411.dff
-server/mods/deathmatch/resources/[rst]/rst_ui/models/411.txd
-```
-
-`411` 是 Infernus。任何 GTA:SA 载具模型 ID 都可以：
-
-```text
-models/411.dff   Infernus
-models/522.dff   NRG-500
-models/470.dff   Patriot
-...
-```
-
-也支持车名 slug 作为别名：
-
-```text
-models/infernus.dff
-models/infernus.txd
-models/nrg500.dff
-models/nrg500.txd
-```
-
-规则：
-
-- 数字 ID 优先：`models/411.dff` 存在时不会用 `models/infernus.dff`
-- 车名 slug 是 `getVehicleNameFromModel` 转小写后只保留字母数字
-- 例如 `Infernus` → `infernus`，`NRG-500` → `nrg500`
-- 支持模型 ID `400` 到 `611`
-- DFF 和 TXD 可以只放其中一个
-- 文件必须是 GTA:SA 可用的 DFF / TXD
-- 模型文件不入库，版权归模型作者
-
-MTA 1.6 的 meta 已经用 glob 自动登记：
-
-```xml
-<file src="models/*.dff" />
-<file src="models/*.txd" />
-```
-
-放入文件后执行：
-
-```text
-restart rst_ui
-```
-
-或者重启服务器。没有模型文件时不会替换，也不会报错。
-
-载具 ID 查询：
-
-```text
-https://wiki.multitheftauto.com/wiki/Vehicle_IDs
-```
-
-优先级：
-
-```text
-服务器默认载具模型
-        ↓ 地图 resource 启动，地图自己的模型脚本加载
-地图自己的 DFF / TXD 覆盖对应模型 ID
-```
-
-地图 resource 有对应模型时始终使用地图的；换图时服务器默认模型会在地图启动前重新应用，再由新地图覆盖。地图只覆盖部分车型时，其余车型继续使用服务器默认模型。
-
-如果想完全关闭这个功能，把：
-
-```text
-client/custommodels.lua
-```
-
-顶部的：
-
-```lua
-local ENABLED = true
-```
-
-改成 `false`。
-
-## 账号
-
-- 自定义 SQLite 账号，昵称即账号名
-- 注册需要输入两遍密码
-- 密码最少 8 位
-- 使用 MTA `passwordHash` / `passwordVerify`（bcrypt）
-- 游客不写数据库
-
-当前不是 MTA 官方 Account：没有 ACL、账号数据、密码重置。
-
-## 聊天
-
-- 输入使用 MTA 原生 chatbox，支持中文输入法
-- 原生聊天输出被拦截，由 CEF 显示聊天记录
-- 面板只显示最新 10 条，不提供历史滚动（滚轮不再滚动聊天内容）
-- 往上翻历史时不会被新消息拉到底部，新消息有提示按钮
-- 单条消息按 UTF-8 字符数限制 160 字
-- 限速：两条之间至少 900ms，10 秒内最多 6 条；超出的消息丢弃并提示（`chatMinIntervalMs` / `chatBurstWindowMs` / `chatBurstLimit` 可调）
-- 玩家普通消息由服务端 `onPlayerChat` 转发到 CEF
-- `/` 开头的消息交给 MTA 原生指令处理
-- 可用指令：`/help`、`/car [模型]`
-- MTA 默认 `Y` 团队聊天已禁用，`Y` 只用于倒带
-
-## UI
-
-- CEF 全屏透明，只有 HUD 面板有背景
-- 登录 / 菜单 / 投票 / 聊天等场景强制显示光标，游戏内默认隐藏
-- 1080p 为 1.0×，720p / 1440p / 4K 自动缩放
-- 原生血条、武器、金钱等 HUD 隐藏，保留雷达和准星
-- F2 菜单分为「玩法 / 训练 / 界面 / 系统」四个页签
-- 界面页支持浅色 / 深色 / 跟随系统，以及预设或自定义主题色
-- 界面显示偏好和主题保存在本机 CEF localStorage
-- 界面页支持总开关和独立开关：HUD、聊天记录、小地图、准星、玩家名字牌
-- 全部 GUI 开关会覆盖上面所有显示项；单项偏好保存在本机
-- 玩家名字牌开关只影响当前客户端
-- 按住 `Tab` 显示全服玩家表格：ID / 昵称 / 状态 / FPS / Ping
-- 计分板不打开鼠标光标，不暂停游戏操作；滚轮由 Lua 转发给表格
-- 状态包括未登录、大厅、训练中、准备中、存活、死亡、完赛、观战、投票中
-- 右下角显示构建日期和 git hash
-
-## 飞行高度
-
-- 飞机 / 直升机默认高度上限已解除
-- 喷气背包默认高度上限已解除
-- 客户端统一设置为 `100000`
-- 地图 resource 在启动时如果重新设置了更低的上限，客户端会在地图启动后再次应用
-- 常量在 `client/main.lua` 的 `FLIGHT_MAX_HEIGHT`
-
-## 训练传送点
-
-- 仅训练模式可用，按当前地图保存，换图自动清空
-- 短按左 `Alt` 保存当前位置
-- 长按左 `Alt` 到阈值立即回到最近保存的位置，不需要等松开
-- F2「训练」页可以回到任意传送点、回到最近、删除
-- 回到传送点后冻结 500ms，再恢复操作
-- 传送会恢复保存时的位置、完整朝向、速度、角速度、载具/玩家血量、护甲、氮气状态和车辆损坏状态（面板/车门/车灯/轮胎）
-- 传送与倒带互斥：倒带中不能传送，传送冻结中不能倒带
-- 换图、换房间、切换模式或离开比赛时自动清空
-- 传送点保存在当前客户端会话内，不会上传服务器
-
-## 倒带
-
-- 客户端本地记录最近 8 秒
-- 记录位置、朝向、速度、载具血量、面板 / 车门 / 车灯 / 轮胎损坏状态、氮气 level / count / 喷射状态
-- 倒带结束保留倒带点之前的历史并平移到当前时间，连续使用不会从 0 重新攒时间
-- 倒带期间关闭氮气喷射，结束时恢复倒带点的状态
-- 松开 Y 后先冻结在松开瞬间的倒带状态 500ms，再恢复操作和速度
-- 客户端本地倒带；服务端负责扣命和结束时血量同步，没有反作弊校验
-
-相机只在进入游戏、观战返回、重生时重置，不会因每秒 state 更新把视角拉回车后。观战使用自由飞行相机，不再跟随幸存玩家。
-
-## 配置
-
-主要配置在 `shared/config.lua`：
+`rst_ui` 必须保持 `startup="1"`。服务器浏览器里的名字、描述、语言、标签、官网就在这个文件顶部的 `<rule>` 里；上公网前记得填 `owner_email_address`（MTA 主列表可见性需要）。玩法参数在 `rst_ui/shared/config.lua`：
 
 | 字段 | 说明 |
 | --- | --- |
@@ -750,57 +395,114 @@ local ENABLED = true
 | `competitiveLives` | 竞技命数 |
 | `voteSeconds` / `modeVoteSeconds` | 投票时长 |
 | `voteCooldown` / `modeVoteCooldown` | 手动投票冷却 |
-| `spawnCountdown` / `competitiveCountdown` | 出生倒计时 |
+| `manualVoteImmediate` | 自发投票是否立即换图 |
+| `spawnCountdown` / `competitiveCountdown` | 出生 / 开赛倒计时 |
 | `finishRadius` | 终点判定半径 |
-| `raceEndCountdown` | 第一名完赛后的结算倒计时 |
-| `raceResultSeconds` | 结算排行展示时间 |
-| `trainingReturnSeconds` | 训练模式完赛回出生点延迟 |
-| `playPopularityWeight` | 服务器游玩次数权重（叠加 mtavault 下载量） |
-| `scoreTable` | 冲线名次对应积分 |
-| `teamColors` | 红 / 蓝队名字颜色 |
-| `vehicle` | 没有 spawnpoint vehicle 时的默认车型 |
+| `raceEndCountdown` / `raceResultSeconds` | 竞技结算倒计时 / 排行展示时长 |
+| `trainingReturnSeconds` | 训练完赛回出生点延迟 |
+| `playPopularityWeight` | 游玩次数热度权重 |
+| `scoreTable` / `teamColors` / `vehicle` | 冲线积分 / 队伍颜色 / 默认车型 |
+| `chatMinIntervalMs` / `chatBurstWindowMs` / `chatBurstLimit` | 聊天限速 |
 
-地图列表不写在配置里。
+地图列表不写在配置里，只认地图库索引。
 
-## 目录
+### ACL
+
+`acl.xml` 里的 `raceACLGroup` 已包含 `resource.rst_ui`，并授予 `startResource`、`stopResource`、`restartResource`、`createResource`、`deleteResource`、`refreshResources`、`xmlLoadFile`。
+
+如果安装官方服务端时覆盖了这个文件，用快速开始第 5 步的 `setup-map-acl.mjs` 补齐，然后重启服务器。
+
+### 地图元数据
+
+`tools/mtavault/seed/rst_ui_mapmeta.db` 是只读 seed，包含 4509 张 DM/HDM 的展示元数据（下载量、上传日期、封面等），不含地图本体、账号或玩家记录。
+
+安装命令见快速开始第 5 步，目标：`server/mods/deathmatch/databases/global/rst_ui_mapmeta.db`。没有它服务器也能跑，只是下载量 / 上传日期为空（按日期过滤会排除这些图）。
+
+### 数据库与日志
+
+运行时 SQLite 都在 `server/mods/deathmatch/databases/global/`：
+
+- `rst_ui_accounts.db`：账号
+- `rst_ui_records.db`：个人最佳
+- `rst_ui_mapstats.db`：地图游玩次数
+- `rst_ui_mapmeta.db`：地图元数据
+
+日志：`server/mods/deathmatch/logs/server.log`。
+
+### 性能
+
+2026-11-16 本机 NVMe 实测：
+
+| 项目 | 数值 |
+| --- | --- |
+| 开服到 `Server started` | 0.38–0.65 秒（3 个 resource） |
+| 装载一张 24 MB / 56 文件地图 | 1.9–2.8 秒 |
+| 换一张 12 MB / 49 文件地图 | 约 2.1 秒 |
+| 地图池默认分页 | 约 0.25 ms |
+| 地图池按下载 / 热度 / 名称排序 | 14–36 ms（只在你点表头时） |
+| 全量地图库 | 约 36 GB |
+
+---
+
+## 账号
+
+- 自定义 SQLite 账号，昵称即账号名
+- 注册需要两次密码，最少 8 位；使用 MTA `passwordHash` / `passwordVerify`（bcrypt）
+- 游客不写数据库
+- 不是 MTA 官方账号，没有 ACL、账号数据、密码重置
+
+---
+
+## 开发
+
+### 目录
 
 ```text
-cef/                         Vue 3 + Vite 前端
-server/                      MTA 服务端运行时
-  mods/deathmatch/resources/[rst]/
-    rst_ui/
-      client/                CEF、输入、倒带、ghost
-      server/                账号、地图、房间、投票、按需地图装载
-      shared/config.lua      玩法配置
-      covers/                地图封面
-    maplib/meta.xml          按需地图库（maps/ 与 index.json 由脚本生成，不入库）
-tools/mapstore/build-library.mjs  zip → 地图库 + 索引
-tools/mtavault/              mtavault 抓取 / 扫描
-tools/mtavault/seed/         只读地图元数据 seed DB
-tools/setup-map-acl.mjs      地图 ACL 设置
+cef/                              Vue 3 + Vite 前端源码
+server/mods/deathmatch/
+  resources/[rst]/
+    rst_ui/                       CEF、输入、倒带、服务端逻辑
+      client/  server/  shared/config.lua
+    maplib/meta.xml               地图库数据 resource
+  mtaserver.conf / acl.xml
+tools/
+  mapstore/build-library.mjs      zip → 地图库 + 索引
+  mtavault/                       元数据抓取 / 扫描 / seed
+  setup-map-acl.mjs               地图 ACL 设置
 ```
+
+### 构建
+
+见 [快速开始](#4-构建界面)。前端技术栈：Vue 3.5 + Element Plus 按需引入；当前产物约 `app.js` 562 KB / `style.css` 195 KB（gzip 约 182 + 29 KB）。
+
+### 约定
+
+- 源码和文档用 LF
+- 地图、zip、数据库、日志、`ui/` 构建产物不入库
+- 远程仓库：`git@github.com:racespeedtime/rst-mta-lite.git`
+
+---
 
 ## 已知限制
 
-- CEF 输入框中文输入不可用；聊天输入已改用 MTA 原生 chatbox
-- 单服务器单舞台，同一时间一张地图；真正并行需要地图实例化或双服务器
-- 地图没有 checkpoint / 圈速校验；完赛按终点半径判定，排行按冲线顺序和剩余命数
+- CEF 输入框中文输入不可用，聊天输入改用 MTA 原生 chatbox
+- 单服务器单舞台，同一时间一张地图
+- 完赛按终点半径判定，没有 checkpoint / 圈速校验
 - 倒带在客户端本地执行，没有服务端校验
 - 原生地图脚本可能输出自己的聊天提示或 deprecated 警告
-- 登录错误会区分账号不存在 / 密码错误
 
 ## 验证
 
-- `pnpm type-check`、`pnpm build`、Lua 5.1 语法检查通过
-- 真实客户端验证注册、登录、游客、HUD、地图加载、地图详情、地图池分页
-- 服务端启动：只加载 `[rst]` 下的资源 + 运行槽位，地图数量不影响启动时间
-- 地图库：`maplib/index.json` 里的可玩地图数 = F2 地图池总数
-- 换图：复制 → `refreshResources` → `startResource`，先停旧图再起新图
-- mtavault 元数据：4509 张，SQLite 已导入
-- 地图 ACL、随机 spawn、无默认氮气、地图详情已在客户端验证
+```bash
+cd cef && pnpm type-check && pnpm build
+```
 
-## 约定
+服务端启动日志与快速开始第 6 步一致；进入游戏后检查注册 / 登录 / 游客、HUD、地图加载、地图池分页与搜索、换图投票。
 
-- 源码和文档使用 LF
-- 地图、压缩包、数据库、日志、`ui/` 构建产物不入库
-- 远程仓库：`git@github.com:racespeedtime/rst-mta-lite.git`
+## 版权
+
+代码和文档使用 MIT License，见 [LICENSE](LICENSE)。
+
+地图展示元数据来自 <https://mtavault.com>。地图模型、贴图、脚本和地图本身的版权属于各自作者；本仓库不提供地图文件或下载链接，获取和再分发前请确认作者授权。
+
+MTA:SA、GTA: San Andreas 及相关名称归其各自权利人所有。

@@ -12,6 +12,7 @@ import IconMap from '~icons/lucide/map'
 import IconMapPinned from '~icons/lucide/map-pinned'
 import IconMousePointer2 from '~icons/lucide/mouse-pointer-2'
 import IconPalette from '~icons/lucide/palette'
+import IconRefreshCw from '~icons/lucide/refresh-cw'
 import IconRotateCcw from '~icons/lucide/rotate-ccw'
 import IconSettings from '~icons/lucide/settings'
 import IconTrash2 from '~icons/lucide/trash-2'
@@ -22,7 +23,7 @@ import IconX from '~icons/lucide/x'
 import { emitAction } from '@/mta/bridge'
 import { useTicker } from '@/composables/useTicker'
 import { ui } from '@/stores/ui'
-import { applyTheme, saveThemeSettings, type ThemeMode } from '@/theme'
+import { applyTheme, defaultThemeSettings, saveThemeSettings, type ThemeMode } from '@/theme'
 import { formatMs, formatTime } from '@/utils/format'
 
 const now = useTicker()
@@ -30,8 +31,7 @@ const activeTab = ref<'play' | 'training' | 'view' | 'system'>('play')
 
 const THEME_MODES: { value: ThemeMode; label: string }[] = [
   { value: 'dark', label: '深色' },
-  { value: 'light', label: '浅色' },
-  { value: 'system', label: '跟随系统' },
+  { value: 'light', label: '浅色（实验）' },
 ]
 const ACCENT_PRESETS = ['#58c8ff', '#8b7cff', '#7ee2a8', '#ffd479', '#ff8fab', '#ff8a5c', '#5eead4', '#f472b6']
 const MENU_LEAVE_DELAY_MS = 190
@@ -83,7 +83,7 @@ function close(): void {
 }
 
 function startVote(): void {
-  if (!ui.canStartVote) return
+  if (!ui.canStartVote || ui.voteCooldown > 0) return
   emitAction('vote:start')
   emitAction('menu:close')
 }
@@ -109,6 +109,10 @@ function toggleOb(): void {
 
 function devtools(): void {
   emitAction('devtools')
+}
+
+function clearCache(): void {
+  emitAction('cache:clear')
 }
 
 function toggleHud(): void {
@@ -157,6 +161,14 @@ function setAccentColor(color: string): void {
   if (!/^#[0-9a-f]{6}$/i.test(color)) return
   ui.accentColor = color.toLowerCase()
   persistTheme()
+}
+
+function resetTheme(): void {
+  const theme = defaultThemeSettings()
+  ui.themeMode = theme.mode
+  ui.accentColor = theme.accent
+  saveThemeSettings(theme)
+  applyTheme(theme)
 }
 
 function onAccentInput(event: Event): void {
@@ -313,7 +325,7 @@ function respawn(): void {
       </nav>
 
       <div v-if="activeTab === 'play'" class="menu-actions">
-        <button type="button" class="menu-action" :disabled="!ui.canStartVote" @click="startVote">
+        <button type="button" class="menu-action" :disabled="!ui.canStartVote || ui.voteCooldown > 0" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">
             <strong>发起换图投票</strong>
@@ -541,6 +553,10 @@ function respawn(): void {
               {{ mode.label }}
             </button>
           </div>
+          <div class="theme-note">
+            <small>默认深色，浅色主题还在完善</small>
+            <button type="button" class="theme-reset" @click="resetTheme">还原默认主题</button>
+          </div>
           <div class="accent-row">
             <button
               v-for="color in ACCENT_PRESETS"
@@ -601,6 +617,15 @@ function respawn(): void {
           <span class="menu-action__text">
             <strong>打开 DevTools</strong>
             <small>CEF 调试</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
+        <button type="button" class="menu-action" @click="clearCache">
+          <span class="menu-action__icon"><IconRefreshCw class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>清除浏览器缓存</strong>
+            <small>强制重新加载界面资源，本地主题和键位设置保留</small>
           </span>
           <IconChevronRight class="icon menu-action__arrow" />
         </button>
@@ -814,6 +839,31 @@ function respawn(): void {
   color: var(--rst-accent);
   border-color: rgba(var(--rst-accent-rgb), 0.45);
   background: rgba(var(--rst-accent-rgb), 0.1);
+}
+
+.theme-note {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 2px 0 6px;
+  color: var(--rst-muted);
+  font-size: 8px;
+}
+
+.theme-reset {
+  flex: 0 0 auto;
+  padding: 3px 8px;
+  border: 1px solid var(--rst-border);
+  border-radius: 5px;
+  color: var(--rst-muted);
+  font-size: 8px;
+}
+
+.theme-reset:hover {
+  color: var(--rst-text);
+  border-color: rgba(var(--rst-accent-rgb), 0.45);
+  background: rgba(var(--rst-accent-rgb), 0.08);
 }
 
 .accent-row {

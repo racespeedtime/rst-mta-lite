@@ -75,7 +75,7 @@ function onSortChange(event: SortChangeEvent): void {
   request(1)
 }
 
-const canVote = computed(() => ui.canStartVote && !ui.vote && !!ui.room)
+const canVote = computed(() => ui.canStartVote && ui.voteCooldown <= 0 && !ui.vote && !!ui.room)
 
 function request(page: number): void {
   const requestId = ui.mapPoolRequestId + 1

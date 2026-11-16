@@ -1556,6 +1556,9 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer)
         if last > 0 then
             local remaining = (config.voteCooldown or 0) - (now() - last)
             if remaining > 0 then
+                outputServerLog(('[VOTE] %s 发起投票被冷却拦截：还需 %d 秒'):format(
+                    byPlayer and getPlayerName(byPlayer) or '?', math.ceil(remaining)
+                ))
                 return false, ('投票冷却中，还需 %d 秒'):format(math.ceil(remaining))
             end
         end
@@ -1734,6 +1737,8 @@ function Rooms.finishVote(room)
     end
 
     room.vote = nil
+    -- 冷却从投票结束 / 换图这一刻重新计时，避免投票耗时把冷却吃掉
+    room.lastVoteAt = now()
 
     local roundRunning = room.active and not room.raceFinal and (room.roundEnds or 0) > 0
     local manual = vote and vote.forced == false

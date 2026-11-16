@@ -16,6 +16,7 @@ import type {
   PlayMode,
   ReadyState,
   RewindPayload,
+
   RaceResultState,
   RoomSummary,
   VehiclePayload,
@@ -64,7 +65,7 @@ export const ui = reactive({
   showChat: true,
   showRadar: true,
   showCrosshair: true,
-  themeMode: 'dark' as 'dark' | 'light' | 'system',
+  themeMode: 'dark' as 'dark' | 'light',
   accentColor: '#58c8ff',
   recordsOpen: false,
   recordsLoading: false,
@@ -98,4 +99,5 @@ export const ui = reactive({
   authError: '',
   vehicle: null as VehiclePayload | null,
   rewind: { active: false, progress: 0, seconds: 0, speed: 1 } as RewindPayload,
+
 })

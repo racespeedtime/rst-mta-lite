@@ -301,6 +301,7 @@ export interface RewindPayload {
   speed?: number
 }
 
+
 export interface MenuPayload {
   open: boolean
 }
@@ -375,6 +376,7 @@ export interface ModalPayload {
 export type BridgeEventMap = {
   state: StatePayload
   rewind: RewindPayload
+
   menu: MenuPayload
   toast: ToastPayload
   chat: ChatOpenPayload

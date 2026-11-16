@@ -19,6 +19,7 @@ import ScoreboardPanel from '@/components/ScoreboardPanel.vue'
 import RaceResultOverlay from '@/components/RaceResultOverlay.vue'
 import BuildTag from '@/components/BuildTag.vue'
 import RewindOverlay from '@/components/RewindOverlay.vue'
+
 import ToastMessage from '@/components/ToastMessage.vue'
 import AuthView from '@/views/AuthView.vue'
 import StageView from '@/components/StageView.vue'
@@ -28,7 +29,7 @@ import ModeVoteView from '@/views/ModeVoteView.vue'
 import { emitAction, emitToLua, onBridge } from '@/mta/bridge'
 import type { StatePayload } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
-import { applyTheme, loadThemeSettings, watchSystemTheme } from '@/theme'
+import { applyTheme, loadThemeSettings, saveThemeSettings } from '@/theme'
 
 interface ToastItem {
   id: number
@@ -199,55 +200,6 @@ function onAnyClick(event: MouseEvent): void {
   }
 }
 
-function onCursorKeydown(event: KeyboardEvent): void {
-  if (ui.phase !== 'playing') return
-  if (ui.chatOpen) return
-  const target = event.target as HTMLElement | null
-  if (target?.closest('input, textarea, select, [contenteditable="true"]')) return
-
-  if (event.key === 'F3') {
-    event.preventDefault()
-    emitAction('cursor:toggle')
-    return
-  }
-
-  if (event.key === 'F1') {
-    event.preventDefault()
-    if (ui.helpOpen) {
-      ui.helpOpen = false
-      emitAction('help:close')
-    } else {
-      emitAction('help:open')
-    }
-    return
-  }
-
-  if (event.key === 'Escape' && !ui.chatOpen) {
-    let handled = false
-    if (ui.mapDetailsOpen) {
-      ui.mapDetailsOpen = false
-      handled = true
-    }
-    if (ui.mapPoolOpen) {
-      ui.mapPoolOpen = false
-      handled = true
-    }
-    if (ui.recordsOpen) {
-      ui.recordsOpen = false
-      handled = true
-    }
-    if (ui.helpOpen) {
-      ui.helpOpen = false
-      emitAction('help:close')
-      handled = true
-    }
-    if (ui.menuOpen) {
-      emitAction('menu:close')
-      handled = true
-    }
-    if (handled) event.preventDefault()
-  }
-}
 
 onMounted(() => {
   // 纯浏览器调试：?pool 自动打开地图池，?vote 直接进入投票面板（只在 dev 生效）
@@ -269,13 +221,8 @@ onMounted(() => {
   ui.themeMode = theme.mode
   ui.accentColor = theme.accent
   applyTheme(theme)
-  offs.push(
-    watchSystemTheme(() => {
-      if (ui.themeMode === 'system') {
-        applyTheme({ mode: 'system', accent: ui.accentColor })
-      }
-    }),
-  )
+  // 旧版本可能存了 "跟随系统"，loadThemeSettings 会归一成深色，这里顺手写回
+  saveThemeSettings(theme)
 
   watch(
     () => ui.mapDetailsOpen,
@@ -306,6 +253,7 @@ onMounted(() => {
     onBridge('rewind', (payload) => {
       ui.rewind = payload
     }),
+
     onBridge('toast', (payload) => {
       const text = payload.text || ''
       showToast(text)
@@ -396,7 +344,6 @@ onMounted(() => {
   )
 
   document.addEventListener('click', onAnyClick, true)
-  document.addEventListener('keydown', onCursorKeydown)
 
   // 界面显示偏好保存在本机 CEF，仅影响当前客户端
   const savedVisibility = window.localStorage.getItem('rst.visibility')
@@ -428,7 +375,6 @@ onMounted(() => {
 onUnmounted(() => {
   offs.forEach((off) => off())
   document.removeEventListener('click', onAnyClick, true)
-  document.removeEventListener('keydown', onCursorKeydown)
   for (const timer of toastTimers.values()) {
     window.clearTimeout(timer)
   }
@@ -448,11 +394,14 @@ onUnmounted(() => {
           <Transition name="speedo">
             <Speedometer v-if="ui.showHud && ui.vehicle" />
           </Transition>
-          <SpawnCountdown v-if="ui.countdown.active" />
+          <Transition name="countdown-fade">
+            <SpawnCountdown v-if="ui.countdown.active" />
+          </Transition>
           <CompetitionPanel v-if="ui.showHud && ui.competition" />
           <RaceResultOverlay v-if="ui.raceResult" />
           <ReadyOverlay v-if="ui.ready.waiting" />
           <RewindOverlay v-if="ui.rewind.active" />
+
           <ChatPanel v-if="ui.showChat" />
         </template>
         <Transition name="menu">

@@ -1,4 +1,4 @@
-export type ThemeMode = 'dark' | 'light' | 'system'
+export type ThemeMode = 'dark' | 'light'
 export type ResolvedTheme = 'dark' | 'light'
 
 export interface ThemeSettings {
@@ -7,13 +7,17 @@ export interface ThemeSettings {
 }
 
 const STORAGE_KEY = 'rst.theme'
-const DEFAULT_THEME: ThemeSettings = {
+export const DEFAULT_THEME: ThemeSettings = {
   mode: 'dark',
   accent: '#58c8ff',
 }
 
+export function defaultThemeSettings(): ThemeSettings {
+  return { ...DEFAULT_THEME }
+}
+
 function isThemeMode(value: unknown): value is ThemeMode {
-  return value === 'dark' || value === 'light' || value === 'system'
+  return value === 'dark' || value === 'light'
 }
 
 export function normalizeAccent(value: unknown): string {
@@ -49,9 +53,6 @@ export function saveThemeSettings(settings: ThemeSettings): void {
 }
 
 export function resolveTheme(mode: ThemeMode): ResolvedTheme {
-  if (mode === 'system') {
-    return window.matchMedia?.('(prefers-color-scheme: light)').matches ? 'light' : 'dark'
-  }
   return mode
 }
 
@@ -74,11 +75,4 @@ export function applyTheme(settings: ThemeSettings): void {
   root.dataset.themeMode = settings.mode
   root.style.setProperty('--rst-accent', accent)
   root.style.setProperty('--rst-accent-rgb', hexToRgbChannels(accent))
-}
-
-export function watchSystemTheme(onChange: () => void): () => void {
-  const media = window.matchMedia?.('(prefers-color-scheme: light)')
-  if (!media) return () => undefined
-  media.addEventListener('change', onChange)
-  return () => media.removeEventListener('change', onChange)
 }

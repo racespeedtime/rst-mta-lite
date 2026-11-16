@@ -101,14 +101,20 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
+/* 外围柔光：纯渐变，不用 filter: blur，避免每帧软合成 */
 .countdown::before {
   content: '';
   position: absolute;
   width: 560px;
   height: 560px;
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(4, 9, 16, 0.62), transparent 68%);
-  filter: blur(2px);
+  background: radial-gradient(
+    circle,
+    rgba(3, 8, 14, 0.6) 0%,
+    rgba(3, 8, 14, 0.34) 42%,
+    rgba(3, 8, 14, 0.12) 62%,
+    transparent 76%
+  );
 }
 
 .countdown__ring-wrap {
@@ -117,6 +123,22 @@ onUnmounted(() => {
   height: 232px;
   display: grid;
   place-items: center;
+}
+
+/* 数字背后的半透明底盘：在明亮场景里也保证可读，不再是全透明 */
+.countdown__ring-wrap::before {
+  content: '';
+  position: absolute;
+  inset: 6px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle at 50% 40%,
+    rgba(10, 21, 36, 0.86) 0%,
+    rgba(6, 13, 24, 0.74) 58%,
+    rgba(4, 9, 17, 0.55) 100%
+  );
+  border: 1px solid rgba(140, 180, 255, 0.14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08), 0 18px 48px rgba(0, 0, 0, 0.38);
 }
 
 .countdown__ring {

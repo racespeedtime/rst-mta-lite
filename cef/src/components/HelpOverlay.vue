@@ -87,6 +87,10 @@ onUnmounted(() => {
               <span>长按倒带最近 8 秒，倒带时按住 Shift 3× 快退；松开后冻结 0.5 秒再继续</span>
             </li>
             <li>
+              <span class="help__keys"><kbd>R</kbd></span>
+              <span>训练模式落水且速度不快时，按住 0.8 秒重生</span>
+            </li>
+            <li>
               <span class="help__keys"><kbd>GO</kbd></span>
               <span>训练：出生后 3-2-1-GO；竞技：全员准备后 5 秒倒计时</span>
             </li>
