@@ -1242,11 +1242,54 @@ function Rooms.respawn(player)
     if not room then
         return false, '不在舞台里'
     end
-    if room.mode ~= 'training' then
-        return false, '仅训练模式支持主动重生'
-    end
     if not room.active or room.waiting or voteBlocksRound(room) or room.raceFinal then
         return false, '当前不能重生'
+    end
+
+    -- 竞技模式：只有真正落水且速度不快时才允许按 R 重生，消耗 1 条命
+    if room.mode == 'competitive' then
+        if not contains(room.players, player) then
+            return false, '观战者不能重生'
+        end
+        if room.finished[player] then
+            return false, '已完赛不能重生'
+        end
+        if getElementHealth(player) <= 0 then
+            return false, '死亡状态不能重生'
+        end
+
+        local vehicle = getPedOccupiedVehicle(player)
+        local target = vehicle or player
+        local inWater = false
+        if vehicle and isElement(vehicle) then
+            inWater = isElementInWater(vehicle) == true
+        else
+            inWater = isElementInWater(player) == true
+        end
+        if not inWater then
+            return false, '只有落水时才能这样重生'
+        end
+
+        local vx, vy, vz = getElementVelocity(target)
+        local speed = math.sqrt(vx * vx + vy * vy + vz * vz)
+        if speed > (config.waterRespawnSpeed or 1.5) then
+            return false, '速度太快，暂时不能重生'
+        end
+
+        local ok, lives, eliminated = Rooms.consumeLife(player)
+        if eliminated then
+            noticePlayer(player, '命数耗尽，已进入观战')
+            stateChanged()
+            return true, 'eliminated'
+        end
+        if not ok then
+            return false, '当前不能重生'
+        end
+
+        spawnPlayerInRoom(player, room, false)
+        noticePlayer(player, ('已重生，剩余 %d 条命'):format(lives))
+        stateChanged()
+        return true, 'respawned'
     end
 
     -- 训练模式的观战者可以直接回到当前赛道，并继续在观战 / 重生之间切换
@@ -1287,6 +1330,32 @@ function Rooms.respawn(player)
     stateChanged()
     return true
 end
+
+-- 竞技比赛进行中禁止主动下车；训练模式、结算、死亡状态不受影响
+local vehicleExitNoticeAt = {}
+addEventHandler('onVehicleStartExit', root, function(player)
+    if not isElement(player) or getElementType(player) ~= 'player' then
+        return
+    end
+    if config.blockVehicleExit == false then
+        return
+    end
+
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'competitive' or not room.active or room.raceFinal then
+        return
+    end
+    if room.finished[player] or getElementHealth(player) <= 0 or not contains(room.players, player) then
+        return
+    end
+
+    cancelEvent()
+    local nowMs = RST.nowMs()
+    if nowMs - (vehicleExitNoticeAt[player] or 0) > 2000 then
+        vehicleExitNoticeAt[player] = nowMs
+        noticePlayer(player, '比赛中不能下车')
+    end
+end)
 
 function Rooms.all()
     return rooms

@@ -2,7 +2,8 @@
     rst_ui / client/waterhint.lua
 
     落水提示：玩家（或载具）泡在水里、整体速度不快时，显示「按住 R 重生」。
-    - 只在训练模式、正常游玩状态出现（服务端 Rooms.respawn 也只允许训练模式）
+    - 训练和竞技模式都可用；竞技模式重生消耗 1 条命
+    - 服务端会再校验一次是否真的在水里、速度是否够低
     - 在水里低速持续 0.8 秒才出现，避免溅水瞬间闪一下
     - 按住 R 0.8 秒触发重生，期间拦截 R 的默认动作
 ]]
@@ -55,7 +56,10 @@ local function canHint()
     if not RST.isGameplayActive() then
         return false
     end
-    if RST.gameMode ~= 'training' then
+    if RST.gameMode ~= 'training' and RST.gameMode ~= 'competitive' then
+        return false
+    end
+    if RST.rewindLives ~= nil and RST.rewindLives <= 0 then
         return false
     end
     if getElementHealth(localPlayer) <= 0 then
@@ -74,7 +78,13 @@ local function toastHint()
         return
     end
     lastToastAt = tick
-    RST.dispatch('toast', { text = '落水了 · 按住 R 重生' })
+    local text
+    if RST.gameMode == 'competitive' then
+        text = '落水了 · 按住 R 重生（消耗 1 条命）'
+    else
+        text = '落水了 · 按住 R 重生'
+    end
+    RST.dispatch('toast', { text = text })
 end
 
 local function stopHint()
