@@ -199,6 +199,7 @@ local function loadMapDetails(entry)
 
     local spawns = {}
     local pickups = {}
+    local usedPickupIds = {}
     local lastCheckpoint
     local hunterPoints = {}
 
@@ -221,10 +222,23 @@ local function loadMapDetails(entry)
             end
         elseif name == 'racepickup' then
             local pickupType = attr(node, 'type')
+            if type(pickupType) == 'string' then
+                pickupType = pickupType:lower():gsub('^%s+', ''):gsub('%s+$', '')
+            end
             local x, y, z = num(node, 'posX'), num(node, 'posY'), num(node, 'posZ')
             if pickupType and x and y and z then
+                -- 很多地图编辑器会把同一个 id 重复写进多个 racepickup；
+                -- 客户端以 id 为 key，重复会导致前面的 object 失去旋转/命中。
+                local id = attr(node, 'id') or ('pickup:' .. tostring(#pickups + 1))
+                local uniqueId = id
+                local suffix = 2
+                while usedPickupIds[uniqueId] do
+                    uniqueId = id .. '#' .. tostring(suffix)
+                    suffix = suffix + 1
+                end
+                usedPickupIds[uniqueId] = true
                 pickups[#pickups + 1] = {
-                    id = attr(node, 'id') or ('pickup:' .. tostring(#pickups + 1)),
+                    id = uniqueId,
                     type = pickupType,
                     vehicle = tonumber(attr(node, 'vehicle')),
                     x = x,
