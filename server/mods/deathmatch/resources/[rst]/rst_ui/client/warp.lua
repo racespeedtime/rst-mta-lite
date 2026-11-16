@@ -54,6 +54,9 @@ local function canWarp()
     if RST.phase ~= 'playing' or RST.mode ~= 'playing' then
         return false
     end
+    if RST.loading then
+        return false
+    end
     if RST.gameMode ~= 'training' then
         return false
     end
@@ -70,6 +73,24 @@ local function canWarp()
         return false
     end
     return isElement(localPlayer) and getElementHealth(localPlayer) > 0
+end
+
+local function explainWarpBlocked(action)
+    if RST.loading then
+        toast('地图装载中，不能' .. action)
+    elseif RST.phase ~= 'playing' or RST.mode ~= 'playing' then
+        toast('当前不在比赛中')
+    elseif RST.gameMode ~= 'training' then
+        toast('只有训练模式可以' .. action)
+    elseif RST.readyWaiting then
+        toast('比赛还没开始，不能' .. action)
+    elseif RST.countdownActive then
+        toast('出发倒计时中，不能' .. action)
+    elseif RST.isRewindBusy and RST.isRewindBusy() then
+        toast('倒带进行中，不能' .. action)
+    elseif RST.warpBusy then
+        toast('正在传送，稍后再试')
+    end
 end
 
 local function readAngularVelocity(element)
@@ -150,12 +171,17 @@ local function freezeAfterWarp(element, state)
 
     freezeTimer = setTimer(function()
         freezeTimer = nil
-        if isElement(frozenElement) then
-            pcall(setElementFrozen, frozenElement, false)
-            restoreMotion(frozenElement, state)
+        local element = frozenElement
+        if isElement(element) then
+            pcall(setElementFrozen, element, false)
+            restoreMotion(element, state)
         end
         frozenElement = nil
         RST.warpBusy = false
+        -- 冻结解除后重新挂一次相机，避免雷达/朝向停在固定视角
+        if isElement(localPlayer) then
+            pcall(setCameraTarget, localPlayer)
+        end
     end, FREEZE_MS, 1)
 end
 
@@ -168,11 +194,7 @@ local function teleportTo(warp)
         return false
     end
     if not canWarp() then
-        if RST.gameMode ~= 'training' then
-            toast('只有训练模式可以传送')
-        elseif RST.isRewindBusy and RST.isRewindBusy() then
-            toast('倒带进行中，不能传送')
-        end
+        explainWarpBlocked('传送')
         return false
     end
 
@@ -210,6 +232,15 @@ local function teleportTo(warp)
                 RST.applyVehicleDamage(vehicle, state.damage)
             end
             applyNitro(vehicle, state)
+
+            -- 服务端同步模型可能把相机/朝向重置；这里再补一次并重新挂上追车相机，
+            -- 否则雷达会一直指北
+            if state.matrix and type(setElementMatrix) == 'function' then
+                pcall(setElementMatrix, vehicle, state.matrix)
+            end
+            pcall(setElementRotation, vehicle, warp.rx, warp.ry, warp.rz)
+            pcall(setElementRotation, localPlayer, warp.rx, warp.ry, warp.rz)
+            pcall(setCameraTarget, localPlayer)
         end, 300, 1)
     end
 
@@ -219,10 +250,9 @@ local function teleportTo(warp)
     end
     setElementPosition(target, warp.x, warp.y, warp.z)
     setElementRotation(target, warp.rx, warp.ry, warp.rz)
-    if vehicle then
-        pcall(setElementRotation, localPlayer, warp.rx, warp.ry, warp.rz)
-        pcall(setCameraTarget, target)
-    end
+    -- 和倒带结束时一样，相机目标必须是 localPlayer；指向载具会让雷达停住朝北
+    pcall(setElementRotation, localPlayer, warp.rx, warp.ry, warp.rz)
+    pcall(setCameraTarget, localPlayer)
 
     -- 载具/玩家血量、护甲、氮气
     if state.healthKind == 'vehicle' and vehicle then
@@ -251,9 +281,7 @@ end
 
 function RST.saveWarp()
     if not canWarp() then
-        if RST.gameMode ~= 'training' then
-            toast('只有训练模式可以保存传送点')
-        end
+        explainWarpBlocked('保存传送点')
         return false
     end
     if not RST.mapId then

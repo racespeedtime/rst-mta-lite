@@ -1444,8 +1444,13 @@ addEventHandler('rst:warp:model', root, function(model)
 
     local health = getElementHealth(vehicle)
     local upgrades = getVehicleUpgrades(vehicle) or {}
+    local vx, vy, vz = getElementVelocity(vehicle)
+    local rx, ry, rz = getElementRotation(vehicle)
     pcall(setElementModel, vehicle, model)
     pcall(setElementHealth, vehicle, health)
+    -- 只恢复朝向，不用矩阵恢复位置：此时客户端可能已经传送到目标点
+    pcall(setElementRotation, vehicle, rx, ry, rz)
+    pcall(setElementVelocity, vehicle, vx, vy, vz)
     for _, upgrade in ipairs(upgrades) do
         pcall(addVehicleUpgrade, vehicle, upgrade)
     end

@@ -90,6 +90,7 @@ export const ui = reactive({
   mapTime: 0,
   mapTimeMs: 0,
   menuOpen: false,
+  menuTab: 'play' as 'play' | 'training' | 'view' | 'system',
   hudHidden: false,
   chatOpen: false,
   helpOpen: false,

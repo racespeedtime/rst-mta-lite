@@ -147,8 +147,32 @@ local function applyLocalEffect(pickup, vehicle)
         if getElementModel(vehicle) ~= pickup.vehicle then
             pcall(removeVehicleUpgrade, vehicle, 1010)
             local health = getElementHealth(vehicle)
+            local vx, vy, vz = getElementVelocity(vehicle)
+            local avx, avy, avz
+            local matrix
+            if type(getElementMatrix) == 'function' then
+                local ok, value = pcall(getElementMatrix, vehicle)
+                if ok and type(value) == 'table' then
+                    matrix = value
+                end
+            end
+            if type(getElementAngularVelocity) == 'function' then
+                local ok, x, y, z = pcall(getElementAngularVelocity, vehicle)
+                if ok then
+                    avx, avy, avz = x, y, z
+                end
+            end
+
             pcall(setElementModel, vehicle, pickup.vehicle)
             setElementHealth(vehicle, health)
+            -- 矩阵里包含四元数等价的完整朝向；换模型后恢复，避免车头/侧倾被重置
+            if matrix and type(setElementMatrix) == 'function' then
+                pcall(setElementMatrix, vehicle, matrix)
+            end
+            pcall(setElementVelocity, vehicle, vx, vy, vz)
+            if avx then
+                pcall(setElementAngularVelocity, vehicle, avx, avy, avz)
+            end
         end
     end
 end

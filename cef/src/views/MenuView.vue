@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 
 import IconChevronRight from '~icons/lucide/chevron-right'
 import IconCar from '~icons/lucide/car'
@@ -27,7 +27,6 @@ import { applyTheme, defaultThemeSettings, saveThemeSettings, type ThemeMode } f
 import { formatMs, formatTime } from '@/utils/format'
 
 const now = useTicker()
-const activeTab = ref<'play' | 'training' | 'view' | 'system'>('play')
 
 const THEME_MODES: { value: ThemeMode; label: string }[] = [
   { value: 'dark', label: '深色' },
@@ -289,42 +288,42 @@ function respawn(): void {
         <button
           type="button"
           role="tab"
-          :aria-selected="activeTab === 'play'"
-          :class="{ 'is-active': activeTab === 'play' }"
-          @click="activeTab = 'play'"
+          :aria-selected="ui.menuTab === 'play'"
+          :class="{ 'is-active': ui.menuTab === 'play' }"
+          @click="ui.menuTab = 'play'"
         >
           玩法
         </button>
         <button
           type="button"
           role="tab"
-          :aria-selected="activeTab === 'training'"
-          :class="{ 'is-active': activeTab === 'training' }"
-          @click="activeTab = 'training'"
+          :aria-selected="ui.menuTab === 'training'"
+          :class="{ 'is-active': ui.menuTab === 'training' }"
+          @click="ui.menuTab = 'training'"
         >
           训练
         </button>
         <button
           type="button"
           role="tab"
-          :aria-selected="activeTab === 'view'"
-          :class="{ 'is-active': activeTab === 'view' }"
-          @click="activeTab = 'view'"
+          :aria-selected="ui.menuTab === 'view'"
+          :class="{ 'is-active': ui.menuTab === 'view' }"
+          @click="ui.menuTab = 'view'"
         >
           界面
         </button>
         <button
           type="button"
           role="tab"
-          :aria-selected="activeTab === 'system'"
-          :class="{ 'is-active': activeTab === 'system' }"
-          @click="activeTab = 'system'"
+          :aria-selected="ui.menuTab === 'system'"
+          :class="{ 'is-active': ui.menuTab === 'system' }"
+          @click="ui.menuTab = 'system'"
         >
           系统
         </button>
       </nav>
 
-      <div v-if="activeTab === 'play'" class="menu-actions">
+      <div v-if="ui.menuTab === 'play'" class="menu-actions">
         <button type="button" class="menu-action" :disabled="!ui.canStartVote || ui.voteCooldown > 0" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">
@@ -405,7 +404,7 @@ function respawn(): void {
         </button>
       </div>
 
-      <div v-else-if="activeTab === 'training'" class="menu-actions">
+      <div v-else-if="ui.menuTab === 'training'" class="menu-actions">
         <p class="warp-hint">
           短按左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 到阈值立即回到最近一个点，不需要等松开。
           传送后冻结 0.5 秒，且不能与倒带同时进行。换图、换房间或切换模式会清空传送点。
@@ -456,7 +455,7 @@ function respawn(): void {
         <p v-else class="warp-empty">传送点仅在训练模式可用。</p>
       </div>
 
-      <div v-else-if="activeTab === 'view'" class="menu-actions">
+      <div v-else-if="ui.menuTab === 'view'" class="menu-actions">
         <button type="button" class="menu-action menu-action--switch" @click="toggleHud">
           <span class="menu-action__icon">
             <IconEyeOff v-if="!ui.hudHidden" class="icon" />

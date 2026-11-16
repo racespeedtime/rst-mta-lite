@@ -97,7 +97,8 @@ function RST.isGameplayActive()
     return RST.phase == 'playing'
         and RST.mode == 'playing'
         and not RST.interactive
-        and not RST.voteActive
+        and not RST.voteForced
+        and not RST.loading
         and not RST.countdownActive
         and not RST.readyWaiting
         and not RST.finished

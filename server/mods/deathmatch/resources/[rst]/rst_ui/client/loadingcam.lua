@@ -26,6 +26,10 @@ local ANCHORS = {
 local active = false
 local loading = false
 local transferBoxVisible = false
+
+local function syncLoadingState()
+    RST.loading = loading or transferBoxVisible
+end
 local startedAt = 0
 local duration = 1
 local p0, p1, p2, p3
@@ -128,12 +132,14 @@ end
 -- 资源下载期间也显示运镜；box 隐藏且比赛已开始时自动收回
 addEventHandler('onClientTransferBoxVisibilityChange', root, function(visible)
     transferBoxVisible = visible == true
+    syncLoadingState()
     refresh()
 end)
 
 addEvent('rst:ui:loading', true)
 addEventHandler('rst:ui:loading', root, function(state)
     loading = state == true
+    syncLoadingState()
     refresh()
 end)
 
@@ -141,6 +147,7 @@ addEventHandler('onClientResourceStart', resourceRoot, function()
     if pollTimer then
         killTimer(pollTimer)
     end
+    syncLoadingState()
     pollTimer = setTimer(refresh, 500, 0)
     refresh()
 end)
@@ -151,6 +158,7 @@ addEventHandler('onClientResourceStop', resourceRoot, function()
         pollTimer = nil
     end
     stopCamera()
+    RST.loading = false
 end)
 
 addEventHandler('onClientPlayerWasted', localPlayer, function()

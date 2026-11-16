@@ -167,8 +167,35 @@ function MapManager.hitPickup(player, pickupId)
         if getElementModel(vehicle) ~= pickup.vehicle then
             pcall(removeVehicleUpgrade, vehicle, 1010)
             local health = getElementHealth(vehicle)
+            local vx, vy, vz = getElementVelocity(vehicle)
+            local avx, avy, avz
+            local matrix
+            if type(getElementMatrix) == 'function' then
+                local ok, value = pcall(getElementMatrix, vehicle)
+                if ok and type(value) == 'table' then
+                    matrix = value
+                end
+            end
+            local rx, ry, rz = getElementRotation(vehicle)
+            if type(getElementAngularVelocity) == 'function' then
+                local ok, x, y, z = pcall(getElementAngularVelocity, vehicle)
+                if ok then
+                    avx, avy, avz = x, y, z
+                end
+            end
+
             pcall(setElementModel, vehicle, pickup.vehicle)
             setElementHealth(vehicle, health)
+            -- 服务端优先恢复完整矩阵；没有 setElementMatrix 时退回 Euler 朝向
+            if matrix and type(setElementMatrix) == 'function' then
+                pcall(setElementMatrix, vehicle, matrix)
+            else
+                pcall(setElementRotation, vehicle, rx, ry, rz)
+            end
+            pcall(setElementVelocity, vehicle, vx, vy, vz)
+            if avx then
+                pcall(setElementAngularVelocity, vehicle, avx, avy, avz)
+            end
         end
         if pickup.vehicle == 425 and Rooms and Rooms.hunterFinish then
             Rooms.hunterFinish(player)
