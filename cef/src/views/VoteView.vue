@@ -65,6 +65,8 @@ const votedName = computed(() => {
 
 const forced = computed(() => ui.vote?.forced !== false)
 const restartVote = computed(() => ui.vote?.restart === true)
+const startVote = computed(() => ui.vote?.start === true)
+const specialVote = computed(() => restartVote.value || startVote.value)
 const abstained = computed(() => ui.vote?.abstain || 0)
 const mineAbstain = computed(() => ui.vote?.mine === '__abstain')
 
@@ -99,8 +101,8 @@ function vote(mapId: string): void {
         <div class="vote__title-row">
           <span class="vote__emblem"><IconVote class="icon icon--lg" /></span>
           <div>
-            <p class="vote__eyebrow">{{ restartVote ? '重开投票' : '地图投票' }}</p>
-            <h1 class="vote__title">{{ restartVote ? '重开当前地图' : '换图投票' }}</h1>
+            <p class="vote__eyebrow">{{ startVote ? '开局投票' : restartVote ? '重开投票' : '地图投票' }}</p>
+            <h1 class="vote__title">{{ startVote ? '开始本局' : restartVote ? '重开当前地图' : '换图投票' }}</h1>
           </div>
         </div>
         <div class="vote__head-right">
@@ -115,7 +117,10 @@ function vote(mapId: string): void {
       </header>
 
       <p class="vote__hint">
-        <template v-if="restartVote">
+        <template v-if="startVote">
+          全员已准备，投票决定是否开始本局；发起人自动投赞成，超过一半参赛者同意才进入倒计时。
+        </template>
+        <template v-else-if="restartVote">
           当前地图重新开局，发起人自动投赞成；超过一半参赛者同意才通过。投票期间当前比赛继续，未通过则继续本回合。
         </template>
         <template v-else-if="forced">
@@ -124,12 +129,12 @@ function vote(mapId: string): void {
         <template v-else>
           玩家自发的换图投票，不打断当前比赛；票数最多者胜出，结果立即生效（选中的就是当前地图时本回合继续）。发起人的提名自动计 1 票，投票可改（改投或弃权，以最后一次为准）。按 F4 可随时开关本面板。
         </template>
-        <template v-if="nomineeName && !restartVote">
+        <template v-if="nomineeName && !specialVote">
           · 本场由 {{ ui.vote?.nomineeBy || '玩家' }} 提名：{{ nomineeName }}（自动计 1 票）
         </template>
       </p>
 
-      <div v-if="!forced && !restartVote" class="vote__toolbar">
+      <div v-if="!forced && !specialVote" class="vote__toolbar">
         <label class="vote__search">
           <IconSearch class="icon icon--sm" />
           <input
@@ -188,9 +193,9 @@ function vote(mapId: string): void {
           <span class="vote__option-main">
             <span class="vote__option-name">
               {{ option.name }}
-              <em v-if="option.nominee && !restartVote" class="vote__option-nominee">提名 +1</em>
+              <em v-if="option.nominee && !specialVote" class="vote__option-nominee">提名 +1</em>
             </span>
-            <span v-if="!restartVote" class="vote__option-meta">
+            <span v-if="!specialVote" class="vote__option-meta">
               <span class="vote__option-author">
                 <IconPenLine class="icon icon--sm" />
                 作者 · {{ option.author }}
@@ -212,17 +217,17 @@ function vote(mapId: string): void {
 
       <div class="vote__foot">
         <button type="button" class="vote__abstain" @click="abstain">
-          {{ restartVote ? '反对 / 不参与重开' : '弃权（交给系统按热度裁决）' }}
+          {{ startVote ? '反对 / 暂不开始' : restartVote ? '反对 / 不参与重开' : '弃权（交给系统按热度裁决）' }}
         </button>
         <span v-if="abstained" class="vote__abstain-count">{{ abstained }} 人已弃权</span>
       </div>
 
       <p v-if="mineAbstain" class="vote__mine vote__mine--abstain">
-        {{ restartVote ? '已反对 / 不参与（点选项可改投赞成）' : '已弃权：结果按票数、再按热度裁决（点其它地图可改票）' }}
+        {{ startVote ? '已反对 / 暂不开始（点选项可改投赞成）' : restartVote ? '已反对 / 不参与（点选项可改投赞成）' : '已弃权：结果按票数、再按热度裁决（点其它地图可改票）' }}
       </p>
       <p v-else-if="votedName" class="vote__mine">
         <IconCheck class="icon icon--sm" />
-        {{ restartVote ? '已赞成重开' : `已投给：${votedName}` }}（点选项可改票）
+        {{ startVote ? '已赞成开始' : restartVote ? '已赞成重开' : `已投给：${votedName}` }}（点选项可改票）
       </p>
       <p v-else class="vote__mine vote__mine--wait">等待其他玩家投票…（也可以弃权）</p>
     </section>

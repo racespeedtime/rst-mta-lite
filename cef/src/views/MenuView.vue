@@ -48,6 +48,12 @@ const voteHint = computed(() => {
   return '当前不可发起'
 })
 
+const startMatchVoteHint = computed(() => {
+  if (ui.vote?.start) return '开局投票进行中'
+  if (ui.canStartStartVote) return '全员已准备 · 过半同意后出发'
+  return '所有玩家准备后可发起'
+})
+
 const restartVoteHint = computed(() => {
   if (ui.vote?.active) return '投票进行中'
   if (ui.canStartRestartVote) return '过半同意后重开当前地图'
@@ -91,6 +97,12 @@ function close(): void {
 function startVote(): void {
   if (!ui.canStartVote || ui.voteCooldown > 0) return
   emitAction('vote:start')
+  emitAction('menu:close')
+}
+
+function startMatchVote(): void {
+  if (!ui.canStartStartVote) return
+  emitAction('startvote:start')
   emitAction('menu:close')
 }
 
@@ -368,6 +380,21 @@ function respawn(): void {
       </div>
 
       <div v-if="ui.menuTab === 'play'" class="menu-actions">
+        <button
+          v-if="ui.gameMode === 'competitive' && ui.ready.waiting"
+          type="button"
+          class="menu-action"
+          :disabled="!ui.canStartStartVote"
+          @click="startMatchVote"
+        >
+          <span class="menu-action__icon"><IconFlag class="icon" /></span>
+          <span class="menu-action__text">
+            <strong>发起开局投票</strong>
+            <small>{{ startMatchVoteHint }}</small>
+          </span>
+          <IconChevronRight class="icon menu-action__arrow" />
+        </button>
+
         <button type="button" class="menu-action" :disabled="!ui.canStartVote || ui.voteCooldown > 0" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
           <span class="menu-action__text">

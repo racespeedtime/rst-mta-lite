@@ -114,6 +114,8 @@ export interface VoteState {
   forced?: boolean
   /** 重开本图投票（只有当前地图一个选项） */
   restart?: boolean
+  /** 准备完成后的开局投票 */
+  start?: boolean
   timeLeft: number
   timeLeftMs?: number
   options: VoteOption[]
@@ -317,6 +319,7 @@ export interface StatePayload {
   modeVote?: ModeVoteState
   canStartVote?: boolean
   canStartRestartVote?: boolean
+  canStartStartVote?: boolean
   voteCooldown?: number
   canStartModeVote?: boolean
   modeVoteCooldown?: number

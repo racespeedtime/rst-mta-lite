@@ -306,6 +306,22 @@ local function clearDeathTimer(player)
     end
 end
 
+local function clearStartTimer(room)
+    if room and room.startTimer and isTimer(room.startTimer) then
+        killTimer(room.startTimer)
+    end
+    if room then
+        room.startTimer = nil
+    end
+end
+
+local function markRaceStart(room)
+    room.roundEnds = now() + (config.roundSeconds or 600)
+    room.roundEndsMs = RST.nowMs() + (config.roundSeconds or 600) * 1000
+    room.raceStartedAt = now()
+    room.raceStartedAtMs = RST.nowMs()
+end
+
 local function markPlayerStarted(room, player)
     if room and isElement(player) then
         room.playerStartedAt[player] = now()
@@ -450,9 +466,16 @@ local function applyRoundStart(room)
 
     -- 统一使用全局单图时长；地图 meta 里的 #duration 不再覆盖它
     local roundSeconds = config.roundSeconds
+    clearStartTimer(room)
     room.active = true
-    room.roundEnds = now() + roundSeconds
-    room.roundEndsMs = RST.nowMs() + roundSeconds * 1000
+    if room.mode == 'competitive' then
+        -- 准备/倒计时阶段不计入地图剩余时间，GO 之后再开始
+        room.roundEnds = 0
+        room.roundEndsMs = 0
+    else
+        room.roundEnds = now() + roundSeconds
+        room.roundEndsMs = RST.nowMs() + roundSeconds * 1000
+    end
     room.vote = nil
     room.modeVote = nil
     room.ready = {}
@@ -463,8 +486,8 @@ local function applyRoundStart(room)
     clearTeams(room)
     room.finishOrder = {}
     room.finished = {}
-    room.raceStartedAt = now()
-    room.raceStartedAtMs = RST.nowMs()
+    room.raceStartedAt = room.mode == 'competitive' and 0 or now()
+    room.raceStartedAtMs = room.mode == 'competitive' and 0 or RST.nowMs()
     room.raceEndsAt = 0
     room.raceEndsAtMs = 0
     room.resultShowAtMs = 0
@@ -511,6 +534,7 @@ local function applyRoundStart(room)
 end
 
 local function abortRound(room, err)
+    clearStartTimer(room)
     room.loadingMap = false
     triggerClientEvent('rst:ui:loading', root, false)
     room.active = false
@@ -530,6 +554,7 @@ end
 
 local function startRound(room, forcedMapId, attempt)
     attempt = attempt or 1
+    clearStartTimer(room)
     room.nextMapId = nil
 
     if MapRegistry.count() == 0 then
@@ -845,6 +870,15 @@ function Rooms.beginCountdown(room)
             beginCountdownFor(player, seconds, room)
         end
     end
+    clearStartTimer(room)
+    room.startTimer = setTimer(function()
+        room.startTimer = nil
+        if not room.active or room.waiting or room.mode ~= 'competitive' then
+            return
+        end
+        markRaceStart(room)
+        stateChanged()
+    end, math.floor(seconds * 1000) + 300, 1)
     stateChanged()
 end
 
@@ -862,6 +896,9 @@ function Rooms.setReady(player, ready)
     if room.competitiveMode == 'team' and not room.teamOf[player] then
         return false, '请先选择红队或蓝队'
     end
+    if room.vote and room.vote.reason == 'start' then
+        return false, '开局投票进行中，不能取消准备'
+    end
 
     local current = room.ready[player] == true
     if ready == nil then
@@ -878,11 +915,7 @@ function Rooms.setReady(player, ready)
         room.ready[player] = nil
     end
 
-    if ready and allPlayersReady(room) then
-        Rooms.beginCountdown(room)
-    else
-        stateChanged()
-    end
+    stateChanged()
     return true
 end
 
@@ -922,6 +955,9 @@ function Rooms.selectTeam(player, team)
     end
     if not room.active or not room.waiting then
         return false, '当前不能切换队伍'
+    end
+    if room.vote and room.vote.reason == 'start' then
+        return false, '开局投票进行中，不能换队'
     end
     if not contains(room.players, player) then
         return false, '观战者不能选队'
@@ -1162,6 +1198,9 @@ function Rooms.becomeSpectator(player)
     room.ob[player] = true
     room.lives[player] = nil
     room.ready[player] = nil
+    if room.vote then
+        room.vote.votes[player] = nil
+    end
     room.playerStartedAt[player] = nil
     room.playerStartedAtMs[player] = nil
     room.spawnAssignments[player] = nil
@@ -1181,8 +1220,6 @@ function Rooms.becomeSpectator(player)
         -- 直接把房间关掉会让唯一的观战者丢掉投票权。
         room.waiting = false
         room.ready = {}
-    elseif room.waiting and allPlayersReady(room) then
-        Rooms.beginCountdown(room)
     end
 
     stateChanged()
@@ -1601,8 +1638,6 @@ function Rooms.leave(player)
                     room.lastVoteAt = 0
                     room.lastModeVoteAt = 0
                 end
-            elseif room.waiting and allPlayersReady(room) then
-                Rooms.beginCountdown(room)
             end
             stateChanged()
         end
@@ -1698,8 +1733,8 @@ end
 function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride)
     reason = reason or 'manual'
 
-    -- auto / race-end = 回合到点或完赛触发的强制投票；manual = 玩家自发，不打断跑图；restart = 重开本图
-    local forced = reason ~= 'manual' and reason ~= 'restart'
+    -- auto / race-end = 回合到点或完赛触发的强制投票；manual = 玩家自发，不打断跑图；restart = 重开本图；start = 准备完成后开局投票
+    local forced = reason ~= 'manual' and reason ~= 'restart' and reason ~= 'start'
 
     if not room then
         return false, '舞台不存在'
@@ -1716,7 +1751,7 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
     if not room.active then
         return false, '当前没有进行中的比赛'
     end
-    if room.waiting then
+    if room.waiting and reason ~= 'start' then
         return false, '等待玩家准备中，无法发起投票'
     end
     if room.startingUntil and RST.nowMs() < room.startingUntil then
@@ -1741,7 +1776,7 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
         end
     end
 
-    if reason ~= 'auto' and reason ~= 'race-end' and (config.voteCooldown or 0) > 0 then
+    if reason ~= 'auto' and reason ~= 'race-end' and reason ~= 'start' and (config.voteCooldown or 0) > 0 then
         local last = room.lastVoteAt or 0
         if last > 0 then
             local remaining = (config.voteCooldown or 0) - (now() - last)
@@ -1769,7 +1804,9 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
         end
     end
 
-    room.lastVoteAt = now()
+    if reason ~= 'start' then
+        room.lastVoteAt = now()
+    end
 
     -- 强制投票接管画面前先结束回合；自发投票保持回合继续跑
     if forced then
@@ -1796,13 +1833,20 @@ function Rooms.startVote(room, reason, nominatedMapId, byPlayer, optionsOverride
     elseif reason == 'restart' and byPlayer and isElement(byPlayer) then
         -- 发起重开默认投赞成；单人竞技会立即通过
         room.vote.votes[byPlayer] = room.mapId
+    elseif reason == 'start' and byPlayer and isElement(byPlayer) then
+        room.vote.votes[byPlayer] = '__start'
     end
 
     -- 全场只有发起人一个可投票者时，提名票已经凑齐，直接出结果
     local instant = Rooms.allVoted(room)
 
     if not forced and not instant then
-        if reason == 'restart' then
+        if reason == 'start' then
+            broadcastNotice(('%s 发起开局投票，按 F4 参与（%d 秒，过半同意才出发）'):format(
+                byPlayer and getPlayerName(byPlayer) or '玩家',
+                config.voteSeconds or 30
+            ))
+        elseif reason == 'restart' then
             broadcastNotice(('%s 发起重开投票，按 F4 参与（%d 秒，过半同意才重开）'):format(
                 byPlayer and getPlayerName(byPlayer) or '玩家',
                 config.voteSeconds or 30
@@ -1841,12 +1885,33 @@ function Rooms.startRestartVote(player)
     })
 end
 
+function Rooms.startStartVote(player)
+    local room = Rooms.playerRoom(player)
+    if not room or room.mode ~= 'competitive' then
+        return false, '只有竞技模式可以开局投票'
+    end
+    if not room.active or not room.waiting then
+        return false, '当前不在准备阶段'
+    end
+    if not contains(room.players, player) then
+        return false, '观战者不能发起开局投票'
+    end
+    if not allPlayersReady(room) then
+        return false, '还有玩家未准备，或红蓝人数不相等'
+    end
+
+    return Rooms.startVote(room, 'start', nil, player, {
+        { id = '__start', name = '开始比赛' },
+    })
+end
+
 function Rooms.castVote(room, player, mapId)
     if not room or not room.vote then
         return false, '当前没有投票'
     end
-    if room.vote.reason == 'restart' and not contains(room.players, player) then
-        return false, '观战者不能参与重开投票'
+    if (room.vote.reason == 'restart' or room.vote.reason == 'start')
+        and not contains(room.players, player) then
+        return false, '观战者不能参与此投票'
     end
 
     mapId = tostring(mapId or '')
@@ -1882,8 +1947,9 @@ function Rooms.abstain(room, player)
     if not room or not room.vote then
         return false, '当前没有投票'
     end
-    if room.vote.reason == 'restart' and not contains(room.players, player) then
-        return false, '观战者不能参与重开投票'
+    if (room.vote.reason == 'restart' or room.vote.reason == 'start')
+        and not contains(room.players, player) then
+        return false, '观战者不能参与此投票'
     end
 
     -- 允许从“已投某图”改成弃权
@@ -1915,7 +1981,7 @@ function Rooms.allVoted(room)
     end
 
     local eligible = #room.players
-    if room.vote.reason ~= 'restart' then
+    if room.vote.reason ~= 'restart' and room.vote.reason ~= 'start' then
         eligible = eligible + #room.spectators
     end
     return eligible > 0 and voted >= eligible
@@ -1935,6 +2001,21 @@ function Rooms.finishVote(room)
         else
             counts[mapId] = (counts[mapId] or 0) + 1
         end
+    end
+
+    if vote.reason == 'start' then
+        local yes = counts['__start'] or 0
+        local total = #room.players
+        room.vote = nil
+
+        if total > 0 and yes * 2 > total then
+            broadcastNotice(('开局投票通过（%d/%d 同意），开始倒计时'):format(yes, total))
+            Rooms.beginCountdown(room)
+        else
+            broadcastNotice(('开局投票未通过（%d/%d 同意），等待重新发起'):format(yes, total))
+            stateChanged()
+        end
+        return
     end
 
     if vote.reason == 'restart' then
@@ -2341,6 +2422,7 @@ function Rooms.voteState(room, player)
         active = true,
         forced = room.vote.forced ~= false,
         restart = room.vote.reason == 'restart',
+        start = room.vote.reason == 'start',
         timeLeft = math.max(0, room.vote.endsAt - now()),
         timeLeftMs = math.max(0, (room.vote.endsAtMs or 0) - RST.nowMs()),
         options = options,

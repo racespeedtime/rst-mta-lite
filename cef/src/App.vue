@@ -149,6 +149,7 @@ function applyState(state: StatePayload): void {
   if (!ui.modeVote?.active) ui.modeVoteOverlayOpen = false
   ui.canStartVote = state.canStartVote === true
   ui.canStartRestartVote = state.canStartRestartVote === true
+  ui.canStartStartVote = state.canStartStartVote === true
   ui.voteCooldown = Math.max(0, Number(state.voteCooldown) || 0)
   ui.canStartModeVote = state.canStartModeVote === true
   ui.modeVoteCooldown = Math.max(0, Number(state.modeVoteCooldown) || 0)
@@ -163,6 +164,9 @@ function applyState(state: StatePayload): void {
   // 刚开始投票时收起地图池/详情，直接让玩家看到投票界面（投票进行中仍可手动再打开）
   const voteJustStarted =
     (!previousVote?.active && ui.vote?.active) || (!previousModeVote?.active && ui.modeVote?.active)
+  if (ui.vote?.start && !previousVote?.start) {
+    ui.voteOverlayOpen = true
+  }
   if (voteJustStarted) {
     ui.mapPoolOpen = false
     ui.mapDetailsOpen = false

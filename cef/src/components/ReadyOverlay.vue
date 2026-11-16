@@ -13,10 +13,18 @@ const percent = computed(() => {
 const teamMode = computed(() => ui.ready.teamMode === true)
 const teamCounts = computed(() => ui.ready.teams || { red: 0, blue: 0 })
 const balanced = computed(() => ui.ready.balanced !== false)
+const allReady = computed(
+  () => (ui.ready.total || 0) > 0 && (ui.ready.ready || 0) >= (ui.ready.total || 0) && balanced.value,
+)
 
 function ready(): void {
   if (ui.ready.canReady === false) return
   emitAction('ready')
+}
+
+function startVote(): void {
+  if (!ui.canStartStartVote) return
+  emitAction('startvote:start')
 }
 
 function selectTeam(team: 'red' | 'blue'): void {
@@ -74,10 +82,20 @@ function spectate(): void {
         type="button"
         class="ready__button"
         :class="{ 'ready__button--done': ui.ready.me }"
-        :disabled="ui.ready.canReady === false"
+        :disabled="ui.ready.canReady === false || ui.vote?.start === true"
         @click="ready"
       >
         {{ ui.ready.me ? '取消准备' : '准备' }}
+      </button>
+
+      <button
+        v-if="allReady && !ui.vote?.active"
+        type="button"
+        class="ready__button ready__button--start"
+        :disabled="!ui.canStartStartVote"
+        @click="startVote"
+      >
+        发起开局投票
       </button>
 
       <button type="button" class="ready__ob" @click="spectate">
@@ -249,6 +267,10 @@ function spectate(): void {
   border-color: rgba(126, 226, 168, 0.35);
   background: rgba(126, 226, 168, 0.1);
   color: var(--rst-green);
+}
+
+.ready__button--start {
+  margin-top: 8px;
 }
 
 .ready__ob {

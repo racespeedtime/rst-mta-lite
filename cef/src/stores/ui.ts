@@ -83,6 +83,7 @@ export const ui = reactive({
   modeVote: null as ModeVoteState | null,
   canStartVote: false,
   canStartRestartVote: false,
+  canStartStartVote: false,
   voteCooldown: 0,
   canStartModeVote: false,
   modeVoteCooldown: 0,

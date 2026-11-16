@@ -174,6 +174,14 @@ local function buildState(player, session)
                     end
                 end
                 state.canStartRestartVote = state.canStartVote and isCompetitivePlayer
+                state.canStartStartVote = room.mode == 'competitive'
+                    and room.waiting
+                    and room.vote == nil
+                    and room.modeVote == nil
+                    and isCompetitivePlayer
+                    and (state.ready.total or 0) > 0
+                    and (state.ready.ready or 0) >= (state.ready.total or 0)
+                    and state.ready.balanced ~= false
 
                 local modeCooldownLeft = 0
                 if (room.lastModeVoteAt or 0) > 0 then
@@ -433,6 +441,25 @@ actions['vote:start'] = function(player, session)
         notify(player, err)
     else
         notify(player, '已发起换图投票')
+    end
+    broadcastState()
+end
+
+actions['startvote:start'] = function(player, session)
+    if not session.roomId then
+        return
+    end
+
+    local room = Rooms.get(session.roomId)
+    if not room then
+        return
+    end
+
+    local ok, err = Rooms.startStartVote(player)
+    if not ok then
+        notify(player, err)
+    else
+        notify(player, '已发起开局投票')
     end
     broadcastState()
 end

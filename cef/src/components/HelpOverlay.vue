@@ -92,7 +92,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>GO</kbd></span>
-              <span>训练：出生后 3-2-1-GO；竞技：全员准备后 5 秒倒计时</span>
+              <span>训练：出生后 3-2-1-GO；竞技：全员准备后发起开局投票，过半通过才 5 秒倒计时</span>
             </li>
           </ul>
         </section>
@@ -144,7 +144,7 @@ onUnmounted(() => {
           <ul class="help__list">
             <li>
               <span class="help__keys"><kbd>准备</kbd></span>
-              <span>所有玩家点准备后，开始 5 秒倒计时</span>
+              <span>所有玩家点准备后，需发起开局投票；过半同意才开始 5 秒倒计时</span>
             </li>
             <li>
               <span class="help__keys"><kbd>OB</kbd></span>
