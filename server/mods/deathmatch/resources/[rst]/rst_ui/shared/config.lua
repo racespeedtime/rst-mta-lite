@@ -35,6 +35,17 @@ RST.config = {
     finishResultDelay = 3,      -- 完赛先 toast，几秒后再弹结算
     waterRespawnSpeed = 1.5,    -- 竞技落水按 R 重生允许的最大速度
     blockVehicleExit = true,    -- 比赛进行中（训练/竞技）禁止主动下车
+    coverCache = {
+        thumbnailQuality = 'mq',  -- YouTube 缩略图质量：mq / hq / sd / max / original
+        maxConcurrent = 2,       -- 同时下载封面的最大请求数
+        minIntervalMs = 1200,    -- 两次请求之间的最小间隔
+        queueLimit = 60,         -- 等待队列上限，超过直接放弃本次加载
+        hourlyLimit = 300,       -- 每小时最多请求数，避免触发远端风控
+        failureBaseSeconds = 300, -- 首次失败后的冷却
+        failureMaxSeconds = 21600, -- 连续失败的最大冷却
+        breakerFailures = 8,     -- 连续失败多少次后暂停远端请求
+        breakerSeconds = 1800,   -- 熔断持续时间
+    },
     scoreTable = { 10, 8, 6, 4, 3, 2, 1 },
     teamColors = {
         red = { 255, 80, 80 },

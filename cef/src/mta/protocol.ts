@@ -53,6 +53,7 @@ export interface RaceResultState {
 
 export interface MapDetails {
   id?: string
+  mtavaultId?: string | null
   name: string
   author: string
   resource: string
@@ -63,6 +64,9 @@ export interface MapDetails {
   dimension: number
   finish: boolean
   cover?: string | null
+  coverPending?: boolean
+  coverError?: boolean
+  coverProgress?: number
   youtube?: string | null
   sourceUrl?: string | null
   uploadedAt?: string | null
@@ -191,6 +195,15 @@ export interface MapPoolDetailPayload {
   detail?: MapDetails | null
 }
 
+export interface MapDetailCoverPayload {
+  requestId?: number
+  mapId?: string
+  cover?: string | null
+  pending?: boolean
+  error?: boolean
+  progress?: number
+}
+
 export type MapPoolSortField = 'popularity' | 'downloads' | 'plays' | 'name' | 'uploaded'
 export type MapPoolSortOrder = 'asc' | 'desc'
 
@@ -263,6 +276,18 @@ export interface WarpsPayload {
   items: WarpPoint[]
 }
 
+export interface SpectateSpot {
+  x: number
+  y: number
+  z: number
+}
+
+export interface SpectateTravelState {
+  start?: SpectateSpot | null
+  hunter?: SpectateSpot | null
+  players?: string[]
+}
+
 export interface StatePayload {
   phase: Phase
   serverName: string
@@ -292,6 +317,7 @@ export interface StatePayload {
   voteCooldown?: number
   canStartModeVote?: boolean
   modeVoteCooldown?: number
+  spectate?: SpectateTravelState | null
   mapTime?: number
   mapTimeMs?: number
 }
@@ -395,6 +421,7 @@ export type BridgeEventMap = {
   mapdetails: ModalPayload
   recordsmodal: ModalPayload
   mapDetail: MapPoolDetailPayload
+  mapDetailCover: MapDetailCoverPayload
   recordsPage: MapRecordsPage
   scoreboard: ScoreboardPayload
   scoreboardScroll: ScoreboardScrollPayload

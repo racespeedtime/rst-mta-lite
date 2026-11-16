@@ -577,6 +577,62 @@ local function applyFreecamCamera()
     setCameraMatrix(freecamX, freecamY, freecamZ, freecamX + fx * 8, freecamY + fy * 8, freecamZ + fz * 8)
 end
 
+-- 观战面板：跟随玩家 / 把自由视角送到起点或 Hunter 终点
+function RST.gotoSpectate(data)
+    if not freecamActive or type(data) ~= 'table' then
+        return false
+    end
+
+    if type(data.player) == 'string' then
+        local target
+        for _, candidate in ipairs(getElementsByType('player')) do
+            if candidate ~= localPlayer and getPlayerName(candidate) == data.player then
+                target = candidate
+                break
+            end
+        end
+        if not target then
+            return false
+        end
+
+        trackingTarget = target
+        local vehicle = getPedOccupiedVehicle(target)
+        setCameraTarget(vehicle or target)
+        setSpectateName((getPlayerName(target) or '玩家') .. (vehicle and ' · 车辆' or ' · 角色'))
+        return true
+    end
+
+    local spots = RST.spectateTravel
+    local spot
+    local label
+    if data.target == 'hunter' then
+        spot = spots and spots.hunter
+        label = 'Hunter 终点'
+    else
+        spot = spots and spots.start
+        label = '赛道起点'
+    end
+    if not spot then
+        if RST.dispatch then
+            RST.dispatch('toast', { text = '没有可传送的位置' })
+        end
+        return false
+    end
+
+    setSpectateName(label)
+
+    trackingTarget = nil
+    freecamX = spot.x - math.cos(math.rad(freecamYaw or 0)) * 22
+    freecamY = spot.y - math.sin(math.rad(freecamYaw or 0)) * 22
+    freecamZ = spot.z + 10
+
+    local dx, dy, dz = spot.x - freecamX, spot.y - freecamY, spot.z - freecamZ
+    freecamYaw = math.deg(math.atan2(dy, dx))
+    freecamPitch = math.max(-85, math.min(85, math.deg(math.atan2(dz, math.sqrt(dx * dx + dy * dy)))))
+    applyFreecamCamera()
+    return true
+end
+
 armMouseLook = function()
     mouseLookReady = false
     mouseRecentering = true
@@ -846,6 +902,7 @@ local function applyState(state)
     RST.mode = mode
     RST.finished = state.me and state.me.finished == true or false
     RST.raceFinal = state.raceFinal == true
+    RST.spectateTravel = state.spectate or nil
     RST.voteActive = voteActive
     RST.voteForced = voteForced
     RST.voteUiOpen = voteUiOpen
@@ -1393,6 +1450,7 @@ addEvent('rst:ui:notice', true)
 addEvent('rst:ui:chat', true)
 addEvent('rst:ui:maps', true)
 addEvent('rst:ui:mapdetail', true)
+addEvent('rst:ui:mapdetail:cover', true)
 addEvent('rst:ui:records', true)
 addEvent('rst:scoreboard:data', true)
 addEvent('rst:ui:countdown', true)
@@ -1424,6 +1482,8 @@ addEventHandler('rst:ui:action', root, function(json)
         setVoteUi(data.open == true)
     elseif data.action == 'modevoteui' then
         setModeVoteUi(data.open == true)
+    elseif data.action == 'spectate:goto' then
+        RST.gotoSpectate(data)
     elseif data.action == 'mapdetails' then
         mapDetailsOpen = data.open == true
         applyInteractive()
@@ -1580,6 +1640,13 @@ addEventHandler('rst:ui:mapdetail', root, function(json)
     local data = fromJSON(json or '')
     if type(data) == 'table' then
         dispatch('mapDetail', data)
+    end
+end)
+
+addEventHandler('rst:ui:mapdetail:cover', root, function(json)
+    local data = fromJSON(json or '')
+    if type(data) == 'table' then
+        dispatch('mapDetailCover', data)
     end
 end)
 

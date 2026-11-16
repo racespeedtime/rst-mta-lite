@@ -2,7 +2,7 @@
     rst_ui / client/warp.lua
 
     训练模式快速传送点：
-    - 短按左 Alt：保存当前位置
+    - 双击左 Alt：保存当前位置
     - 长按左 Alt：回到最近一次保存的位置
     - F2 → 训练：回到任意点 / 删除 / 回到最近
     - 回到传送点后冻结 500ms，和倒带松开后的处理一致
@@ -10,6 +10,7 @@
 ]]
 
 local HOLD_MS = 400
+local DOUBLE_TAP_MS = 350
 local FREEZE_MS = 500
 local MAX_WARPS = 20
 
@@ -21,6 +22,8 @@ local holdTimer = nil
 local freezeTimer = nil
 local frozenElement = nil
 local warpSeq = 0
+local lastTapAt = 0
+local saveWindowTimer = nil
 
 local function toast(text)
     if RST.dispatch then
@@ -421,7 +424,24 @@ addEventHandler('onClientKey', root, function(button, press)
             holdTimer = nil
         end
         if not longTriggered and canWarp() then
-            RST.saveWarp()
+            local tick = getTickCount()
+            if lastTapAt > 0 and tick - lastTapAt <= DOUBLE_TAP_MS then
+                lastTapAt = 0
+                if saveWindowTimer then
+                    killTimer(saveWindowTimer)
+                    saveWindowTimer = nil
+                end
+                RST.saveWarp()
+            else
+                lastTapAt = tick
+                if saveWindowTimer then
+                    killTimer(saveWindowTimer)
+                end
+                saveWindowTimer = setTimer(function()
+                    lastTapAt = 0
+                    saveWindowTimer = nil
+                end, DOUBLE_TAP_MS, 1)
+            end
         end
         longTriggered = false
         return
@@ -442,6 +462,11 @@ addEventHandler('onClientKey', root, function(button, press)
             return
         end
         longTriggered = true
+        lastTapAt = 0
+        if saveWindowTimer then
+            killTimer(saveWindowTimer)
+            saveWindowTimer = nil
+        end
         RST.goLatestWarp()
     end, HOLD_MS, 1)
 end)
@@ -449,6 +474,11 @@ end)
 addEventHandler('onClientPlayerWasted', localPlayer, function()
     holding = false
     RST.warpHolding = false
+    lastTapAt = 0
+    if saveWindowTimer then
+        killTimer(saveWindowTimer)
+        saveWindowTimer = nil
+    end
     if holdTimer then
         killTimer(holdTimer)
         holdTimer = nil

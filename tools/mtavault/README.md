@@ -110,6 +110,25 @@ node tools/mtavault/install-mapmeta-db.mjs
 node tools/mtavault/install-mapmeta-db.mjs --force
 ```
 
+### 从最新 catalog 增量更新运行时 DB
+
+`install-mapmeta-db.mjs` 只复制仓库里的 seed，不会把 `fetch-mapmeta.mjs` 的新结果写进去。同步新增地图后用：
+
+```bash
+node tools/mtavault/build-mapmeta-db.mjs
+# 或指定文件
+node tools/mtavault/build-mapmeta-db.mjs \
+  --catalog tools/mtavault/output/mapmeta.json \
+  --db server/mods/deathmatch/databases/global/rst_ui_mapmeta.db
+```
+
+行为：
+
+- 按 `mtavault_id` upsert，不删除任何行
+- 保留已有的 `resource` 映射，手工维护的第三方地图行不会被覆盖
+- 数据库不存在时先复制 seed，再写入 catalog
+- 建议停服后运行，避免 SQLite 写入竞争
+
 ### 抓取最新元数据（开发用）
 
 ```bash
@@ -268,6 +287,6 @@ node tools/mtavault/scan-maps.mjs \
 
 - API 或字段结构可能变化
 - 全量抓取请控制频率
-- 封面是远程 URL；MTA CEF local 模式对外网图片支持有限，不保证所有封面都能显示
+- 封面源是远程 URL；运行时由服务端 `CoverCache` 缓存并转 data URI 下发给 CEF，客户端不直接访问外网图片
 - 地图 zip 的可用性取决于源站；下载脚本只保证 zip 结构完整
 - 4509 条元数据不等于 4509 张地图已经安装

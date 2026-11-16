@@ -473,6 +473,7 @@ function MapRegistry.detail(mapId)
 
     return {
         id = entry.id,
+        mtavaultId = entry.mtavaultId,
         name = entry.name,
         author = entry.author,
         resource = entry.resource or entry.id,

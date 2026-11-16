@@ -80,7 +80,7 @@ onUnmounted(() => {
             </li>
             <li>
               <span class="help__keys"><kbd>左 Alt</kbd></span>
-              <span>训练模式：短按保存当前位置；长按到阈值立即回到最近传送点，不用等松开</span>
+              <span>训练模式：双击保存当前位置；长按到阈值立即回到最近传送点，不用等松开</span>
             </li>
             <li>
               <span class="help__keys"><kbd>Y</kbd></span>

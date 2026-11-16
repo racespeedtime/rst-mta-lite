@@ -728,6 +728,13 @@
         <right name="command.listscreenshots" access="false"></right>
     </acl>
     <acl name="raceACL">
+        <right name="function.fetchRemote" access="true"></right>
+        <right name="function.fileCreate" access="true"></right>
+        <right name="function.fileWrite" access="true"></right>
+        <right name="function.fileClose" access="true"></right>
+        <right name="function.fileOpen" access="true"></right>
+        <right name="function.fileRead" access="true"></right>
+        <right name="function.fileGetSize" access="true"></right>
         <right name="function.createResource" access="true"></right>
         <right name="function.deleteResource" access="true"></right>
         <right name="function.refreshResources" access="true"></right>

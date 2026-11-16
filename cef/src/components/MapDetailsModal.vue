@@ -9,6 +9,9 @@ import IconLink from '~icons/lucide/link'
 import IconMapPinned from '~icons/lucide/map-pinned'
 import IconSparkles from '~icons/lucide/sparkles'
 import IconX from '~icons/lucide/x'
+import { ElImage, ElProgress } from 'element-plus'
+import 'element-plus/es/components/image/style/css'
+import 'element-plus/es/components/progress/style/css'
 import { ui } from '@/stores/ui'
 import { formatBytes } from '@/utils/format'
 
@@ -18,7 +21,14 @@ const details = computed(() => ui.mapDetails)
 const coverSrc = computed(() => {
   const cover = details.value?.cover || ''
   if (!cover) return ''
-  return /^https?:\/\//i.test(cover) ? cover : `../${cover}`
+  if (/^data:image\//i.test(cover)) return cover
+  // 客户端不直接访问远端图片；服务端缓存完成后只下发 data URI 或本地路径
+  if (/^https?:\/\//i.test(cover)) return ''
+  return `../${cover}`
+})
+const coverProgress = computed(() => {
+  const value = details.value?.coverProgress
+  return typeof value === 'number' && value >= 0 ? Math.min(100, Math.floor(value)) : null
 })
 const youtube = computed(() => details.value?.youtube || '')
 const sourceUrl = computed(() => details.value?.sourceUrl || '')
@@ -89,7 +99,45 @@ watch(
 
       <div v-if="details" class="map-detail__body">
         <div class="map-detail__preview">
-          <img v-if="coverSrc" :src="coverSrc" :alt="ui.room?.mapName || '地图封面'" />
+          <ElImage
+            v-if="coverSrc"
+            class="map-detail__cover"
+            :src="coverSrc"
+            :alt="details.name || '地图封面'"
+            fit="cover"
+            lazy
+          >
+            <template #placeholder>
+              <div class="map-detail__preview-empty">
+                <IconSparkles class="icon icon--lg" />
+                <span>封面加载中…</span>
+              </div>
+            </template>
+            <template #error>
+              <div class="map-detail__preview-empty">
+                <IconSparkles class="icon icon--lg" />
+                <span>封面加载失败</span>
+              </div>
+            </template>
+          </ElImage>
+          <div v-else-if="details.coverPending" class="map-detail__preview-empty">
+            <IconSparkles class="icon icon--lg" />
+            <span>
+              服务端缓存封面中…
+              <template v-if="coverProgress !== null"> {{ coverProgress }}%</template>
+            </span>
+            <ElProgress
+              v-if="coverProgress !== null"
+              class="map-detail__progress"
+              :percentage="coverProgress"
+              :stroke-width="4"
+              :show-text="false"
+            />
+          </div>
+          <div v-else-if="details.coverError" class="map-detail__preview-empty">
+            <IconSparkles class="icon icon--lg" />
+            <span>封面缓存失败</span>
+          </div>
           <div v-else class="map-detail__preview-empty">
             <IconSparkles class="icon icon--lg" />
             <span>本地暂无封面</span>
@@ -253,12 +301,28 @@ watch(
   background: rgba(255, 255, 255, 0.03);
 }
 
-.map-detail__preview img {
+.map-detail__preview :deep(.el-image) {
+  width: 100%;
+  height: 100%;
+  min-height: 210px;
+  display: block;
+}
+
+.map-detail__preview :deep(.el-image img) {
   width: 100%;
   height: 100%;
   min-height: 210px;
   object-fit: cover;
   display: block;
+}
+
+.map-detail__progress {
+  width: min(220px, 70%);
+  --el-progress-bar-background-color: rgba(255, 255, 255, 0.08);
+}
+
+.map-detail__progress :deep(.el-progress-bar__outer) {
+  background: rgba(255, 255, 255, 0.08);
 }
 
 .map-detail__preview-empty {

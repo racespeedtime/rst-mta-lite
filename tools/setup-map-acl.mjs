@@ -18,6 +18,13 @@ const REQUIRED_RIGHTS = [
   'function.deleteResource',
   'function.refreshResources',
   'function.xmlLoadFile',
+  'function.fetchRemote',
+  'function.fileCreate',
+  'function.fileWrite',
+  'function.fileClose',
+  'function.fileOpen',
+  'function.fileRead',
+  'function.fileGetSize',
 ]
 
 if (!fs.existsSync(aclPath)) {

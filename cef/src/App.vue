@@ -135,6 +135,7 @@ function applyState(state: StatePayload): void {
   ui.ready = state.ready || { waiting: false, ready: 0, total: 0, me: false, canReady: false }
   ui.competition = state.competition || null
   ui.raceResult = state.raceResult || null
+  ui.spectate = state.spectate || null
   handleRaceAudio(previousRaceResult, previousPhase)
   ui.personalBest = typeof state.personalBest === 'number' ? state.personalBest : null
   ui.personalBestMs =
@@ -309,6 +310,16 @@ onMounted(() => {
       }
       ui.mapDetails = payload.detail
       ui.mapDetailsOpen = true
+    }),
+    onBridge('mapDetailCover', (payload) => {
+      const requestId = Number(payload.requestId)
+      if (requestId && requestId !== ui.mapPoolDetailRequestId) return
+      if (!ui.mapDetails) return
+      if (payload.mapId && ui.mapDetails.id !== payload.mapId) return
+      ui.mapDetails.cover = payload.cover || null
+      ui.mapDetails.coverPending = payload.pending === true
+      ui.mapDetails.coverError = payload.error === true
+      ui.mapDetails.coverProgress = typeof payload.progress === 'number' ? payload.progress : -1
     }),
     onBridge('recordsPage', (payload) => {
       if (Number(payload.requestId) !== ui.recordsRequestId) return

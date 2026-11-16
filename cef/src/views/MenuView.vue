@@ -106,6 +106,16 @@ function toggleOb(): void {
   emitAction('menu:close')
 }
 
+function spectateGoto(target: 'start' | 'hunter'): void {
+  emitAction('spectate:goto', { target })
+  emitAction('menu:close')
+}
+
+function spectateGotoPlayer(player: string): void {
+  emitAction('spectate:goto', { player })
+  emitAction('menu:close')
+}
+
 function devtools(): void {
   emitAction('devtools')
 }
@@ -220,13 +230,12 @@ function openRecords(): void {
 }
 
 function openMapDetails(): void {
-  if (!ui.room) return
-  const details = ui.room.mapDetails || null
+  const mapId = ui.room?.mapId
+  if (!mapId) return
+  const requestId = ui.mapPoolDetailRequestId + 1
+  ui.mapPoolDetailRequestId = requestId
+  emitAction('maps:detail', { mapId, requestId })
   emitAction('menu:close')
-  window.setTimeout(() => {
-    ui.mapDetails = details
-    ui.mapDetailsOpen = true
-  }, MENU_LEAVE_DELAY_MS)
 }
 
 function openHelp(): void {
@@ -323,6 +332,28 @@ function respawn(): void {
         </button>
       </nav>
 
+      <div v-if="spectating && ui.spectate" class="spectate-goto">
+        <p class="warp-hint">观战传送：把自由视角送到赛道起点、Hunter 终点，或直接跟随某个玩家。</p>
+        <div class="spectate-goto__spots">
+          <button v-if="ui.spectate.start" type="button" @click="spectateGoto('start')">
+            赛道起点
+          </button>
+          <button v-if="ui.spectate.hunter" type="button" @click="spectateGoto('hunter')">
+            Hunter 终点
+          </button>
+        </div>
+        <div v-if="ui.spectate.players?.length" class="spectate-goto__players">
+          <button
+            v-for="player in ui.spectate.players"
+            :key="player"
+            type="button"
+            @click="spectateGotoPlayer(player)"
+          >
+            {{ player }}
+          </button>
+        </div>
+      </div>
+
       <div v-if="ui.menuTab === 'play'" class="menu-actions">
         <button type="button" class="menu-action" :disabled="!ui.canStartVote || ui.voteCooldown > 0" @click="startVote">
           <span class="menu-action__icon"><IconVote class="icon" /></span>
@@ -351,7 +382,7 @@ function respawn(): void {
         </button>
 
         <button
-          v-if="ui.gameMode === 'training'"
+          v-if="ui.gameMode === 'training' && !spectating"
           type="button"
           class="menu-action"
           @click="respawn"
@@ -406,7 +437,7 @@ function respawn(): void {
 
       <div v-else-if="ui.menuTab === 'training'" class="menu-actions">
         <p class="warp-hint">
-          短按左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 到阈值立即回到最近一个点，不需要等松开。
+          双击左 <kbd>Alt</kbd> 保存当前位置；长按左 <kbd>Alt</kbd> 到阈值立即回到最近一个点，不需要等松开。
           传送后冻结 0.5 秒，且不能与倒带同时进行。换图、换房间或切换模式会清空传送点。
         </p>
 
@@ -415,7 +446,7 @@ function respawn(): void {
             <span class="menu-action__icon"><IconMapPinned class="icon" /></span>
             <span class="menu-action__text">
               <strong>保存当前位置</strong>
-              <small>也可以短按左 Alt</small>
+              <small>也可以双击左 Alt</small>
             </span>
             <IconChevronRight class="icon menu-action__arrow" />
           </button>
@@ -450,7 +481,7 @@ function respawn(): void {
               </button>
             </div>
           </div>
-          <p v-else class="warp-empty">还没有保存传送点，按左 Alt 保存第一个。</p>
+          <p v-else class="warp-empty">还没有保存传送点，双击左 Alt 保存第一个。</p>
         </template>
         <p v-else class="warp-empty">传送点仅在训练模式可用。</p>
       </div>
@@ -964,6 +995,47 @@ function respawn(): void {
   display: flex;
   flex-direction: column;
   gap: 8px;
+}
+
+.spectate-goto {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px;
+  border: 1px solid var(--rst-border);
+  border-radius: 10px;
+  background: rgba(var(--rst-accent-rgb), 0.04);
+}
+
+.spectate-goto .warp-hint {
+  margin: 0;
+}
+
+.spectate-goto__spots,
+.spectate-goto__players {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.spectate-goto__players {
+  max-height: 150px;
+  overflow-y: auto;
+}
+
+.spectate-goto button {
+  padding: 6px 9px;
+  border: 1px solid var(--rst-border);
+  border-radius: 7px;
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--rst-text);
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.spectate-goto button:hover {
+  border-color: rgba(var(--rst-accent-rgb), 0.5);
+  background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
 .warp-hint {

@@ -13,6 +13,7 @@
     <script src="server/mapstats.lua" type="server" />
     <script src="server/records.lua" type="server" />
     <script src="server/mapmeta.lua" type="server" />
+    <script src="server/covercache.lua" type="server" />
     <script src="server/mapstore.lua" type="server" />
     <script src="server/mapregistry.lua" type="server" />
     <script src="server/mapmanager.lua" type="server" />
@@ -73,5 +74,12 @@
         <right name="function.deleteResource" access="true" />
         <right name="function.refreshResources" access="true" />
         <right name="function.xmlLoadFile" access="true" />
+        <right name="function.fetchRemote" access="true" />
+        <right name="function.fileCreate" access="true" />
+        <right name="function.fileWrite" access="true" />
+        <right name="function.fileClose" access="true" />
+        <right name="function.fileOpen" access="true" />
+        <right name="function.fileRead" access="true" />
+        <right name="function.fileGetSize" access="true" />
     </aclrequest>
 </meta>

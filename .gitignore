@@ -98,6 +98,12 @@ server/mods/deathmatch/resources/\[rst\]/rst_ui/models/
 # 地图抓取输出：元数据 JSON / 本地封面
 /tools/mtavault/output/
 
+# 服务端运行时封面缓存（示例封面仍入库）
+server/mods/deathmatch/resources/\[rst\]/rst_ui/covers/*.jpg
+!server/mods/deathmatch/resources/\[rst\]/rst_ui/covers/silent-hill.jpg
+!server/mods/deathmatch/resources/\[rst\]/rst_ui/covers/a-new-dawn.jpg
+!server/mods/deathmatch/resources/\[rst\]/rst_ui/covers/descendants-skills-v.jpg
+
 # mtavault 地图本体：压缩包缓存 + 已安装地图资源，体积大，永不入库
 /server/mods/deathmatch/map-cache/
 /server/mods/deathmatch/resources/mtavault_*/

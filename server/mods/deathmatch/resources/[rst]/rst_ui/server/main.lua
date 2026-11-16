@@ -115,6 +115,36 @@ local function buildState(player, session)
                 state.me.finished = room.finished[player] ~= nil
                 state.raceFinal = room.raceFinal == true
 
+                local map = MapRegistry.details(room.mapId)
+                if map then
+                    local start = (map.spawnpoints or {})[1]
+                    if start then
+                        start = { x = start.x, y = start.y, z = start.z }
+                    end
+                    local hunter = map.finishes and map.finishes[1]
+                    if hunter then
+                        hunter = { x = hunter.x, y = hunter.y, z = hunter.z }
+                    end
+
+                    local names = {}
+                    local dimension = getElementDimension(player)
+                    for _, other in ipairs(getElementsByType('player')) do
+                        if other ~= player
+                            and getElementDimension(other) == dimension
+                            and getElementHealth(other) > 0
+                        then
+                            names[#names + 1] = getPlayerName(other) or '?'
+                        end
+                    end
+                    table.sort(names)
+
+                    state.spectate = {
+                        start = start,
+                        hunter = hunter,
+                        players = names,
+                    }
+                end
+
                 local cooldownLeft = 0
                 if (room.lastVoteAt or 0) > 0 then
                     cooldownLeft = math.max(
@@ -547,10 +577,14 @@ actions['maps:detail'] = function(player, session, data)
         return
     end
     local mapId = tostring(data.mapId or '')
+    local detail = MapRegistry.detail(mapId)
+    if CoverCache then
+        detail = CoverCache.prepare(player, detail, data.requestId)
+    end
     triggerClientEvent(player, 'rst:ui:mapdetail', player, toJSON({
         requestId = data.requestId,
         mapId = mapId,
-        detail = MapRegistry.detail(mapId),
+        detail = detail,
     }))
 end
 

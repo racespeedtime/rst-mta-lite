@@ -130,7 +130,7 @@ mtasa://127.0.0.1:22003
 | `F3` | 临时显示 / 隐藏光标 |
 | `F4` | 打开 / 关闭投票面板（换图 / 模式投票） |
 | `Tab` | 按住查看全服玩家列表 |
-| 短按左 `Alt` | 训练模式保存当前位置为传送点 |
+| 双击左 `Alt` | 训练模式保存当前位置为传送点 |
 | 长按左 `Alt` | 训练模式回到最近传送点 |
 | 长按 `Y` | 倒带最近 8 秒；倒带时按住 `Shift` 3 倍速 |
 | 按住 `R` | 落水且速度不快时，按住 0.8 秒重生；竞技模式消耗 1 条命 |
@@ -171,7 +171,7 @@ mtasa://127.0.0.1:22003
 
 ### 训练传送点
 
-- 短按左 `Alt` 保存当前位置，长按回到最近一次保存点；F2 → 训练里可以管理多个点
+- 双击左 `Alt` 保存当前位置，长按回到最近一次保存点；F2 → 训练里可以管理多个点
 - 传送点会恢复位置/朝向/血量/损坏/氮气，并把车换回保存时的车型；训练模式由服务端同步模型
 - 地图装载 / 资源下载 / 准备阶段 / 出发倒计时期间不能保存或回到传送点，避免记录到运镜或旧车位置
 - 传送只恢复位置/朝向/血量/损坏/氮气，不会改变当前车辆模型
@@ -334,6 +334,25 @@ node tools/mapstore/build-library.mjs --reindex
 
 校验不通过的地图会写进 `build-report.json`，不进地图池。开服日志会逐张列出被跳过的地图和缺失文件数。当前实测 4486 张 zip 中 4482 张可玩，4 张缺文件：`atlas`、`foggy-swamp`、`just-cant-map-x4`、`transformers`。
 
+### 第三方地图（非 mtavault）
+
+支持。地图库不关心图来自 mtavault、论坛还是自己做的，只要求：
+
+- 一个 zip = 一张 MTA 地图 resource
+- zip 根目录（或只套一层目录）有 `meta.xml`
+- `meta.xml` 引用的 `.map` / 文件都存在
+- zip 文件名（去掉 `.zip`）就是地图 id
+
+放进去后照常跑：
+
+```bash
+node tools/mapstore/build-library.mjs --only my-map
+# 或整包重建
+node tools/mapstore/build-library.mjs
+```
+
+第三方地图**不依赖 mtavault DB**：没有元数据也能进地图池、能玩；只是地图详情里下载量 / 上传日期为空，上传日期过滤会把它排除。地图详情的基础名称 / 作者来自地图自己的 `meta.xml`，不是 SQLite。
+
 ### 换图流程
 
 1. 选出目标地图
@@ -430,6 +449,7 @@ F2 →「系统」→「清除浏览器缓存」：关闭界面、强制重新�
 | `trainingReturnSeconds` / `finishResultDelay` | 训练完赛回出生点延迟 / 完赛结算面板延迟 |
 | `waterRespawnSpeed` | 竞技落水重生的最大速度 |
 | `blockVehicleExit` | 比赛进行中（训练/竞技）禁止主动下车（默认 `true`） |
+| `coverCache` | 封面缓存并发 / 限速 / 小时预算 / 失败退避 / 熔断 / YouTube 缩略图质量 |
 | `playPopularityWeight` | 游玩次数热度权重 |
 | `scoreTable` / `teamColors` / `vehicle` | 冲线积分 / 队伍颜色 / 默认车型 |
 | `chatMinIntervalMs` / `chatBurstWindowMs` / `chatBurstLimit` | 聊天限速 |
@@ -438,7 +458,7 @@ F2 →「系统」→「清除浏览器缓存」：关闭界面、强制重新�
 
 ### ACL
 
-`acl.xml` 里的 `raceACLGroup` 已包含 `resource.rst_ui`，并授予 `startResource`、`stopResource`、`restartResource`、`createResource`、`deleteResource`、`refreshResources`、`xmlLoadFile`。
+`acl.xml` 里的 `raceACLGroup` 已包含 `resource.rst_ui`，并授予 `startResource`、`stopResource`、`restartResource`、`createResource`、`deleteResource`、`refreshResources`、`xmlLoadFile`，以及封面缓存的 `fetchRemote`、`fileCreate`、`fileWrite`、`fileClose`、`fileOpen`、`fileRead`、`fileGetSize`。
 
 如果安装官方服务端时覆盖了这个文件，用快速开始第 5 步的 `setup-map-acl.mjs` 补齐，然后重启服务器。
 
@@ -447,6 +467,88 @@ F2 →「系统」→「清除浏览器缓存」：关闭界面、强制重新�
 `tools/mtavault/seed/rst_ui_mapmeta.db` 是只读 seed，包含 4509 张 DM/HDM 的展示元数据（下载量、上传日期、封面等），不含地图本体、账号或玩家记录。
 
 安装命令见快速开始第 5 步，目标：`server/mods/deathmatch/databases/global/rst_ui_mapmeta.db`。没有它服务器也能跑，只是下载量 / 上传日期为空（按日期过滤会排除这些图）。
+
+### 自己维护第三方地图元数据
+
+运行时数据库 `rst_ui_mapmeta.db` 的 `map_meta` 表可以手工加行。最省事的匹配方式是让 `resource` 等于地图 id（zip 文件名去掉 `.zip`），这样 `MapMeta.get` 第一次就按 resource 命中，不依赖名称模糊匹配。
+
+```sql
+INSERT INTO map_meta (
+  mtavault_id, resource, name, name_norm, authors, author_norm,
+  file_name, file_name_norm, cover, youtube, source_url, uploaded_at,
+  downloads, file_size, tags, map_type, updated_at, difficulty
+) VALUES (
+  'manual-my-map', 'my-map', 'My Map', 'mymap', 'Author', 'author',
+  'my-map.zip', 'mymapzip', 'covers/my-map.jpg', '', '', '2026-01-01',
+  0, 0, '["DM","Custom"]', 'DM', strftime('%s','now'), 'Custom'
+);
+```
+
+- `mtavault_id` 只是主键，第三方图可以自己编一个唯一值，比如 `manual-<id>`
+- `cover` 可以是本地相对路径 `covers/my-map.jpg`，也可以是远端 URL；本地图片直接放 `rst_ui/covers/`，服务端会读成 data URI；远端 URL 走服务端缓存
+- `name` / `authors` 不影响地图详情里显示的名称和作者，显示仍以地图 `meta.xml` 为准；这两列主要用于 mtavault 匹配
+- 改完需要**重启服务端**（`MapMeta` 有内存缓存）
+- `install-mapmeta-db.mjs --force` 会用 seed 覆盖整个运行时 DB，手工行会丢失；先备份或只做 `build-mapmeta-db.mjs` 的增量更新
+
+### 封面远端请求：代理与限速
+
+服务端封面缓存使用 MTA `fetchRemote`，底层是 libcurl，会继承 **MTA Server 进程**的环境变量：
+
+```powershell
+$env:HTTPS_PROXY = 'http://127.0.0.1:7890'
+$env:HTTP_PROXY = 'http://127.0.0.1:7890'
+# 需要认证时：http://user:pass@host:port
+.\MTA Server.exe
+```
+
+注意：
+
+- 必须在启动服务端**之前**设置；运行中改环境变量不会生效
+- 用面板 / 服务启动时，要给对应系统账户设置环境变量
+- 代理可用 `HTTPS_PROXY` / `HTTP_PROXY`（大小写均可）；`NO_PROXY` 也遵循 libcurl 规则
+- MTA 的 Lua 环境禁止 `os.getenv`，所以脚本内不检测/打印代理；实际请求由 `fetchRemote` 底层的 libcurl 继承，可在代理日志里确认
+
+限速 / 风控策略在 `shared/config.lua` 的 `coverCache`：
+
+| 字段 | 作用 |
+| --- | --- |
+| `thumbnailQuality` | YouTube 缩略图：`mq`（默认 320x180）/ `hq` / `sd` / `max` / `original` |
+| `maxConcurrent` | 同时下载封面的最大请求数，默认 2 |
+| `minIntervalMs` | 两次请求之间的最小间隔，默认 1200ms，另加随机抖动 |
+| `queueLimit` | 等待队列上限，超过直接放弃本次封面 |
+| `hourlyLimit` | 每小时最多请求数，默认 300 |
+| `failureBaseSeconds` / `failureMaxSeconds` | 单张图失败后的指数退避 |
+| `breakerFailures` / `breakerSeconds` | 连续失败熔断阈值 / 暂停时间 |
+
+另外：
+
+- 同一张图并发打开只下载一次，其他玩家共享结果
+- 已有本地 `covers/*.jpg` 优先，不联网
+- 远端返回 403 / 429 / 503 会直接拉长熔断时间，避免继续撞风控
+- 封面数据会校验 JPEG / PNG / GIF / WebP 文件头，HTML 错误页不会被当成图片缓存
+- 默认把 YouTube `hqdefault.jpg`（约 25KB，4:3 带黑边）换成 `mqdefault.jpg`（约 12KB，16:9），地图详情预览足够；这是服务端换预缩放图，不是运行时 JPEG 重压缩。非 YouTube 远端图保持原图
+- 缓存成功后会落盘并转 data URI，客户端始终不直接访问远端图片
+- 下载中每 500ms 用 `getRemoteRequestInfo` 推送 0–100% 进度；前端用 `ElProgress` 显示，下载完成 / 失败都有服务端日志
+
+推荐顺序：
+
+```bash
+# 1. 拉最新元数据 catalog（只写 tools/mtavault/output/mapmeta.json，不碰运行时 DB）
+node tools/mtavault/fetch-mapmeta.mjs
+
+# 2. 只补缺失的地图 zip（默认代理 127.0.0.1:7890；直连用 --proxy off）
+node tools/mtavault/download-all-maps.mjs --only-missing --proxy off
+
+# 3. 把新 zip 放进地图库（已有地图默认跳过，新地图展开并重建索引）
+node tools/mapstore/build-library.mjs
+
+# 4. 用最新 catalog 增量更新运行时元数据库
+node tools/mtavault/build-mapmeta-db.mjs
+
+# 5. 重启服务端
+```
+
+`build-mapmeta-db.mjs` 只按 `mtavault_id` upsert，不删除任何行，也会保留已有的 `resource` 映射，所以第三方地图行不会被 mtavault 同步冲掉。如果连运行时 DB 都没有，它会先复制 seed 再更新。
 
 ### 数据库与日志
 
