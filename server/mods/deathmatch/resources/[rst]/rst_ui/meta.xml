@@ -23,6 +23,8 @@
     <script src="client/main.lua" type="client" />
     <script src="client/rewind.lua" type="client" />
     <script src="client/waterhint.lua" type="client" />
+    <script src="client/loadingcam.lua" type="client" />
+    <script src="client/bikelock.lua" type="client" />
     <script src="client/warp.lua" type="client" />
     <script src="client/pickups.lua" type="client" />
     <script src="client/custommodels.lua" type="client" />

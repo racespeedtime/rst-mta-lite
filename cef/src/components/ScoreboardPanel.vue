@@ -2,25 +2,57 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 
 import IconUsers from '~icons/lucide/users'
+import { ElEmpty, ElTable, ElTableColumn, ElTag } from 'element-plus'
+import 'element-plus/es/components/table/style/css'
+import 'element-plus/es/components/tag/style/css'
+import 'element-plus/es/components/empty/style/css'
 import { onBridge } from '@/mta/bridge'
+import type { ScoreboardPlayer } from '@/mta/protocol'
 import { ui } from '@/stores/ui'
 
-const scrollRef = ref<HTMLElement | null>(null)
+type TagType = 'primary' | 'success' | 'info' | 'warning' | 'danger'
+
+const tableRef = ref<{ $el?: HTMLElement } | null>(null)
+const maxHeight = ref(520)
 let offScroll: (() => void) | undefined
 
 const players = computed(() => ui.scoreboard?.players || [])
 const count = computed(() => ui.scoreboard?.count ?? players.value.length)
 
+function updateMaxHeight(): void {
+  maxHeight.value = Math.max(180, Math.min(620, Math.floor(window.innerHeight * 0.66) - 44))
+}
+
 function onScroll(payload: { delta: number }): void {
-  if (!scrollRef.value) return
-  scrollRef.value.scrollTop -= Math.sign(payload.delta) * 48
+  const root = tableRef.value?.$el
+  const wrap =
+    root?.querySelector<HTMLElement>('.el-scrollbar__wrap') ??
+    root?.querySelector<HTMLElement>('.el-table__body-wrapper')
+  if (!wrap) return
+  wrap.scrollTop -= Math.sign(payload.delta) * 48
+}
+
+function statusType(key: string): TagType {
+  if (key === 'alive') return 'success'
+  if (key === 'dead' || key === 'out') return 'danger'
+  if (key === 'spectate') return 'info'
+  if (key === 'ready' || key === 'vote') return 'warning'
+  if (key === 'finished') return 'primary'
+  return 'info'
+}
+
+function rowClassName({ row }: { row: ScoreboardPlayer }): string {
+  return row.me ? 'scoreboard__row--me' : ''
 }
 
 onMounted(() => {
+  updateMaxHeight()
+  window.addEventListener('resize', updateMaxHeight)
   offScroll = onBridge('scoreboardScroll', onScroll)
 })
 
 onUnmounted(() => {
+  window.removeEventListener('resize', updateMaxHeight)
   offScroll?.()
 })
 </script>
@@ -35,45 +67,43 @@ onUnmounted(() => {
       <span class="scoreboard__meta">{{ count }} 人 · 按住 Tab 查看</span>
     </header>
 
-    <div ref="scrollRef" class="scoreboard__scroll">
-      <table class="scoreboard__table">
-        <colgroup>
-          <col class="scoreboard__col-id" />
-          <col class="scoreboard__col-name" />
-          <col class="scoreboard__col-status" />
-          <col class="scoreboard__col-num" />
-          <col class="scoreboard__col-num" />
-        </colgroup>
-        <thead>
-          <tr>
-            <th class="scoreboard__id">ID</th>
-            <th>昵称</th>
-            <th>状态</th>
-            <th class="scoreboard__num">FPS</th>
-            <th class="scoreboard__num">Ping</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="player in players"
-            :key="player.id"
-            :class="{ 'scoreboard__row--me': player.me }"
-          >
-            <td class="scoreboard__id">{{ player.id }}</td>
-            <td class="scoreboard__name">{{ player.name }}</td>
-            <td>
-              <span class="scoreboard__status" :class="`scoreboard__status--${player.statusKey}`">
-                {{ player.status }}
-              </span>
-            </td>
-            <td class="scoreboard__num">{{ player.fps || '--' }}</td>
-            <td class="scoreboard__num">{{ player.ping }} ms</td>
-          </tr>
-        </tbody>
-      </table>
+    <ElTable
+      ref="tableRef"
+      class="scoreboard__table"
+      :data="players"
+      size="small"
+      row-key="id"
+      :max-height="maxHeight"
+      :row-class-name="rowClassName"
+    >
+      <ElTableColumn prop="id" label="ID" width="64" />
+      <ElTableColumn prop="name" label="昵称" min-width="200" show-overflow-tooltip>
+        <template #default="{ row }">
+          <span class="scoreboard__name">{{ row.name }}</span>
+        </template>
+      </ElTableColumn>
+      <ElTableColumn label="状态" width="120">
+        <template #default="{ row }">
+          <ElTag :type="statusType(row.statusKey)" effect="light" size="small" round>
+            {{ row.status }}
+          </ElTag>
+        </template>
+      </ElTableColumn>
+      <ElTableColumn label="FPS" width="82" align="right">
+        <template #default="{ row }">
+          <span class="scoreboard__num">{{ row.fps || '--' }}</span>
+        </template>
+      </ElTableColumn>
+      <ElTableColumn label="Ping" width="100" align="right">
+        <template #default="{ row }">
+          <span class="scoreboard__num">{{ row.ping }} ms</span>
+        </template>
+      </ElTableColumn>
 
-      <p v-if="!players.length" class="scoreboard__empty">正在获取玩家列表…</p>
-    </div>
+      <template #empty>
+        <ElEmpty description="正在获取玩家列表…" :image-size="40" />
+      </template>
+    </ElTable>
   </aside>
 </template>
 
@@ -120,76 +150,66 @@ onUnmounted(() => {
   font-size: 9px;
 }
 
-.scoreboard__scroll {
-  max-height: calc(min(66vh, 620px) - 44px);
-  overflow-y: auto;
-  scrollbar-width: thin;
-  scrollbar-color: rgba(var(--rst-accent-rgb), 0.4) transparent;
+.scoreboard :deep(.el-table) {
+  --el-table-bg-color: transparent;
+  --el-table-tr-bg-color: transparent;
+  --el-table-header-bg-color: rgba(8, 15, 25, 0.78);
+  --el-table-row-hover-bg-color: rgba(var(--rst-accent-rgb), 0.06);
+  --el-table-border-color: transparent;
+  --el-table-header-text-color: var(--rst-muted);
+  --el-table-text-color: var(--rst-muted);
+  font-size: 11px;
 }
 
-.scoreboard__scroll::-webkit-scrollbar {
-  width: 8px;
+.scoreboard :deep(.el-table__inner-wrapper::before) {
+  display: none;
 }
 
-.scoreboard__scroll::-webkit-scrollbar-thumb {
-  border-radius: 8px;
-  background: rgba(var(--rst-accent-rgb), 0.35);
-}
-
-.scoreboard__table {
-  width: 100%;
-  border-collapse: collapse;
-  table-layout: fixed;
-}
-
-.scoreboard__col-id {
-  width: 54px;
-}
-
-.scoreboard__col-name {
-  width: auto;
-}
-
-.scoreboard__col-status {
-  width: 112px;
-}
-
-.scoreboard__col-num {
-  width: 82px;
-}
-
-.scoreboard__table th {
-  position: sticky;
-  top: 0;
-  z-index: 1;
+.scoreboard :deep(.el-table th.el-table__cell) {
   padding: 8px 10px;
   background: rgba(8, 15, 25, 0.78);
   color: var(--rst-muted);
   font-size: 9px;
   font-weight: 500;
-  text-align: left;
   letter-spacing: 0.08em;
 }
 
-.scoreboard__table td {
+.scoreboard :deep(.el-table td.el-table__cell) {
   padding: 8px 10px;
   border-top: 1px solid rgba(255, 255, 255, 0.045);
+  border-bottom: 0;
   color: var(--rst-muted);
   font-size: 11px;
 }
 
-.scoreboard__table tbody tr:hover {
-  background: rgba(var(--rst-accent-rgb), 0.06);
+.scoreboard :deep(.el-table .cell) {
+  padding: 0;
+  line-height: 1.4;
 }
 
-.scoreboard__row--me {
+.scoreboard :deep(.el-table__row--me > td.el-table__cell) {
   background: rgba(var(--rst-accent-rgb), 0.1);
 }
 
-.scoreboard__id {
-  color: var(--rst-accent);
-  font-variant-numeric: tabular-nums;
-  text-align: left;
+.scoreboard :deep(.el-tag) {
+  height: 18px;
+  padding: 0 6px;
+  border: 0;
+  font-size: 9px;
+}
+
+.scoreboard :deep(.el-empty) {
+  padding: 24px 0;
+}
+
+.scoreboard :deep(.el-empty__description p) {
+  margin: 0;
+  color: var(--rst-muted);
+  font-size: 11px;
+}
+
+.scoreboard :deep(.el-scrollbar__bar) {
+  opacity: 0;
 }
 
 .scoreboard__name {
@@ -200,49 +220,7 @@ onUnmounted(() => {
 }
 
 .scoreboard__num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-}
-
-.scoreboard__status {
-  display: inline-block;
-  padding: 2px 6px;
-  border-radius: 4px;
-  background: rgba(255, 255, 255, 0.06);
-  font-size: 9px;
-}
-
-.scoreboard__status--alive {
-  color: var(--rst-green);
-  background: rgba(126, 231, 135, 0.1);
-}
-
-.scoreboard__status--dead,
-.scoreboard__status--out {
-  color: var(--rst-red);
-  background: rgba(255, 123, 114, 0.1);
-}
-
-.scoreboard__status--spectate {
-  color: var(--rst-blue);
-  background: rgba(121, 192, 255, 0.1);
-}
-
-.scoreboard__status--ready,
-.scoreboard__status--vote {
-  color: var(--rst-gold);
-  background: rgba(227, 179, 65, 0.1);
-}
-
-.scoreboard__status--finished {
-  color: var(--rst-accent-2);
-  background: rgba(210, 168, 255, 0.1);
-}
-
-.scoreboard__empty {
-  padding: 30px 0;
   color: var(--rst-muted);
-  font-size: 11px;
-  text-align: center;
+  font-variant-numeric: tabular-nums;
 }
 </style>

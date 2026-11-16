@@ -16,6 +16,7 @@ local REWIND_FAST_SPEED = 3
 local samples = {}
 local lastSampleAt = 0
 local lastVehicle = nil
+local lastVehicleModel = nil
 local holding = false
 local holdTimer = nil
 local active = false
@@ -217,6 +218,19 @@ captureSample = function()
     local rx, ry, rz = getElementRotation(target)
     local vx, vy, vz = getElementVelocity(target)
 
+    -- 记录当时的相机矩阵：倒带时连视角、距离、朝向一起回放，
+    -- 而不是让 GTA 默认追车相机重新跟一遍
+    local camX, camY, camZ, camLX, camLY, camLZ, camRoll, camFov
+    if type(getCameraMatrix) == 'function' then
+        -- getCameraMatrix 返回 8 个值，后两个是 roll 和 fov；漏掉 fov 会默认成 70，
+        -- 高速追车时就会显得比正常视角“放大”
+        local ok, cx, cy, cz, lx, ly, lz, cr, cf = pcall(getCameraMatrix)
+        if ok and type(cx) == 'number' then
+            camX, camY, camZ, camLX, camLY, camLZ = cx, cy, cz, lx, ly, lz
+            camRoll, camFov = cr, cf
+        end
+    end
+
     local nitroLevel, nitroCount, nitroActive
     local health
     local damage
@@ -239,6 +253,14 @@ captureSample = function()
         vx = vx,
         vy = vy,
         vz = vz,
+        camX = camX,
+        camY = camY,
+        camZ = camZ,
+        camLX = camLX,
+        camLY = camLY,
+        camLZ = camLZ,
+        camRoll = camRoll,
+        camFov = camFov,
         nitroLevel = nitroLevel,
         nitroCount = nitroCount,
         nitroActive = nitroActive,
@@ -255,6 +277,7 @@ end
 local function resetSamples()
     samples = {}
     lastVehicle = nil
+    lastVehicleModel = nil
     lastSampleAt = 0
     currentSampleTime = nil
 end
@@ -427,7 +450,7 @@ local function startRewind()
     applyDamageState(frozenElement, currentDamage)
     setElementFrozen(frozenElement, true)
     setElementVelocity(frozenElement, 0, 0, 0)
-    -- 使用 GTA 原生追车相机；setCameraMatrix 会 detach 相机并破坏雷达中心/朝向
+    -- 先给原生追车相机一个兜底目标；第一帧 rewindRender 会切到录制的相机矩阵
     pcall(setCameraTarget, frozenElement)
 
     addEventHandler('onClientRender', root, rewindRender)
@@ -435,6 +458,32 @@ local function startRewind()
     if RST.dispatch then
         RST.dispatch('rewind', { active = true, progress = 0, seconds = 0 })
     end
+end
+
+local function applyRewindCamera(a, b, alpha)
+    if not a or not b then
+        return false
+    end
+    if type(a.camX) ~= 'number' or type(b.camX) ~= 'number' then
+        return false
+    end
+
+    local roll = lerpAngle(tonumber(a.camRoll) or 0, tonumber(b.camRoll) or 0, alpha)
+    local fovA = tonumber(a.camFov) or 70
+    local fovB = tonumber(b.camFov) or 70
+    local fov = math.max(1, math.min(179, lerp(fovA, fovB, alpha)))
+
+    setCameraMatrix(
+        lerp(a.camX, b.camX, alpha),
+        lerp(a.camY, b.camY, alpha),
+        lerp(a.camZ, b.camZ, alpha),
+        lerp(a.camLX, b.camLX, alpha),
+        lerp(a.camLY, b.camLY, alpha),
+        lerp(a.camLZ, b.camLZ, alpha),
+        roll,
+        fov
+    )
+    return true
 end
 
 local function applyRewindRotation(rx, ry, rz)
@@ -515,6 +564,7 @@ rewindRender = function()
         lerpAngle(a.ry, b.ry, alpha),
         lerpAngle(a.rz, b.rz, alpha)
     )
+    applyRewindCamera(a, b, alpha)
 
     currentVX = lerp(a.vx, b.vx, alpha)
     currentVY = lerp(a.vy, b.vy, alpha)
@@ -575,9 +625,13 @@ addEventHandler('onClientPreRender', root, function()
     end
 
     local vehicle = getPedOccupiedVehicle(localPlayer)
-    if vehicle ~= lastVehicle then
+    local vehicleModel = vehicle and getElementModel(vehicle) or 0
+    -- 车辆模型变化（Hunter / vehiclechange pickup）必须切开历史：
+    -- 否则倒带会把当前 Hunter 模型带回变车之前，出现“哪个时间点开哪辆车”的错位
+    if vehicle ~= lastVehicle or vehicleModel ~= lastVehicleModel then
         resetSamples()
         lastVehicle = vehicle
+        lastVehicleModel = vehicleModel
     end
 
     if now() - lastSampleAt >= SAMPLE_INTERVAL_MS then

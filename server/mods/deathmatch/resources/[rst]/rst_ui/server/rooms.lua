@@ -445,6 +445,7 @@ end
 -- 所以「真正开局」拆成 applyRoundStart，由 MapManager 的回调触发。
 local function applyRoundStart(room)
     room.loadingMap = false
+    triggerClientEvent('rst:ui:loading', root, false)
     MapStats.recordPlay(room.mapId)
 
     -- 统一使用全局单图时长；地图 meta 里的 #duration 不再覆盖它
@@ -511,6 +512,7 @@ end
 
 local function abortRound(room, err)
     room.loadingMap = false
+    triggerClientEvent('rst:ui:loading', root, false)
     room.active = false
     room.roundEnds = 0
     room.roundEndsMs = 0
@@ -564,6 +566,7 @@ local function startRound(room, forcedMapId, attempt)
 
     -- 装载期间先关掉回合状态，避免 tick 在异步装载窗口里重复触发投票
     room.loadingMap = true
+    triggerClientEvent('rst:ui:loading', root, true)
     room.active = false
     room.roundEnds = 0
     room.roundEndsMs = 0
@@ -1333,28 +1336,84 @@ end
 
 -- 竞技比赛进行中禁止主动下车；训练模式、结算、死亡状态不受影响
 local vehicleExitNoticeAt = {}
-addEventHandler('onVehicleStartExit', root, function(player)
+
+local function shouldBlockVehicleExit(player)
     if not isElement(player) or getElementType(player) ~= 'player' then
-        return
+        return false
     end
     if config.blockVehicleExit == false then
-        return
+        return false
     end
 
     local room = Rooms.playerRoom(player)
-    if not room or room.mode ~= 'competitive' or not room.active or room.raceFinal then
-        return
+    if not room or not room.active or room.raceFinal then
+        return false
     end
     if room.finished[player] or getElementHealth(player) <= 0 or not contains(room.players, player) then
-        return
+        return false
     end
+    return true
+end
 
-    cancelEvent()
+local function notifyBlockedExit(player)
     local nowMs = RST.nowMs()
     if nowMs - (vehicleExitNoticeAt[player] or 0) > 2000 then
         vehicleExitNoticeAt[player] = nowMs
         noticePlayer(player, '比赛中不能下车')
     end
+end
+
+-- 首选：在客户端发出下车请求时直接拒绝
+addEventHandler('onVehicleStartExit', root, function(player)
+    if shouldBlockVehicleExit(player) then
+        cancelEvent()
+        notifyBlockedExit(player)
+    end
+end)
+
+-- 最后一道保险：比赛回合中定期检查，任何方式下车（跳车、被拉、脚本）都塞回赛车
+-- 这比单靠事件更可靠，代价只是每 150ms 遍历一次参赛玩家
+setTimer(function()
+    for _, room in pairs(rooms) do
+        if room.active and not room.loadingMap and not room.raceFinal then
+            for _, player in ipairs(room.players) do
+                if isElement(player)
+                    and not room.finished[player]
+                    and getElementHealth(player) > 0
+                then
+                    local vehicle = raceVehicles[player]
+                    if isElement(vehicle) and getPedOccupiedVehicle(player) ~= vehicle then
+
+                        pcall(warpPedIntoVehicle, player, vehicle, 0)
+                        notifyBlockedExit(player)
+                    end
+                end
+            end
+        end
+    end
+end, 150, 0)
+
+-- 兜底：如果服务端版本/客户端跳过了 StartExit，玩家落地后立刻塞回车里
+addEventHandler('onVehicleExit', root, function(player, seat, jacker, forcedByScript)
+    if forcedByScript or not shouldBlockVehicleExit(player) then
+        return
+    end
+
+    local vehicle = source
+    if not isElement(vehicle) then
+        return
+    end
+
+    notifyBlockedExit(player)
+    setTimer(function()
+        if not shouldBlockVehicleExit(player) or not isElement(vehicle) then
+            return
+        end
+        if getPedOccupiedVehicle(player) then
+            return
+        end
+        pcall(warpPedIntoVehicle, player, vehicle, seat or 0)
+    end, 60, 1)
 end)
 
 function Rooms.all()

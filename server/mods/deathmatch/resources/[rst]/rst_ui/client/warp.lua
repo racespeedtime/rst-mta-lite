@@ -181,6 +181,18 @@ local function teleportTo(warp)
         return false
     end
 
+    -- 传送点绑定保存时的车辆模型：当前车辆不一致就不传送，避免把 Hunter 传回旧车的点
+    local currentModel = vehicle and getElementModel(vehicle) or 0
+    local savedModel = tonumber(warp.vehicle) or 0
+    if savedModel > 0 and currentModel ~= savedModel then
+        local ok, name = pcall(getVehicleNameFromModel, savedModel)
+        if not ok or not name or name == '' then
+            name = ('车辆 %d'):format(savedModel)
+        end
+        toast(('传送点保存时在 %s 上，当前车辆不一致'):format(name))
+        return false
+    end
+
     local state = warp.state or warp
 
     -- 位置 + 朝向：有矩阵时一起恢复精确朝向，Euler 作为兜底
