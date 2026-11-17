@@ -15,13 +15,14 @@ zip resource 还会先把整包解压到 `resource-cache/unzipped`，并且每�
 
 所以地图文件平时放在 `[rst]/maplib` 这个「数据 resource」里（它的 `meta.xml` 不声明
 任何文件，MTA 启动只读一个 meta）。第一次换到某张图时，`rst_ui` 才把它复制进该图独立的
-槽位 `resources/[rst]/rst_map_<mapId>`；再次进入直接复用槽位，客户端按 resource 名缓存。
+槽位 `resources/[rst]/rst_map_<mapId>`；再次进入直接复用槽位。客户端会按 resource 名
+复用声明的静态文件，但地图世界仍由 MTA 每次重新构建。
 
 改成按需装载后实测（2026-11-16，本机 NVMe）：
 
 | 项目 | 耗时 |
 | --- | --- |
-| 开服到 `Server started` | 0.65 秒（3 个 resource） |
+| 开服到 `Server started` | 早期 3 个 resource 时 0.65 秒；当前含地图槽位会更多 |
 | 装载一张 24 MB / 56 文件的地图 | 1.9–2.8 秒（复制 + refresh 校验 + 启动） |
 | 换一张 12 MB / 49 文件的地图 | 2.1 秒 |
 
@@ -219,8 +220,9 @@ server/mods/deathmatch/resources/[rst]/maplib/
   两份都留约 61.6 GB。磁盘紧就用 `--delete-zips` 只留展开库，或 `--move-zips` 挪到外置盘
 - zip 备份建议留在 `server/mods/deathmatch/map-cache/zips/` 或 `MAP_BACKUP_DIR`
 - 地图槽位 `resources/[rst]/rst_map_<mapId>` 由 `rst_ui` 自己创建和维护，不要手工编辑；删除槽位会让该图下次重新复制
-- 客户端只会下载当前被选中的那张地图
-- 玩过的地图会在 `resource-cache/http-client-files/` 留下客户端文件缓存，长期换图会慢慢变大；
-  停服后删掉整个目录即可，MTA 会按需重建
+- 更新 `maplib/maps/<id>/` 后，已有槽位不会自动覆盖；删除对应槽位后再进入才会重新复制
+- 客户端只会下载当前选中地图的客户端静态文件；地图 XML 和运行世界仍会重新加载
+- 玩过的地图会在客户端安装目录的 `mods/deathmatch/resources/rst_map_<mapId>/` 留下静态文件缓存，长期换图会慢慢变大；
+  停服后删掉对应地图目录即可，MTA 会按需重建
 - 2026-11-16 实测 4486 张 zip 里 4482 张可玩，4 张 `meta.xml` 引用了不存在的文件
   （`atlas`、`foggy-swamp`、`just-cant-map-x4`、`transformers`），已从地图池排除

@@ -99,7 +99,7 @@ node tools/mapstore/build-library.mjs
 
 说明见 `tools/mapstore/README.md`。
 
-客户端只下载当前被选中的地图。
+客户端只下载当前选中地图的客户端静态文件；地图 XML 和运行世界仍会重新加载。
 
 ## 脚本
 

@@ -1,17 +1,19 @@
 --[[
     rst_ui / server/mapstore.lua
 
-    按需地图资源 + 地图级客户端缓存：
+    按需地图资源 + 地图级客户端静态资源缓存：
 
     - [rst]/maplib 是纯数据 resource：maps/<id>/ 里是展开后的地图文件。
     - 每张玩过的地图使用独立槽位 resource：rst_map_<mapId>。
-      MTA 客户端按 resource 名缓存，因此再次进入同一张图可以命中缓存。
+      MTA 客户端按 resource 名缓存声明的客户端文件；地图 XML 和运行世界仍会
+      在每次启动地图 resource 时重新加载/构建。
     - 第一次进入某张图时才创建槽位并复制文件；之后只启动已有槽位，
       不再删除 / 覆盖其他地图的槽位。
     - 未被启动的槽位不会加载地图文件；开服时间仍与地图库规模基本无关。
 
-    槽位文件保留在服务器上是“已玩地图永久缓存”的代价；如需清理，可手动
-    删除 resources/[rst]/rst_map_* 目录后，下次进入会重新创建 / 复制槽位。
+    槽位文件保留在服务器上可避免重复复制；客户端静态文件也可按 resource 名
+    复用。如需清理，可手动删除 resources/[rst]/rst_map_* 目录，下次进入会
+    重新创建 / 复制槽位。
 ]]
 
 MapStore = {}
@@ -351,7 +353,8 @@ function MapStore.install(mapId, onDone)
     end
 
     if ready then
-        -- 槽位已经完整复制过：不再触碰文件，客户端缓存由同一个 resource 名复用
+        -- 槽位已经完整复制过：只校验文件存在，不比较 maplib 源文件变化；
+        -- 更新源地图后需要删除该槽位再进入。客户端静态文件可按同一 resource 名复用。
         local state = getResourceState(slot)
         if state == 'loaded' or state == 'running' then
             loadedMapId = mapId
@@ -420,7 +423,7 @@ function MapStore.slotState(mapId)
     return getResourceState(resource)
 end
 
--- 停掉最近安装的槽位。槽位文件保留，供客户端缓存和下次复用。
+-- 停掉最近安装的槽位。槽位文件保留，供服务端复用和客户端静态文件缓存。
 function MapStore.stop()
     if not loadedMapId then
         return
